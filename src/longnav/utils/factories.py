@@ -181,11 +181,21 @@ class SimWorkerFactory:
         env_dict = {}
         if res_cfg.habitat_conda_env is not None:
             env_dict = {"conda": res_cfg.habitat_conda_env}
+        # habitat-sim (EGL) can fail to match the CUDA device when the system
+        # enumerates both NVIDIA and Mesa EGL vendors ("unable to find CUDA
+        # device N among M EGL devices"). Force the NVIDIA EGL vendor and clear
+        # DISPLAY so the sim renders headlessly on the GPU.
+        sim_env_vars = dict(thread_cap_env.get("env_vars", {}))
+        nvidia_egl = "/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        if os.path.exists(nvidia_egl):
+            sim_env_vars["__EGL_VENDOR_LIBRARY_FILENAMES"] = nvidia_egl
+        sim_env_vars["DISPLAY"] = ""
+        sim_runtime_env = env_dict | {"env_vars": sim_env_vars}
         RemoteSim = ray.remote(HabitatEnvActor).options(
             resources={res_cfg.sim_resource_tag: 1},
             num_cpus=res_cfg.sim_cpus,
             num_gpus=res_cfg.sim_gpu_fraction,
-            runtime_env=env_dict |thread_cap_env,
+            runtime_env=sim_runtime_env,
             max_restarts=0,        # <--- CRITICAL: Do not restart on crash.
             max_task_retries=-1,
         )
@@ -280,11 +290,20 @@ class ExpBootstrapper:
             # "automatic_object_spilling_enabled": False,
         }
         if res.ray_address == "local":
+            # Passing a custom `resources` dict can suppress Ray's GPU
+            # auto-detection (it may fall back to a phantom TPU), so detect and
+            # pass num_gpus explicitly to guarantee GPU actors can schedule.
+            try:
+                import torch
+                num_gpus = torch.cuda.device_count()
+            except Exception:
+                num_gpus = None
             ray.init(
                 resources={
                     res.vlm_resource_tag: res.num_vlms, 
                     res.sim_resource_tag: res.num_sims,
                 },
+                num_gpus=num_gpus,
                 ignore_reinit_error=True,
                 object_store_memory = res.osm_gb * 1024 * 1024 * 1024,
                 object_spilling_directory = res.object_spilling_directory, _system_config=system_config,

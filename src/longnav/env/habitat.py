@@ -113,6 +113,80 @@ class TaskType(Enum):
     IMAGENAV = auto()   # RGB + Goal Image
     GENERIC = auto()    # PointNav or unknown
 
+PATCH_DIM_FACTOR = 0.35  # brightness multiplier for dropped patches
+
+def dim_filtered_patches(rgb, vis_keep_mask, grid_thw, dim_factor=PATCH_DIM_FACTOR, merge_size=2):
+    """Dim the 32x32 patches that were filtered out (dropped) by sparse filtering."""
+    t, h, w = (int(x) for x in grid_thw)
+    llm_h, llm_w = h // merge_size, w // merge_size
+    mask2d = np.asarray(vis_keep_mask, dtype=bool)[: llm_h * llm_w].reshape(llm_h, llm_w)
+    H, W = rgb.shape[:2]
+    keep = mask2d[(np.arange(H) * llm_h // H)][:, (np.arange(W) * llm_w // W)]
+    out = rgb.astype(np.float32)
+    out[~keep] *= dim_factor
+    return out.astype(np.uint8)
+
+
+def overlay_attention_heatmap(rgb, attn_flat, grid_thw, alpha=0.5, merge_size=2):
+    """Alpha-blend a per-patch attention heatmap over the RGB frame.
+
+    attn_flat is a flat llm_h*llm_w vector of the action token's attention to this
+    frame's patches (dropped patches are 0). The RGB input is left untouched.
+    """
+    t, h, w = (int(x) for x in grid_thw)
+    llm_h, llm_w = h // merge_size, w // merge_size
+    attn2d = np.asarray(attn_flat, dtype=np.float32)[: llm_h * llm_w].reshape(llm_h, llm_w)
+    peak = float(attn2d.max())
+    if peak > 0:
+        attn2d = attn2d / peak
+    H, W = rgb.shape[:2]
+    heat = attn2d[(np.arange(H) * llm_h // H)][:, (np.arange(W) * llm_w // W)]
+    heat_u8 = (heat * 255).astype(np.uint8)
+    heat_rgb = cv2.cvtColor(cv2.applyColorMap(heat_u8, cv2.COLORMAP_JET), cv2.COLOR_BGR2RGB)
+    out = (1 - alpha) * rgb.astype(np.float32) + alpha * heat_rgb.astype(np.float32)
+    return out.astype(np.uint8)
+
+
+def attention_heads_grid(rgb, head_maps, grid_thw, cols=4, gap=10, gap_color=255):
+    """Tile per-head attention heatmap overlays into a grid (rows of `cols` panels),
+    separated by `gap`-pixel gutters so panel boundaries are visible.
+
+    A None entry in head_maps renders as the plain RGB frame.
+    """
+    panels = []
+    for i, m in enumerate(head_maps):
+        p = overlay_attention_heatmap(rgb, m, grid_thw) if m is not None else rgb.copy()
+        cv2.putText(p, f"head {i}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
+        panels.append(p)
+    n_rows = (len(panels) + cols - 1) // cols
+    blank = np.zeros_like(panels[0])
+    panels += [blank] * (n_rows * cols - len(panels))
+    ph = panels[0].shape[0]
+    vgutter = np.full((ph, gap, 3), gap_color, dtype=np.uint8)
+    rows = []
+    for r in range(n_rows):
+        row_panels = panels[r * cols:(r + 1) * cols]
+        row = row_panels[0]
+        for p in row_panels[1:]:
+            row = np.concatenate([row, vgutter, p], axis=1)
+        rows.append(row)
+    hgutter = np.full((gap, rows[0].shape[1], 3), gap_color, dtype=np.uint8)
+    out = rows[0]
+    for row in rows[1:]:
+        out = np.concatenate([out, hgutter, row], axis=0)
+    return out
+
+
+def stack_frames(top, bottom, gap=10, gap_color=255):
+    """Vertically stack two frames with a gutter, right-padding the narrower with black."""
+    width = max(top.shape[1], bottom.shape[1])
+    def pad(img):
+        if img.shape[1] == width:
+            return img
+        return np.pad(img, ((0, 0), (0, width - img.shape[1]), (0, 0)))
+    gutter = np.full((gap, width, 3), gap_color, dtype=np.uint8)
+    return np.concatenate([pad(top), gutter, pad(bottom)], axis=0)
+
 def save_run_video(steps_data, filename, output_dir, fps=4, quality=6,return_thumbnail=True):
     """
     Stateless helper function to render video.
@@ -129,10 +203,45 @@ def save_run_video(steps_data, filename, output_dir, fps=4, quality=6,return_thu
     
     # Process images
     # Note: We use the helper 'apply_schema' instead of self._apply_schema
-    images = [
-        vut.observations_to_image(apply_schema(obs, {"rgb": True}), info) 
-        for obs, info in zip(steps_data['obs'], steps_data['info'])
-    ]
+    # When sparse-filtering masks are cached (sup/vis_keep_mask), add a SEPARATE
+    # panel showing the dropped patches dimmed. The RGB sensor is left untouched;
+    # observations_to_image renders each image-shaped obs key as its own panel.
+    masks = steps_data.get("sup/vis_keep_mask")
+    grids = steps_data.get("sup/image_grid_thw")
+    viz_filtering = bool(masks and grids)
+    # Optional action-attention heatmap panel (see overlay_attention_heatmap).
+    attn_maps = steps_data.get("sup/attn_map")
+    attn_grids = steps_data.get("sup/attn_grid_thw")
+    viz_attention = bool(attn_maps and attn_grids)
+    # Optional per-head heatmap grid appended below the main panel strip.
+    attn_heads = steps_data.get("sup/attn_heads")
+    viz_attn_heads = bool(attn_heads and attn_grids)
+    images = []
+    for idx, (obs, info) in enumerate(zip(steps_data['obs'], steps_data['info'])):
+        o = apply_schema(obs, {"rgb": True})
+        if viz_filtering:
+            # Always add the panel (uniform frame width). Frames lacking a mask
+            # (e.g. the terminal frame) show the untouched RGB.
+            if idx < len(masks) and idx < len(grids) and masks[idx] is not None:
+                o = {**o, "filtered_rgb": dim_filtered_patches(o["rgb"], masks[idx], grids[idx])}
+            else:
+                o = {**o, "filtered_rgb": o["rgb"].copy()}
+        if viz_attention:
+            if idx < len(attn_maps) and idx < len(attn_grids) and attn_maps[idx] is not None:
+                o = {**o, "attention_rgb": overlay_attention_heatmap(o["rgb"], attn_maps[idx], attn_grids[idx])}
+            else:
+                o = {**o, "attention_rgb": o["rgb"].copy()}
+        frame = vut.observations_to_image(o, info)
+        if viz_attn_heads:
+            # Always append the grid (uniform frame height across the video). Frames
+            # lacking head data (e.g. the terminal frame) show plain RGB tiles.
+            if idx < len(attn_heads) and idx < len(attn_grids) and attn_heads[idx] is not None:
+                grid_img = attention_heads_grid(o["rgb"], attn_heads[idx], attn_grids[idx])
+            else:
+                n_heads = next((len(h) for h in attn_heads if h is not None), 16)
+                grid_img = attention_heads_grid(o["rgb"], [None] * n_heads, None)
+            frame = stack_frames(frame, grid_img)
+        images.append(frame)
     
     # Handle the appended action 0 logic from your original code
     # (Ensure we don't mutate the passed read-only object in a way that breaks things)
@@ -232,7 +341,11 @@ def supplementary_logging_helper(episode_data,result_row):
         "prod": np.prod
     }
     sequence_logs = {}
+    # Video-only payloads, quadratic in episode length; keep them out of sequence.json.
+    heavy_keys = ("sup/attn_hist", "sup/attn_hist_grids")
     for key, values in episode_data.items():
+        if key in heavy_keys:
+            continue
         if key.startswith("sup/"):
             try:
                 # Parse format: sup/mean/entropy -> type="mean", name="entropy"
@@ -420,7 +533,8 @@ class HabitatWorker:
     def __init__(self, assigned_episode_labels=None,workspace='/Projects/SG_VLN_HumanData/SG-VLN', config_path="configs/objectnav_hm3d_rgbd_semantic.yaml", enable_caching=True,dataset_path = None, scenes_dir=None,split="val",postprocess= True,output_schema=None,logging_schema=None,fn_guard=False,fp_guard=False,voxel_kwargs=None,ep_seed=None,log_oracle=False,
                  explr_bonus = None,
                  collision_penalty = None,
-                 fpstop_penalty = None,add_top_down_map = False
+                 fpstop_penalty = None,add_top_down_map = False,visualize_3d = False,
+                 visualize_attn3d = False
                  ):
         from habitat.config.default import get_config
         from habitat.config import read_write
@@ -450,6 +564,8 @@ class HabitatWorker:
         self.explr_bonus = explr_bonus
         self.collision_penalty = collision_penalty
         self.fpstop_penalty = fpstop_penalty
+        self.visualize_3d = visualize_3d
+        self.visualize_attn3d = visualize_attn3d
         self.postprocess = postprocess
         self.log_oracle = log_oracle
         self.enable_caching = enable_caching
@@ -488,6 +604,10 @@ class HabitatWorker:
                         map_padding=3,
                         map_resolution=512,
                         draw_goal_positions=True,
+                        # Drawing goal AABBs requires per-scene semantic
+                        # annotations (sem_scene.objects) to be available for the
+                        # loaded scene dataset.
+                        draw_goal_aabbs=True,
                         draw_shortest_path=True,
                         draw_view_points=True,
                         draw_border=True,
@@ -709,9 +829,6 @@ class HabitatWorker:
                 if self.fpstop_penalty is not None:
                     print("FALSE POSITIVE STOP! penalizing.")
                     step_dict['reward']-=self.fpstop_penalty
-                    
-            if action== 1 or action == 2 and np.random.rand()<0.4:
-                obs['rgb'] = apply_motion_blur(obs['rgb'], k=np.random.randint(15,30), angle_deg=0) # horizontal blur simulation
         if self.enable_caching:
             extras["timestamp"] = time.time()
             if supplementary_logs is None:
@@ -1069,6 +1186,34 @@ class LoggingHabitatWorker(HabitatWorker):
             thumb_path = os.path.join(save_dir, "thumbnail.jpg")
             Image.fromarray(thumb_img).save(thumb_path, quality=85)
             episode_logs["img/thumbnail"] = thumb_path    # Path for WandB Image
+
+            # Optional accumulated 3D patch-filtering video (opt-in via sim.visualize_3d).
+            # Wrapped so a render failure can never break an eval run.
+            if getattr(self, "visualize_3d", False):
+                try:
+                    from longnav.env.patch3d import save_patch_cloud_video
+                    vid3d_path = save_patch_cloud_video(self.steps, save_dir)
+                    if vid3d_path is not None:
+                        episode_logs["vid/episode_video_3d"] = vid3d_path
+                except Exception as e:
+                    print(f"3D patch video render failed: {e}")
+
+            # Optional accumulated 3D attention-heat videos, one per probed decoder
+            # layer (opt-in via sim.visualize_attn3d, layers via rollout.attn3d_layers).
+            if getattr(self, "visualize_attn3d", False):
+                try:
+                    from longnav.env.attn3d import save_attention_cloud_videos
+                    attn3d_paths = save_attention_cloud_videos(self.steps, save_dir)
+                    if attn3d_paths:
+                        # Only the deepest layer goes to wandb; the rest would mean a
+                        # video upload per layer per episode.
+                        episode_logs["vid/episode_video_attn3d"] = attn3d_paths[max(attn3d_paths)]
+                        with open(os.path.join(save_dir, "attn3d_layers.json"), 'w') as f:
+                            json.dump({str(k): v for k, v in attn3d_paths.items()}, f, indent=2)
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"3D attention video render failed: {e}")
         
         ep_path = os.path.join(save_dir,"summary.json")
 

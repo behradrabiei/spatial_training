@@ -1,12 +1,30 @@
 import ray
 from collections import deque
-from typing import List, Dict, Any, Iterator
+from typing import List, Dict, Any, Iterator, Optional, Tuple
 from string import Template
 from PIL import Image
 from longnav.utils.vlm_worker import VLMWorker,VLMTrainingMixin
 import numpy as np
 from longnav.utils.tensor_utils import TensorPacker
 import time 
+
+def select_action(
+    action_probs,
+    *,
+    deterministic: bool = False,
+    stop_prob_threshold: Optional[float] = None,
+) -> Tuple[int, bool]:
+    """Select an action id from action probabilities.
+
+    Returns:
+        (action_id, spguard_triggered)
+    """
+    pick = (lambda p: int(np.argmax(p))) if deterministic \
+        else (lambda p: int(np.random.choice(len(p), p=p / p.sum())))
+    action_id = pick(action_probs)
+    if action_id == 0 and stop_prob_threshold is not None and action_probs[0] < stop_prob_threshold:
+        return pick(action_probs[1:]) + 1, True
+    return action_id, False
 
 def substitute_convo_template(conversation_template: List[Dict], substitutions: Dict[str, Any]) -> List[Dict]:
     """
@@ -128,16 +146,36 @@ class EpisodeRolloutMixin:
                     vlm_logs |= {"vlm_mem_GB":torch.cuda.memory_allocated()/(1024**3)}
                 except:
                     print("warning: could not get vlm mem")
+                if self.rollout_config.get("visualize_token_filtering"):
+                    viz = self.get_filter_visualization()
+                    if viz is not None:
+                        vlm_logs["vis_keep_mask"] = viz[0]
+                        vlm_logs["image_grid_thw"] = viz[1]
+                if self.rollout_config.get("visualize_attention"):
+                    aviz = self.get_attention_visualization()
+                    if aviz is not None:
+                        vlm_logs["attn_map"] = aviz[0]
+                        vlm_logs["attn_grid_thw"] = aviz[1]
+                if self.rollout_config.get("visualize_attention_heads"):
+                    hviz = self.get_attention_heads_visualization()
+                    if hviz is not None:
+                        vlm_logs["attn_heads"] = hviz[0]
+                        vlm_logs["attn_grid_thw"] = hviz[1]
+                if self.rollout_config.get("visualize_attention_3d"):
+                    viz3d = self.get_attention_3d_visualization()
+                    if viz3d is not None:
+                        vlm_logs["attn_hist"] = viz3d[0]
+                        vlm_logs["attn_hist_grids"] = viz3d[1]
                 # print(f"vlm step{step_count}")
                 # print("done")
                 #except for the first turn, all messages follow the exact same template.
-                action_id = np.random.choice(len(action_probs),p=action_probs) # sampling
-                if action_id ==0 and self.rollout_config['stop_prob_threshold'] is not None:
-                    if action_probs[0] >= self.rollout_config['stop_prob_threshold']:
-                        action_id = 0
-                    else:
-                        vlm_logs['sum/spguard_trigger_count']=1
-                        action_id = np.random.choice(len(action_probs)-1,p=action_probs[1:]/np.sum(action_probs[1:]))+1
+                action_id, spguard_triggered = select_action(
+                    action_probs,
+                    deterministic=self.rollout_config.get("deterministic", False),
+                    stop_prob_threshold=self.rollout_config.get("stop_prob_threshold"),
+                )
+                if spguard_triggered:
+                    vlm_logs['sum/spguard_trigger_count']=1
                     
                 entropy = -np.sum(action_probs * np.log(action_probs + 1e-9))
                 vlm_logs |= {'mean/entropy':entropy,'mean/action_prob':float(action_probs[action_id]),"action_probs":action_probs.tolist()} 
@@ -202,6 +240,10 @@ class RolloutWorker(VLMWorker, EpisodeRolloutMixin):
         """
         # 1. Initialize the VLM Worker (The Heavy Lifter)
         # We pass only the relevant VLM args to avoid 'unexpected keyword argument' errors.
+        vlm_kwargs["visualize_attention"] = rollout_config.get("visualize_attention", False)
+        vlm_kwargs["visualize_attention_heads"] = rollout_config.get("visualize_attention_heads", False)
+        vlm_kwargs["visualize_attention_3d"] = rollout_config.get("visualize_attention_3d", False)
+        vlm_kwargs["attn3d_layers"] = rollout_config.get("attn3d_layers", [-1])
         VLMWorker.__init__(self, **vlm_kwargs)
         import os
         np.random.seed(os.getpid())
@@ -216,6 +258,10 @@ class RLWorker(RolloutWorker,VLMTrainingMixin):
         Combines VLM inference, RL Data Collection, and Training capabilities.
         """
         # 1. Initialize VLM (Heavy weights)
+        vlm_kwargs["visualize_attention"] = rollout_config.get("visualize_attention", False)
+        vlm_kwargs["visualize_attention_heads"] = rollout_config.get("visualize_attention_heads", False)
+        vlm_kwargs["visualize_attention_3d"] = rollout_config.get("visualize_attention_3d", False)
+        vlm_kwargs["attn3d_layers"] = rollout_config.get("attn3d_layers", [-1])
         VLMWorker.__init__(self, **vlm_kwargs)
         
         # 2. Initialize Rollout Config
@@ -498,12 +544,15 @@ def collect_rollouts(
             # Simple deadlock detector:
             current_time = time.time()
             if current_time - last_dispatch_time > 360: # 6 minutes
-                print(f"DEBUG: System frozen for >6m. Active: {len(active_episodes)}, PostProc: {len(pending_postproc)}")
+                # A slow artifact render (e.g. one attn3d video per decoder layer)
+                # can legitimately occupy a sim actor for minutes, so warn and
+                # re-arm the timer instead of aborting the run.
+                print(f"DEBUG: System frozen for >6m. Active: {len(active_episodes)}, "
+                      f"PostProc: {len(pending_postproc)}, Flushing: {len(pending_logs)}, "
+                      f"Resetting: {len(pending_resets)}")
                 if wandb_logger is not None:
                     ray.get(wandb_logger.alert.remote(title="Rollout Collection Frozen",text=f"Active Episodes: {len(active_episodes)}, Pending PostProc: {len(pending_postproc)}",level="ERROR"))
-                # Check 1: Are we waiting on a specific ref forever?
-                # Dump the first few active refs to inspect
-                import ipdb; ipdb.set_trace()
+                last_dispatch_time = current_time
 
             continue # Jump back to start of loop (and potentially dispatch more if resources freed up)
 

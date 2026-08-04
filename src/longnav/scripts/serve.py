@@ -8,11 +8,10 @@ from dataclasses import asdict
 from longnav.utils.rollout_core import RLWorker
 from longnav.config_schema import RolloutConfig,VLMConfig,VLMTrainingConfig
 from longnav.utils.factories import resolve_checkpoint_path,get_base_model
-from longnav.utils.rollout_core import substitute_convo_template
+from longnav.utils.rollout_core import substitute_convo_template, select_action
 import os
 from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
-import numpy as np
 rollout_cfg = RolloutConfig()
 vlm_cfg = VLMConfig()
 vlm_cfg.attn_impl = "sdpa"
@@ -45,12 +44,11 @@ def infer_step(worker,rgb_pil,instr_or_goal=None):
         worker.reset()
         worker.messages = substitute_convo_template(worker.rollout_config['convo_start_template'],{"instr_or_goal":instr_or_goal} | worker.rollout_config)
     action_probs,action_logprobs,outputs = worker.infer_probs(images=[rgb_pil],messages=worker.messages,temperature = worker.rollout_config['temperature'],pos_id_kwargs=None)
-    action_id = np.random.choice(len(action_probs),p=action_probs) # sampling
-    if action_id ==0 and worker.rollout_config['stop_prob_threshold'] is not None:
-        if action_probs[0] >= worker.rollout_config['stop_prob_threshold']:
-            action_id = 0
-        else:
-            action_id = np.random.choice(len(action_probs)-1,p=action_probs[1:]/np.sum(action_probs[1:]))+1
+    action_id, _ = select_action(
+        action_probs,
+        deterministic=worker.rollout_config.get("deterministic", False),
+        stop_prob_threshold=worker.rollout_config.get("stop_prob_threshold"),
+    )
     worker.messages = substitute_convo_template(worker.rollout_config['convo_turn_template'],{"action":worker.rollout_config['action_space'][action_id]})
     return action_id,action_probs
 

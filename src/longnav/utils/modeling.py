@@ -246,7 +246,7 @@ class TextMixin:
                             # TODO: Append empty placeholder to self.kept_visual_embeds to maintain alignment for B > 1
                             continue
                         # Get indices of embeddings to KEEP (relative to the visual segments)
-                        embeds_to_keep_rel_idx,filtered_embeds = filter_embeds(image_embeds,past_image_embeds[b] if past_image_embeds is not None else None,max_global_keep=27000,threshold=0.95) #TODO: eliminate magic numbers, previously 0.95
+                        embeds_to_keep_rel_idx,filtered_embeds = filter_embeds(image_embeds,past_image_embeds[b] if past_image_embeds is not None else None,max_global_keep=27000,threshold=getattr(self, "sparse_threshold", 0.95)) #TODO: eliminate magic numbers
                         if save_image_db:
                             self.kept_visual_embeds.append(filtered_embeds.cpu().clone())
                         # MAP RELATIVE INDICES -> GLOBAL INDICES
@@ -301,6 +301,9 @@ class TextMixin:
             visual_pos_masks = apply_mask(visual_pos_masks)#.detach()
             self.seq_keep_mask = seq_keep_mask.cpu()
             self.vis_keep_mask = vis_keep_mask.cpu()
+        # Always expose the current-chunk visual position mask so downstream code
+        # (e.g. attention visualization) can locate this image's patch tokens.
+        self.visual_pos_masks = visual_pos_masks.cpu() if visual_pos_masks is not None else None
         outputs = super().forward(
             input_ids=input_ids,
             attention_mask=attention_mask,

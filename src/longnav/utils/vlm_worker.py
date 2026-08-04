@@ -35,7 +35,7 @@ def compute_full_kl_penalty(log_probs: torch.Tensor, ref_log_probs: torch.Tensor
     return kl
 
 class VLMWorker:
-    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,bev_canvas_size=2000,save_pixels=False):
+    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,sparse_threshold=0.95,bev_canvas_size=2000,save_pixels=False,visualize_attention=False,visualize_attention_heads=False,visualize_attention_3d=False,attn3d_layers=None,context_window=None):
         import transformers.modeling_flash_attention_utils as fa_utils
         def patched(position_ids, batch_size):
             return False
@@ -55,7 +55,25 @@ class VLMWorker:
         self.postfix_ids = self.processor.tokenizer.encode(postfix)
         self.offload_cache = offload_cache
         self.use_sparse = use_sparse
+        self.sparse_threshold = sparse_threshold
         self.bev_canvas_size = bev_canvas_size
+        self.visualize_attention = visualize_attention
+        self.visualize_attention_heads = visualize_attention_heads
+        self.visualize_attention_3d = visualize_attention_3d
+        self.attn3d_layers = attn3d_layers if attn3d_layers is None else list(attn3d_layers)
+        self.context_window = context_window
+        if context_window is not None and save_outputs:
+            print(f"[context_window] ⚠️ WARNING: context_window={context_window} with save_outputs=True. "
+                  "The packed sequence replays the FULL uncropped history, so its logprobs will not "
+                  "match the windowed rollout. Intended for eval only.")
+        # Attention weights are only readable with the eager attention kernel;
+        # sdpa/flash return None. Auto-force eager when a heatmap viz is on.
+        if self._any_attn_viz() and self.attn_implementation != "eager":
+            print(f"[visualize_attention] forcing attn_impl 'eager' (was '{self.attn_implementation}') to expose attention weights.")
+            self.attn_implementation = "eager"
+        self.attn_probe = None  # set by load_model when any attention viz is enabled
+        self.attn3d_layer_ids = []  # absolute decoder layer indices feeding the 3D viz
+        self._frame_records = []  # per-frame KV bookkeeping for the growing 3D attention viz
         
         self._is_merged = None
         self._is_lora = None
@@ -75,8 +93,17 @@ class VLMWorker:
         self.cumulative_inputs = None
         self.seq_keep_mask = None
         self.vis_keep_masks = []
+        self._frame_records = []
+        if self.attn_probe is not None:
+            self.attn_probe.reset()
         self.past_image_embeds = None #per batch list of image embed tensors of the form N_patch by N_hidden
         self.logit_indices = []
+        # Sliding context window bookkeeping (see _apply_context_window).
+        self._abs_bounds = []  # cumulative cache length after each turn, as if nothing were evicted
+        self._vis_counts = []  # visual patches kept per turn, for trimming the sparse embed db
+        self._dropped = 0  # total tokens evicted so far
+        self._n_evicted = 0  # number of turns fully evicted so far
+        self._prefix_len = None  # pinned prompt tokens (goal + action space), never evicted
         torch.cuda.empty_cache()
 
     def load_model(self):
@@ -108,6 +135,50 @@ class VLMWorker:
         self.model.to('cuda')
         self.vl_model = self.model.model
         self.language_model = self.vl_model.language_model
+        if self.use_sparse:
+            self.language_model.sparse_threshold = self.sparse_threshold
+        if self._any_attn_viz():
+            self._attach_attention_probe()
+
+    def _any_attn_viz(self):
+        return self.visualize_attention or self.visualize_attention_heads or self.visualize_attention_3d
+
+    def _attach_attention_probe(self):
+        """Probe the action-decision token's attention on every layer a viz needs.
+
+        The 2D overlays are always last-layer; only the 3D heat video is
+        layer-configurable. Per-head rows are kept solely for the 2D views.
+        """
+        from longnav.utils.attn_probe import AttentionProbe, resolve_layer_ids
+
+        n_layers = len(self.language_model.layers)
+        head_layers = [-1] if (self.visualize_attention or self.visualize_attention_heads) else []
+        if self.visualize_attention_3d:
+            self.attn3d_layer_ids = resolve_layer_ids(self.attn3d_layers, n_layers)
+        else:
+            self.attn3d_layer_ids = []
+        self.attn_probe = AttentionProbe(n_layers, layers=self.attn3d_layer_ids, head_layers=head_layers)
+        self.attn_probe.attach(self.language_model.layers)
+        n_probed = len(self.attn3d_layer_ids)
+        if n_probed > 1:
+            # History is quadratic in episode length: every step re-reports its
+            # attention over all frames so far. ~3 MB per layer per 100 steps.
+            print(f"[visualize_attention_3d] probing {n_probed} layers {self.attn3d_layer_ids}; "
+                  f"attention history will cost roughly {3 * n_probed} MB for a 100-step episode "
+                  f"and {12 * n_probed} MB for a 200-step one.")
+
+    @property
+    def _last_attn_heads(self):
+        """(num_heads, kv_len) last-layer attention of the action-decision token."""
+        if self.attn_probe is None:
+            return None
+        return self.attn_probe.head_rows.get(self.attn_probe.num_layers - 1)
+
+    @property
+    def _last_attn_row(self):
+        """(kv_len,) head-mean of the above."""
+        heads = self._last_attn_heads
+        return None if heads is None else heads.mean(0)
 
     def tokenize_inputs(self,messages,images):
                 # Process ONLY this turn's data
@@ -340,6 +411,65 @@ class VLMWorker:
             "logits_to_keep": self._get_sparse_logit_indices().cpu()
         }
 
+    def _find_prompt_prefix_len(self, input_ids):
+        '''
+        Number of leading tokens before the first image, i.e. the system prompt carrying
+        the goal. This span is pure text, and the sparse filter only ever drops visual
+        tokens, so the index is the same in the sparsified cache.
+        '''
+        import torch
+        hits = torch.nonzero(input_ids[0] == self.processor.image_token_id, as_tuple=False)
+        return int(hits[0]) if hits.numel() else int(input_ids.shape[1])
+
+    def _apply_context_window(self):
+        '''
+        Evict whole turns older than `context_window` frames from the KV cache, pinning
+        the prompt prefix so the agent keeps its goal.
+
+        The sparse embed db is trimmed alongside the cache: left at full episode length it
+        would filter re-observed geometry out as redundant against frames the model can no
+        longer see, which would confound a pure context-length ablation.
+        '''
+        import torch
+
+        if self.context_window is None:
+            return
+
+        self._abs_bounds.append(self.past_key_values.get_seq_length() + self._dropped)
+        if self.use_sparse:
+            self._vis_counts.append([int(e.shape[0]) for e in self.language_model.kept_visual_embeds])
+
+        first_keep = len(self._abs_bounds) - self.context_window
+        if first_keep <= self._n_evicted:
+            return
+
+        prefix = self._prefix_len
+        drop_end = self._abs_bounds[first_keep - 1] - self._dropped
+        n_drop = drop_end - prefix
+        if n_drop <= 0:
+            return
+
+        # Cache tensors are inference tensors; keep the replacements in the same mode.
+        with torch.inference_mode():
+            for layer in self.past_key_values.layers:
+                layer.keys = torch.cat([layer.keys[..., :prefix, :], layer.keys[..., drop_end:, :]], dim=-2)
+                layer.values = torch.cat([layer.values[..., :prefix, :], layer.values[..., drop_end:, :]], dim=-2)
+
+            if self.use_sparse and self.past_image_embeds is not None:
+                evicted = self._vis_counts[self._n_evicted:first_keep]
+                for idx in range(len(self.past_image_embeds)):
+                    self.past_image_embeds[idx] = self.past_image_embeds[idx][sum(c[idx] for c in evicted):]
+
+        # Evicted frames stay in the list so the 3D viz keeps its per-frame indexing; they
+        # just contribute a blank heatmap from now on.
+        for rec in self._frame_records[self._n_evicted:first_keep]:
+            rec["abs_kv_idx"] = None
+        for rec in self._frame_records[first_keep:]:
+            rec["abs_kv_idx"] = rec["abs_kv_idx"] - n_drop
+
+        self._dropped += n_drop
+        self._n_evicted = first_keep
+
     def infer_step(self,messages,images,full_logprobs=False,temperature=1.0,check_probs=True,crop_inputs=True,pos_id_kwargs=None):
         t0 = time.time()
         self.model.gradient_checkpointing_disable()
@@ -371,6 +501,9 @@ class VLMWorker:
                 if 'mm_token_type_ids' in turn_inputs.keys():
                     turn_inputs["mm_token_type_ids"] = turn_inputs['mm_token_type_ids'][:,:(postfix_starts[-1]-1)]
 
+        if self.context_window is not None and self._prefix_len is None:
+            self._prefix_len = self._find_prompt_prefix_len(turn_inputs['input_ids'])
+
         t = time.time()
         self._accumulate_inputs(turn_inputs)
         # print(f"accumulate time: {time.time()-t}",end=" ")
@@ -395,7 +528,10 @@ class VLMWorker:
             # sparsify the input attention mask
             turn_inputs['attention_mask'] = None#turn_inputs['attention_mask'] = torch.ones((turn_inputs['input_ids'].shape[0], (self.past_key_values.get_seq_length() if self.past_key_values is not None else 0) + turn_inputs['input_ids'].shape[1]), device=self.device, dtype=turn_inputs['attention_mask'].dtype)# torch.ones(1,seql,device=self.device)
         else:
-            turn_inputs['attention_mask'] = self.cumulative_inputs['attention_mask'].to(self.device)
+            # The cumulative mask spans the whole episode; the cache may have been cropped
+            # by the context window, so take only as much as the model will actually attend to.
+            past_len = self.past_key_values.get_seq_length() if self.past_key_values is not None else 0
+            turn_inputs['attention_mask'] = self.cumulative_inputs['attention_mask'][:,-(past_len+current_len):].to(self.device)
         if self.save_outputs:
             turn_inputs['save_embeds'] = True
 
@@ -437,6 +573,9 @@ class VLMWorker:
                     for idx, image_embeds in enumerate(self.language_model.kept_visual_embeds):
                         self.past_image_embeds[idx] = torch.cat((self.past_image_embeds[idx],image_embeds)) #handle the batching...
                 # print(f"store sparse states time: {time.time()-t}",end=" ")
+        if self.visualize_attention_3d:
+            self._record_frame_keys()
+        self._apply_context_window()
         # if check_probs:
         #     try:
         #         assert(torch.argmax(logprobs,dim=-1).item() in self.vocab_ids)
@@ -461,6 +600,131 @@ class VLMWorker:
         probs = np.exp(logprobs)
         probs /= np.sum(probs)
         return probs,logprobs,outputs
+
+    def get_filter_visualization(self):
+        """(vis_keep_mask_list, [t,h,w]) for the latest turn, or None."""
+        if not self.use_sparse or self.cumulative_inputs is None:
+            return None
+        mask = getattr(self.language_model, "vis_keep_mask", None)
+        if mask is None:
+            return None
+        grid = self.cumulative_inputs["image_grid_thw"][-1]
+        return mask.cpu().numpy().astype(bool).tolist(), [int(x) for x in grid.tolist()]
+
+    def _scatter_patch_attention(self, rows):
+        """Map attention rows (..., kv_len) onto the full patch grid of the latest frame.
+
+        Returns ((..., llm_h*llm_w) tensor with dropped patches as 0, [t,h,w]) or None.
+        """
+        import torch
+
+        if self.cumulative_inputs is None:
+            return None
+        vpm = getattr(self.language_model, "visual_pos_masks", None)
+        vis_keep = getattr(self.language_model, "vis_keep_mask", None)
+        if rows is None or vpm is None or vis_keep is None:
+            return None
+        grid = self.cumulative_inputs["image_grid_thw"][-1]
+        t, h, w = (int(x) for x in grid.tolist())
+        llm_n = (h // 2) * (w // 2)
+
+        # Current chunk occupies the last chunk_len key positions of the cached sequence.
+        chunk_len = vpm.shape[1]
+        kv_len = rows.shape[-1]
+        past_len = kv_len - chunk_len
+        local_vis_idx = torch.nonzero(vpm[0], as_tuple=False).squeeze(-1)
+        if local_vis_idx.numel() == 0:
+            return None
+        attn_kept = rows[..., past_len + local_vis_idx]  # order matches kept-patch order
+
+        vis_keep = vis_keep.cpu().bool()
+        keep_idx = torch.nonzero(vis_keep, as_tuple=False).squeeze(-1)
+        # Guard against any length mismatch between kept patches and captured attention.
+        n = min(keep_idx.numel(), attn_kept.shape[-1])
+        full = torch.zeros(*rows.shape[:-1], llm_n, dtype=torch.float32)
+        full[..., keep_idx[:n]] = attn_kept[..., :n]
+        return full, [t, h, w]
+
+    def get_attention_visualization(self):
+        """(attn_map_list, [t,h,w]) for the latest turn, or None.
+
+        attn_map_list is a full llm_h*llm_w vector of the action-decision token's
+        attention to this frame's patches (dropped patches are 0), computed from the
+        last decoder layer averaged over heads.
+        """
+        if not self.visualize_attention:
+            return None
+        scattered = self._scatter_patch_attention(self._last_attn_row)
+        if scattered is None:
+            return None
+        full, grid = scattered
+        return full.numpy().tolist(), grid
+
+    def get_attention_heads_visualization(self):
+        """(per_head_attn_maps, [t,h,w]) for the latest turn, or None.
+
+        per_head_attn_maps is a list of num_heads full llm_h*llm_w vectors, one per
+        attention head of the last decoder layer (dropped patches are 0).
+        """
+        if not self.visualize_attention_heads:
+            return None
+        scattered = self._scatter_patch_attention(self._last_attn_heads)
+        if scattered is None:
+            return None
+        full, grid = scattered
+        return full.numpy().tolist(), grid
+
+    def _record_frame_keys(self):
+        """Persist the newest frame's kept-patch bookkeeping so later steps can map
+        their attention rows back onto this frame. The KV cache is append-only, so
+        absolute key positions recorded here stay valid for the whole episode.
+        """
+        import torch
+
+        vpm = getattr(self.language_model, "visual_pos_masks", None)
+        vis_keep = getattr(self.language_model, "vis_keep_mask", None)
+        kv_len = None if self.attn_probe is None else self.attn_probe.kv_len
+        if kv_len is None or vpm is None or vis_keep is None:
+            return
+        # KV positions are shared by every layer, so one record serves them all.
+        past_len = kv_len - vpm.shape[1]
+        local_vis_idx = torch.nonzero(vpm[0].cpu(), as_tuple=False).squeeze(-1)
+        grid = self.cumulative_inputs["image_grid_thw"][-1]
+        self._frame_records.append({
+            "abs_kv_idx": past_len + local_vis_idx,  # kept visual keys, absolute cache positions
+            "grid_idx": torch.nonzero(vis_keep.cpu().bool(), as_tuple=False).squeeze(-1),
+            "grid_thw": [int(x) for x in grid.tolist()],
+        })
+
+    def get_attention_3d_visualization(self):
+        """({layer_idx: per_frame_attn_maps}, per_frame_grids) for the latest turn, or None.
+
+        Max-over-heads attention of the action-decision token, one entry per probed
+        decoder layer, scattered onto the full llm_h*llm_w patch grid of EVERY frame
+        observed so far in the episode (dropped patches are 0). Maps are raw float16
+        bytes (numpy arrays don't unpickle across the mixed numpy 1.x/2.x conda envs).
+        The grids are layer-independent, so they are reported once.
+        """
+        import torch
+
+        if not self.visualize_attention_3d or self.attn_probe is None or not self._frame_records:
+            return None
+        rows = {idx: self.attn_probe.rows[idx] for idx in self.attn3d_layer_ids if idx in self.attn_probe.rows}
+        if not rows:
+            return None
+        per_layer = {}
+        for idx, row in rows.items():
+            maps = []
+            for rec in self._frame_records:
+                t, h, w = rec["grid_thw"]
+                full = torch.zeros((h // 2) * (w // 2), dtype=torch.float32)
+                if rec["abs_kv_idx"] is not None:  # None once the context window evicts the frame
+                    n = min(rec["grid_idx"].numel(), rec["abs_kv_idx"].numel())
+                    full[rec["grid_idx"][:n]] = row[rec["abs_kv_idx"][:n]]
+                maps.append(full.numpy().astype(np.float16).tobytes())
+            per_layer[idx] = maps
+        grids = [rec["grid_thw"] for rec in self._frame_records]
+        return per_layer, grids
 
     def merge_adapter(self):
         print("Merging LoRA adapters for inference...")

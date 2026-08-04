@@ -31,7 +31,9 @@ class VLMConfig:
     vocab: List[str] = field(default_factory=lambda: ["stop", "forward", "left", "right"])
     offload_cache: bool = False
     use_sparse: bool = True
+    sparse_threshold: float = 0.95  # cosine sim cutoff for visual token filtering (keep if sim < threshold)
     save_outputs: bool = False # only need this for RL
+    context_window: Optional[int] = None # None = full episode context; N = keep only the last N frames
 
 @dataclass 
 class PolicyLossConfig:
@@ -171,11 +173,14 @@ class HabitatConfig:
     collision_penalty: Optional[float] = 0.05
     fpstop_penalty: Optional[float] = 0.3
     add_top_down_map:bool = False
+    visualize_3d:bool = False # render accumulated 3D patch-filtering video (video_3d.mp4)
+    visualize_attn3d:bool = False # render accumulated 3D attention-heat video (video_attn3d.mp4)
 # --- Rollouts (both for Eval and RL) ---
 @dataclass
 class RolloutConfig:
     max_steps: int = 350
     temperature: float = 1.0
+    deterministic: bool = False  # True = argmax; False = sample from action probs
     action_space_str: str = "[stop, forward, left, right, up, down]"
     system_prompt: str = "${read_text:src/longnav/conf/prompts/objectnav_prompt.txt}"
     action_space: List[str] = field(default_factory=lambda: ["stop", "forward", "left", "right"])
@@ -192,6 +197,13 @@ class RolloutConfig:
         {"role": "assistant", "content": [{"type": "text", "text": "**forward**"}]}
     ])
     stop_prob_threshold: Optional[float] = None
+    visualize_token_filtering: bool = False  # dim filtered visual patches in rollout videos
+    visualize_attention: bool = False  # overlay action-attention heatmap on RGB in rollout videos
+    visualize_attention_heads: bool = False  # append a 4-wide grid of per-head attention heatmaps to rollout videos
+    visualize_attention_3d: bool = False  # capture growing max-over-heads attention history for the 3D heat video
+    # Decoder layers feeding the 3D heat video, one video each. Negative indices
+    # count from the end; null probes every layer.
+    attn3d_layers: Optional[List[int]] = field(default_factory=lambda: [-1])
 
 
 # --- Experiment housekeeping ---

@@ -6,8 +6,15 @@ task:
   jobtype: eval
 rollout:
   max_steps: 500
+  deterministic: true # argmax actions for reproducible eval
+  visualize_token_filtering: true # dim filtered visual patches in videos
+  visualize_attention: false # overlay action-attention heatmap on RGB in videos
+  visualize_attention_heads: false # append per-head attention heatmap grid to videos
+  visualize_attention_3d: true # capture growing attention history (max over heads) for the 3D heat video
 sim:
   fp_guard: false
   fn_guard: false
   ep_seed: 17 # determinism
   add_top_down_map: true # add visualization
+  visualize_3d: false # render accumulated 3D patch-filtering video (video_3d.mp4)
+  visualize_attn3d: true # render accumulated 3D attention-heat video (video_attn3d.mp4)

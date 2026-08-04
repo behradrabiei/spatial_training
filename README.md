@@ -25,9 +25,10 @@ You may optionally install flash attention in the same env.
 ### Environment
 Install habitat lab in a separate conda env named vln. Then run under the repo root directory:
 ```
+pip install "ray[default]==2.53.0"
 pip install --no-dependencies -e .
 ```
-This allows ray to resolve the interface correctly.
+Ray is required in `vln` because Habitat sim workers are Ray actors. Install longnav with `--no-deps` so habitat-sim's pinned packages are not disturbed; ray must be installed explicitly (it is a longnav dependency but skipped by `--no-deps`).
 
 ### Testing the Install
 Two basic tests are currently available to validate your install. The code should be run with the longnav_vlm conda env active.
