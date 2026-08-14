@@ -14,6 +14,8 @@ from dataclasses import dataclass,field
 import torch.nn.functional as F
 from longnav.config_schema import VLMTrainingConfig
 
+CONTEXT_WINDOW_MODES = ("evict", "recompute")
+
 def compute_full_kl_penalty(log_probs: torch.Tensor, ref_log_probs: torch.Tensor) -> torch.Tensor:
     """
     Computes the token-level KL divergence: KL(pi || ref) = sum(pi * (log_pi - log_ref))
@@ -35,7 +37,7 @@ def compute_full_kl_penalty(log_probs: torch.Tensor, ref_log_probs: torch.Tensor
     return kl
 
 class VLMWorker:
-    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,sparse_threshold=0.95,bev_canvas_size=2000,save_pixels=False,visualize_attention=False,visualize_attention_heads=False,visualize_attention_3d=False,attn3d_layers=None,context_window=None):
+    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,sparse_threshold=0.95,bev_canvas_size=2000,save_pixels=False,visualize_attention=False,visualize_attention_heads=False,visualize_attention_3d=False,attn3d_layers=None,context_window=None,context_window_mode="evict",attn_weighting="raw"):
         import transformers.modeling_flash_attention_utils as fa_utils
         def patched(position_ids, batch_size):
             return False
@@ -61,7 +63,31 @@ class VLMWorker:
         self.visualize_attention_heads = visualize_attention_heads
         self.visualize_attention_3d = visualize_attention_3d
         self.attn3d_layers = attn3d_layers if attn3d_layers is None else list(attn3d_layers)
+        from longnav.utils.attn_probe import WEIGHTING_MODES
+        if attn_weighting not in WEIGHTING_MODES:
+            raise ValueError(f"attn_weighting must be one of {WEIGHTING_MODES}, got {attn_weighting!r}")
+        self.attn_weighting = attn_weighting
+        if attn_weighting == "grad" and not visualize_attention_3d:
+            # The attribution is driven from the 3D viz hook; the 2D overlays have no
+            # backward pass to read, so they would silently render nothing.
+            raise ValueError("attn_weighting='grad' requires visualize_attention_3d=True; "
+                             "the 2D attention overlays cannot produce gradients.")
         self.context_window = context_window
+        if context_window_mode not in CONTEXT_WINDOW_MODES:
+            raise ValueError(f"context_window_mode must be one of {CONTEXT_WINDOW_MODES}, got {context_window_mode!r}")
+        self.context_window_mode = context_window_mode
+        if context_window_mode == "recompute":
+            if context_window is None:
+                # Nothing is ever evicted at full context, so the rebuild would never fire
+                # and the run would silently be an ordinary full-context eval.
+                raise ValueError("context_window_mode='recompute' requires context_window to be set.")
+            if self._any_attn_viz():
+                # The rebuild replaces the cache wholesale, so nothing indexed by absolute KV
+                # position -- the probe's rows and value-norm banks, the frame records'
+                # abs_kv_idx -- can be shift-corrected the way AttentionProbe.evict does.
+                raise NotImplementedError("context_window_mode='recompute' does not support attention "
+                                          "visualization; the cache is rebuilt each step, so absolute "
+                                          "KV indices cannot be carried across.")
         if context_window is not None and save_outputs:
             print(f"[context_window] ⚠️ WARNING: context_window={context_window} with save_outputs=True. "
                   "The packed sequence replays the FULL uncropped history, so its logprobs will not "
@@ -74,6 +100,7 @@ class VLMWorker:
         self.attn_probe = None  # set by load_model when any attention viz is enabled
         self.attn3d_layer_ids = []  # absolute decoder layer indices feeding the 3D viz
         self._frame_records = []  # per-frame KV bookkeeping for the growing 3D attention viz
+        self._decision_inputs = None  # one-token inputs that replay the latest decision
         
         self._is_merged = None
         self._is_lora = None
@@ -94,6 +121,7 @@ class VLMWorker:
         self.seq_keep_mask = None
         self.vis_keep_masks = []
         self._frame_records = []
+        self._decision_inputs = None
         if self.attn_probe is not None:
             self.attn_probe.reset()
         self.past_image_embeds = None #per batch list of image embed tensors of the form N_patch by N_hidden
@@ -104,6 +132,10 @@ class VLMWorker:
         self._dropped = 0  # total tokens evicted so far
         self._n_evicted = 0  # number of turns fully evicted so far
         self._prefix_len = None  # pinned prompt tokens (goal + action space), never evicted
+        # Replay buffers for context_window_mode='recompute' (see _rebuild_window_cache).
+        self._window_recs = []  # one embed record per retained turn
+        self._prefix_rec = None  # the pinned prefix, split off turn 0
+        self._boundary_rec = None  # assistant header held back from the last evicted turn
         torch.cuda.empty_cache()
 
     def load_model(self):
@@ -143,6 +175,22 @@ class VLMWorker:
     def _any_attn_viz(self):
         return self.visualize_attention or self.visualize_attention_heads or self.visualize_attention_3d
 
+    def _grad_attribution_enabled(self):
+        """True when the 3D heat maps measure gradients rather than attention."""
+        return self.visualize_attention_3d and self.attn_weighting == "grad"
+
+    def _inference_ctx(self):
+        """no_grad instead of inference_mode when the cache must survive a backward.
+
+        inference_mode tags everything it produces as an inference tensor, and
+        autograd refuses to save those for backward. The KV cache built here is read
+        again by the attribution replay, so under inference_mode that replay's graph
+        would be poisoned before it started.
+        """
+        import torch
+
+        return torch.no_grad() if self._grad_attribution_enabled() else torch.inference_mode()
+
     def _attach_attention_probe(self):
         """Probe the action-decision token's attention on every layer a viz needs.
 
@@ -157,7 +205,10 @@ class VLMWorker:
             self.attn3d_layer_ids = resolve_layer_ids(self.attn3d_layers, n_layers)
         else:
             self.attn3d_layer_ids = []
-        self.attn_probe = AttentionProbe(n_layers, layers=self.attn3d_layer_ids, head_layers=head_layers)
+        text_config = self.language_model.config
+        num_kv_groups = text_config.num_attention_heads // text_config.num_key_value_heads
+        self.attn_probe = AttentionProbe(n_layers, layers=self.attn3d_layer_ids, head_layers=head_layers,
+                                         weighting=self.attn_weighting, num_kv_groups=num_kv_groups)
         self.attn_probe.attach(self.language_model.layers)
         n_probed = len(self.attn3d_layer_ids)
         if n_probed > 1:
@@ -176,9 +227,16 @@ class VLMWorker:
 
     @property
     def _last_attn_row(self):
-        """(kv_len,) head-mean of the above."""
+        """(kv_len,) head reduction of the above.
+
+        Weighted rows are already in commensurable residual-stream units, so they
+        sum; raw attention weights can only be averaged (each head's softmax sums to
+        1 independently, so they are not comparable across heads).
+        """
         heads = self._last_attn_heads
-        return None if heads is None else heads.mean(0)
+        if heads is None:
+            return None
+        return heads.mean(0) if self.attn_weighting == "raw" else heads.sum(0)
 
     def tokenize_inputs(self,messages,images):
                 # Process ONLY this turn's data
@@ -413,22 +471,189 @@ class VLMWorker:
 
     def _find_prompt_prefix_len(self, input_ids):
         '''
-        Number of leading tokens before the first image, i.e. the system prompt carrying
-        the goal. This span is pure text, and the sparse filter only ever drops visual
+        Number of leading tokens to pin: the messages carrying the goal, cut at the
+        <|im_start|> that opens the message holding the first image.
+
+        Cutting at the image token itself would end the pinned span on a half-open
+        '<|im_start|>user\\n<|vision_start|>' -- an unterminated turn wrapping an
+        unterminated vision block -- and that is what the model reads immediately
+        before the retained window. Cutting at the message boundary instead leaves the
+        pinned span a whole number of complete messages.
+
+        A template that puts the goal text in the SAME message as the first image has
+        no such boundary to cut at, so there the image index stands: dropping the goal
+        to tidy up the markup would defeat the point of pinning.
+
+        Either way the span is pure text, and the sparse filter only ever drops visual
         tokens, so the index is the same in the sparsified cache.
         '''
         import torch
-        hits = torch.nonzero(input_ids[0] == self.processor.image_token_id, as_tuple=False)
-        return int(hits[0]) if hits.numel() else int(input_ids.shape[1])
+        seq = input_ids[0]
+        hits = torch.nonzero(seq == self.processor.image_token_id, as_tuple=False)
+        if not hits.numel():
+            return int(input_ids.shape[1])
+        img = int(hits[0])
+        # prefix is '<|im_start|>assistant\n**', so prefix_ids[0] is the message opener.
+        starts = torch.nonzero(seq[:img] == self.prefix_ids[0], as_tuple=False)
+        if not starts.numel():
+            return img
+        boundary = int(starts[-1])
+        # Between the opener and the image there must be nothing but the role tag;
+        # anything else is goal text that has to stay pinned.
+        head = self.processor.tokenizer.decode(seq[boundary + 1:img], skip_special_tokens=True)
+        return boundary if "\n" in head and not head.split("\n", 1)[1].strip() else img
+
+    def _recomputing_window(self):
+        return self.context_window is not None and self.context_window_mode == "recompute"
+
+    @staticmethod
+    def _slice_rec(rec, start, end):
+        '''Cut an embed record down to sequence positions [start, end).
+
+        The deepstack embeds are indexed by visual token rather than by sequence
+        position, so their bounds come from counting visual positions in the mask.
+        '''
+        mask = rec['visual_pos_masks']
+        out = {
+            'inputs_embeds': rec['inputs_embeds'][:, start:end],
+            'position_ids': rec['position_ids'][..., start:end],
+            'visual_pos_masks': None if mask is None else mask[:, start:end],
+        }
+        if rec['deepstack_visual_embeds'] is None or mask is None:
+            out['deepstack_visual_embeds'] = rec['deepstack_visual_embeds']
+        else:
+            v0 = int(mask[0, :start].sum())
+            v1 = int(mask[0, :end].sum())
+            out['deepstack_visual_embeds'] = [v[v0:v1] for v in rec['deepstack_visual_embeds']]
+        return out
+
+    @staticmethod
+    def _cat_recs(recs):
+        '''Concatenate embed records back into one contiguous forward input.'''
+        deepstack = None
+        if recs[0]['deepstack_visual_embeds'] is not None:
+            deepstack = [torch.cat([r['deepstack_visual_embeds'][i] for r in recs], dim=0)
+                         for i in range(len(recs[0]['deepstack_visual_embeds']))]
+        masks = [r['visual_pos_masks'] for r in recs]
+        return {
+            'inputs_embeds': torch.cat([r['inputs_embeds'] for r in recs], dim=1),
+            'position_ids': torch.cat([r['position_ids'] for r in recs], dim=-1),
+            'visual_pos_masks': None if any(m is None for m in masks) else torch.cat(masks, dim=1),
+            'deepstack_visual_embeds': deepstack,
+        }
+
+    def _record_window_turn(self, outputs):
+        '''
+        Buffer this turn's post-sparsification inputs so its K/V can be recomputed later.
+
+        These are the tensors the model actually consumed -- filtering already applied,
+        absolute mRoPE positions attached -- so replaying them reproduces the turn exactly
+        without re-running the vision tower or the sparse filter. Re-filtering would see a
+        different embed db and keep a different patch subset, which would make the two
+        context-window modes differ in more than the one thing under test.
+        '''
+        rec = {
+            'inputs_embeds': outputs.inputs_embeds,
+            'position_ids': outputs.position_ids,
+            'visual_pos_masks': outputs.visual_pos_masks,
+            'deepstack_visual_embeds': outputs.deepstack_visual_embeds,
+        }
+        if self._prefix_rec is None:
+            # The pinned span is pure text and the sparse filter only ever drops visual
+            # tokens, so _prefix_len indexes the sparsified sequence unchanged.
+            seq_len = rec['inputs_embeds'].shape[1]
+            self._prefix_rec = self._slice_rec(rec, 0, self._prefix_len)
+            rec = self._slice_rec(rec, self._prefix_len, seq_len)
+        self._window_recs.append(rec)
+
+    def _drop_window_turns(self, first_keep):
+        '''
+        Retire turns that have fallen out of the window, holding back the boundary turn's
+        assistant header exactly as the evicting path does (see the drop_end comment in
+        _apply_context_window). Turn chunks start one token INSIDE the previous reply, so
+        without the held-back header the window would open on a bare action token whose
+        '<|im_start|>assistant\\n**' is gone -- chat markup the model never saw in training.
+        The header does not accumulate: it is replaced on every eviction.
+        '''
+        n = first_keep - self._n_evicted
+        boundary = self._window_recs[n - 1]
+        seq_len = boundary['inputs_embeds'].shape[1]
+        self._boundary_rec = self._slice_rec(boundary, seq_len - len(self.prefix_ids), seq_len)
+        del self._window_recs[:n]
+
+    def _trim_embed_db(self, first_keep):
+        '''Drop the evicted turns' patches from the sparse dedup db.
+
+        Left at full episode length it would filter re-observed geometry out as redundant
+        against frames the model can no longer see, which would confound a pure
+        context-length ablation.
+        '''
+        if not (self.use_sparse and self.past_image_embeds is not None):
+            return
+        evicted = self._vis_counts[self._n_evicted:first_keep]
+        for idx in range(len(self.past_image_embeds)):
+            self.past_image_embeds[idx] = self.past_image_embeds[idx][sum(c[idx] for c in evicted):]
+
+    def _window_forward_inputs(self):
+        '''
+        The retained window as one contiguous forward input: the pinned prefix, the held-back
+        boundary header, then the surviving turns -- the same tokens the evicting path leaves
+        in the cache. The prefix is split out of turn 0's record, so it has to be prepended
+        from the very first step; the boundary header only exists once something has been
+        evicted.
+        '''
+        recs = list(self._window_recs)
+        if self._n_evicted > 0:
+            recs.insert(0, self._boundary_rec)
+        if self._prefix_rec is not None:
+            recs.insert(0, self._prefix_rec)
+        return self._cat_recs(recs)
+
+    def _rebuild_window_cache(self):
+        '''
+        Rebuild the retained window's K/V from scratch against an empty cache.
+
+        Eviction frees memory but does not remove information: a surviving token's layer>=1
+        keys and values were computed from a residual stream that had attended over the
+        whole episode, so the evicted frames still reach the decision through them. Replaying
+        the window against a cache holding only [prefix + window] makes every retained
+        representation a function of what the agent can still see, and nothing else.
+
+        Turns keep their original absolute mRoPE positions. Rope carries phase, not content,
+        and intra-window position differences are identical either way -- so this leaves the
+        prefix-to-window gap exactly as the evicting path leaves it, and the two modes differ
+        only in the attention scope used to compute K/V.
+        '''
+        # The records were captured under _inference_ctx, so stay inside it to concatenate
+        # and move them; the cache this builds is handed straight back to the next step.
+        with self._inference_ctx():
+            merged = self._window_forward_inputs()
+            merged = {k: ([t.to(self.device) for t in v] if isinstance(v, list)
+                          else (v.to(self.device) if v is not None else None))
+                      for k, v in merged.items()}
+            # 'everything' is the non-tensor sentinel for "do not sparsify" -- the stored
+            # embeds are already filtered, so re-running the filter here would both waste
+            # work and change which patches survive. past_key_values=None lets the text
+            # model build the cache the same way the incremental path does.
+            outputs = self.language_model(**merged, attention_mask=None, past_key_values=None,
+                                          use_cache=True, seq_keep_mask='everything',
+                                          vis_keep_mask='everything')
+        self.past_key_values = outputs.past_key_values
 
     def _apply_context_window(self):
         '''
         Evict whole turns older than `context_window` frames from the KV cache, pinning
-        the prompt prefix so the agent keeps its goal.
+        the prompt prefix so the agent keeps its goal. The boundary turn's assistant
+        header survives the cut so the retained context opens on valid chat markup;
+        see the drop_end comment below.
 
         The sparse embed db is trimmed alongside the cache: left at full episode length it
         would filter re-observed geometry out as redundant against frames the model can no
         longer see, which would confound a pure context-length ablation.
+
+        Under context_window_mode='recompute' the survivors' K/V are rebuilt from scratch
+        instead of being sliced out of the cache; see _rebuild_window_cache for why that is
+        a different experiment.
         '''
         import torch
 
@@ -444,21 +669,49 @@ class VLMWorker:
             return
 
         prefix = self._prefix_len
-        drop_end = self._abs_bounds[first_keep - 1] - self._dropped
+        # Cut at the assistant header rather than at the turn boundary. Turn chunks start
+        # one token INSIDE the previous reply -- the crop in infer_step begins at
+        # postfix_starts[0]-1, the action token -- so a boundary-aligned cut would resume
+        # the context on a bare action token whose '<|im_start|>assistant\n**' header is
+        # in the evicted span, i.e. chat markup the model never saw in training. Every
+        # chunk ends with exactly that header (one action token, so the chunk stops at
+        # prefix_end), so holding back its length leaves the boundary reply well formed.
+        # The tokens do not accumulate: the next eviction's drop_end is past them.
+        drop_end = self._abs_bounds[first_keep - 1] - self._dropped - len(self.prefix_ids)
         n_drop = drop_end - prefix
         if n_drop <= 0:
             return
 
-        # Cache tensors are inference tensors; keep the replacements in the same mode.
-        with torch.inference_mode():
+        # Both modes retire exactly the same tokens on exactly the same steps; they differ
+        # only in whether the survivors keep the K/V they were given under full context or
+        # have them recomputed against the window alone. _dropped therefore has to advance
+        # in both, or the next _abs_bounds entry would misread the cache length.
+        if self.context_window_mode == "recompute":
+            self._drop_window_turns(first_keep)
+            with self._inference_ctx():
+                self._trim_embed_db(first_keep)
+            self._dropped += n_drop
+            self._n_evicted = first_keep
+            self._rebuild_window_cache()
+            return
+
+        # Cache tensors carry the mode they were built under; keep the replacements in
+        # the same one, or a no_grad cache would come back as inference tensors and
+        # break the attribution replay's backward.
+        with self._inference_ctx():
             for layer in self.past_key_values.layers:
                 layer.keys = torch.cat([layer.keys[..., :prefix, :], layer.keys[..., drop_end:, :]], dim=-2)
                 layer.values = torch.cat([layer.values[..., :prefix, :], layer.values[..., drop_end:, :]], dim=-2)
 
-            if self.use_sparse and self.past_image_embeds is not None:
-                evicted = self._vis_counts[self._n_evicted:first_keep]
-                for idx in range(len(self.past_image_embeds)):
-                    self.past_image_embeds[idx] = self.past_image_embeds[idx][sum(c[idx] for c in evicted):]
+            self._trim_embed_db(first_keep)
+
+            # The probe's value-norm banks are indexed by absolute cache position, so
+            # they follow the same cut. Ordering invariant: this runs AFTER the forward,
+            # and the probe captures its row in-hook DURING the forward, so the row and
+            # the bank are both in pre-eviction index space when they meet. Moving this
+            # call before the forward would silently misalign them.
+            if self.attn_probe is not None:
+                self.attn_probe.evict(prefix, drop_end)
 
         # Evicted frames stay in the list so the 3D viz keeps its per-frame indexing; they
         # just contribute a blank heatmap from now on.
@@ -532,18 +785,27 @@ class VLMWorker:
             # by the context window, so take only as much as the model will actually attend to.
             past_len = self.past_key_values.get_seq_length() if self.past_key_values is not None else 0
             turn_inputs['attention_mask'] = self.cumulative_inputs['attention_mask'][:,-(past_len+current_len):].to(self.device)
-        if self.save_outputs:
+        if self.save_outputs or self._recomputing_window():
             turn_inputs['save_embeds'] = True
 
-        with torch.inference_mode():
-            t = time.time()
-            outputs = self.model.forward(
-                **turn_inputs,
-                past_key_values=self.past_key_values,
-                use_cache=True,
-                # logits_to_keep = logit_indices.to(self.model.device)
-                logits_to_keep=1
-            )
+        with self._inference_ctx():
+            # Arm the attention probe only for this forward. Other forwards (the value
+            # head, training) reuse the same modules and would otherwise clobber the
+            # captured rows; they also carry no KV cache, which the hook checks too.
+            if self.attn_probe is not None:
+                self.attn_probe.enabled = True
+            try:
+                t = time.time()
+                outputs = self.model.forward(
+                    **turn_inputs,
+                    past_key_values=self.past_key_values,
+                    use_cache=True,
+                    # logits_to_keep = logit_indices.to(self.model.device)
+                    logits_to_keep=1
+                )
+            finally:
+                if self.attn_probe is not None:
+                    self.attn_probe.enabled = False
             self.past_key_values = outputs['past_key_values']
              # Compute logprobs directly (1-to-1 mapping)
             relevant_logits = outputs.logits[0].float()
@@ -555,6 +817,8 @@ class VLMWorker:
                 logprobs = torch.log_softmax(relevant_logits, dim=-1)
             # print(f"vlm latency: {time.time()-t}",end=" ")
 
+            if self._recomputing_window():
+                self._record_window_turn(outputs)
             if self.save_outputs:
                 t = time.time()
                 self._store_outputs(outputs)
@@ -575,6 +839,9 @@ class VLMWorker:
                 # print(f"store sparse states time: {time.time()-t}",end=" ")
         if self.visualize_attention_3d:
             self._record_frame_keys()
+            self._decision_inputs = self._slice_decision_token(turn_inputs)
+        if self._grad_attribution_enabled():
+            self._grad_attribution_pass()
         self._apply_context_window()
         # if check_probs:
         #     try:
@@ -696,13 +963,140 @@ class VLMWorker:
             "grid_thw": [int(x) for x in grid.tolist()],
         })
 
+    def _contrastive_action_score(self, logits):
+        """logit[best action] - mean(logit[the others]).
+
+        The contrast is what makes the attribution action-specific. A bare logit also
+        rises for evidence that merely makes the model confident about anything, so
+        differentiating it tends to light up the whole scene; subtracting the rival
+        actions keeps only the evidence that picked this action over them.
+
+        Scored on the argmax rather than the sampled action because sampling happens
+        in the caller, after this runs.
+        """
+        action_logits = logits[self.vocab_ids].float()
+        best = int(action_logits.argmax())
+        rivals = torch.cat([action_logits[:best], action_logits[best + 1:]])
+        return action_logits[best] - rivals.mean()
+
+    def _slice_decision_token(self, turn_inputs):
+        """The one-token inputs that reproduce the action decision against the cache.
+
+        Everything the decision token attends to is already cached, so replaying just
+        this token re-derives the decision for the price of a single-token forward.
+        Kept on the worker so anything that wants to re-score the decision can --
+        the gradient attribution below, or an offline audit that masks keys out of
+        the cache and measures what the action logprob does.
+        """
+        decision = {
+            "input_ids": turn_inputs["input_ids"][:, -1:],
+            "position_ids": turn_inputs["position_ids"][..., -1:],
+        }
+        if "mm_token_type_ids" in turn_inputs:
+            decision["mm_token_type_ids"] = turn_inputs["mm_token_type_ids"][:, -1:]
+        return decision
+
+    def _grad_attribution_pass(self):
+        """Replace the probe's attention rows with d(action score)/d(attention).
+
+        The decision forward runs under no_grad, so its attention carries no graph.
+        Rather than pay for a grad-enabled forward of the whole chunk, this replays
+        just the one token whose logits pick the action: everything it attends to is
+        already in the cache, so the replay recomputes the same attention row the real
+        forward produced, at the cost of a single-token forward and a backward that
+        autograd prunes to the attention tensors alone.
+
+        The token's own KV entry has to come out of the cache first. Left in, the
+        query would attend to a duplicate of itself and split the softmax mass, so the
+        row would not be the one that actually chose the action.
+
+        The entry the replay appends in its place is put back rather than kept. It is
+        the same computation, but a one-token matmul reduces in a different order than
+        the chunk-wide one, and in bf16 that lands a unit in the last place away from
+        the original. Left in the cache that rounding compounds across steps and moves
+        the trajectory, which would make the visualization alter the very decisions it
+        is meant to explain. The attribution row carries the same rounding, which is
+        harmless -- it explains the same computation to within bf16 precision.
+
+        Eval freezes every parameter (PEFT base + merged adapters). A plain input_ids
+        forward then builds no autograd graph -- attention weights come out with
+        requires_grad=False, the probe stores nothing, and the heat videos silently
+        never appear. Feeding a requires_grad input embedding reopens the graph
+        through the frozen weights without unfreezing them.
+        """
+        import torch
+
+        if self.attn_probe is None or self.past_key_values is None or self._decision_inputs is None:
+            return
+        # Nothing else writes rows in this mode, so a step that bails below must clear
+        # them rather than let the previous step's map be reported as this step's.
+        self.attn_probe.rows = {}
+        if torch.is_inference_mode_enabled():
+            # The cache would be inference tensors and the backward would raise.
+            print("[attn_weighting=grad] skipping attribution: infer_step was called "
+                  "inside torch.inference_mode().")
+            return
+        kv_total = self.past_key_values.get_seq_length()
+        if kv_total < 1:
+            return
+
+        evicted = []
+        for layer in self.past_key_values.layers:
+            evicted.append((layer.keys[..., -1:, :].clone(), layer.values[..., -1:, :].clone()))
+            layer.keys = layer.keys[..., :-1, :]
+            layer.values = layer.values[..., :-1, :]
+
+        replay = dict(self._decision_inputs)
+        input_ids = replay.pop("input_ids")
+        if self.use_sparse:
+            # A non-tensor keep mask is this fork's "do not sparsify" signal. Without
+            # it the sparse path builds its mask from the deepstack embeds, which a
+            # text-only replay does not carry.
+            replay["seq_keep_mask"] = "all"
+            replay["attention_mask"] = None
+        else:
+            replay["attention_mask"] = self.cumulative_inputs["attention_mask"][:, -kv_total:].to(self.device)
+
+        # The sparse text model clears these at the top of every forward, and the 2D
+        # attention overlays read them after infer_step returns.
+        sparse_state = {k: getattr(self.language_model, k, None)
+                        for k in ("visual_pos_masks", "vis_keep_mask", "seq_keep_mask")}
+
+        self.attn_probe.enabled = True
+        try:
+            with torch.enable_grad():
+                embeds = self.model.get_input_embeddings()(input_ids).detach().requires_grad_(True)
+                outputs = self.model.forward(
+                    **replay,
+                    inputs_embeds=embeds,
+                    past_key_values=self.past_key_values,
+                    use_cache=True,
+                    logits_to_keep=1,
+                )
+                self.attn_probe.backward_from(self._contrastive_action_score(outputs.logits[0, -1]))
+        finally:
+            self.attn_probe.enabled = False
+            for k, v in sparse_state.items():
+                setattr(self.language_model, k, v)
+            for layer, (keys, values) in zip(self.past_key_values.layers, evicted):
+                # detach first: the replayed slot carries a graph, and leaving it
+                # attached would pin this step's activations for the whole episode.
+                layer.keys, layer.values = layer.keys.detach(), layer.values.detach()
+                if layer.keys.shape[-2] == kv_total:
+                    layer.keys[..., -1:, :] = keys
+                    layer.values[..., -1:, :] = values
+                else:  # the replay raised before appending; re-attach by hand
+                    layer.keys = torch.cat([layer.keys, keys], dim=-2)
+                    layer.values = torch.cat([layer.values, values], dim=-2)
+
     def get_attention_3d_visualization(self):
         """({layer_idx: per_frame_attn_maps}, per_frame_grids) for the latest turn, or None.
 
-        Max-over-heads attention of the action-decision token, one entry per probed
-        decoder layer, scattered onto the full llm_h*llm_w patch grid of EVERY frame
-        observed so far in the episode (dropped patches are 0). Maps are raw float16
-        bytes (numpy arrays don't unpickle across the mixed numpy 1.x/2.x conda envs).
+        The probe's per-key row for the action-decision token (attention, a weighted
+        variant of it, or a gradient attribution -- see AttentionProbe.weighting), one
+        entry per probed decoder layer, scattered onto the full llm_h*llm_w patch grid
+        of EVERY frame observed so far in the episode (dropped patches are 0). Maps
+        are raw float16 bytes (numpy arrays don't unpickle across numpy 1.x/2.x envs).
         The grids are layer-independent, so they are reported once.
         """
         import torch
@@ -730,11 +1124,16 @@ class VLMWorker:
         print("Merging LoRA adapters for inference...")
         self._is_merged = True
         self.model.merge_adapter()
-        
+        # o_proj is a LoRA target, so any cached W_O factors are now stale.
+        if self.attn_probe is not None:
+            self.attn_probe.invalidate_factors()
+
     def unmerge_adapter(self):
         print("Unmerging LoRA for training")
         self._is_merged = False
         self.model.unmerge_adapter()
+        if self.attn_probe is not None:
+            self.attn_probe.invalidate_factors()
         
     def is_merged(self):
         if self._is_merged is None:

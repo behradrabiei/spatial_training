@@ -4,16 +4,17 @@ At every timestep, the action token of a decoder layer attends over the
 patches of ALL frames observed so far (they all live in the KV cache). This
 module renders that as one video per probed layer: each frame's pixels are unprojected from depth
 into a world-frame point cloud, accumulated over the trajectory, and RECOLORED
-EVERY TIMESTEP by the current decision's attention (max over heads) to the
-patch each pixel belongs to. Hot regions show where the model is looking right
-now, anywhere in the explored environment; near-zero-attention geometry stays
-as a faint grayscale ghost for spatial context. A side panel shows the current
-RGB frame with the same (shared-scale) attention overlay, plus step/action/goal
-text.
+EVERY TIMESTEP by the current decision's score for the patch each pixel belongs
+to. What that score measures depends on the rollout's attn_weighting -- attention,
+a value-weighted variant, or a gradient attribution (see SIGNAL_LABELS). Hot
+regions show what matters to the model right now, anywhere in the explored
+environment; near-zero geometry stays as a faint grayscale ghost for spatial
+context. A side panel shows the current RGB frame with the same (shared-scale)
+overlay, plus step/action/goal text.
 
-Attention is normalized per timestep (percentile + gamma), so colors answer
-"what is most informative for THIS decision", and the 3D cloud and the RGB
-panel share the same scale so they are directly comparable.
+Attention is normalized per timestep (see `attention_range`) and gamma-corrected, so
+colors answer "what is most informative for THIS decision", and the 3D cloud and the
+RGB panel share the same scale so they are directly comparable.
 
 Self-contained on purpose: runs inside the Habitat sim conda env ("vln"), which
 has numpy/scipy/matplotlib/imageio but NOT einops/open3d/torch.
@@ -40,6 +41,46 @@ def _as_map(m):
     return np.asarray(m, dtype=np.float32)
 
 
+def attention_range(values, mode="peak", floor_pct=5.0, ceil_pct=99.0):
+    """Return the (lo, hi) that maps raw attention onto the [0,1] color range.
+
+    "peak" is lo=0, hi=max: the historical behavior. Its failure mode on this signal is
+    a single dominant patch setting the scale. Measured on the eval checkpoint, at the
+    last decoder layer the median non-dropped patch sits at 0.0016 of the max and the
+    99th percentile at 0.13 -- so after peak-norm + gamma only ~20% of patches clear
+    heat_floor and the other 80% render as grey ghost, regardless of how much real
+    structure they carry.
+
+    "robust" clips BOTH tails to percentiles of the NONZERO entries: hi at `ceil_pct`
+    (the important one -- the hottest patches simply saturate instead of dictating the
+    scale, which lifts the same measurement to ~73% visible) and lo at `floor_pct`
+    (guards the opposite pathology, a signal with a high floor). Zeros are excluded
+    throughout because dropped patches are stored as 0 and would otherwise own the
+    low percentiles.
+
+    Shared by the 3D cloud and the 2D overlays so their colors stay comparable.
+    """
+    values = np.asarray(values)
+    top = float(np.max(values)) if values.size else 0.0
+    if top <= 0:
+        return 0.0, 1e-8
+    if mode != "robust":
+        return 0.0, max(top, 1e-8)
+    nz = values[values > 0]
+    if not nz.size:
+        return 0.0, max(top, 1e-8)
+    lo = float(np.percentile(nz, floor_pct))
+    hi = float(np.percentile(nz, ceil_pct))
+    if hi - lo <= 1e-8:  # degenerate spread; fall back to peak scaling
+        return 0.0, max(top, 1e-8)
+    return lo, hi
+
+
+def apply_attention_range(values, lo, hi, gamma=1.0):
+    """Map values onto [0,1] using a range from `attention_range`, then gamma-correct."""
+    return np.clip((np.asarray(values) - lo) / (hi - lo), 0.0, 1.0) ** gamma
+
+
 def _attention_overlay(rgb, attn2d, cmap, alpha, floor):
     """Blend a per-patch attention map (already normalized to [0,1]) over an RGB
     frame, nearest-upsampled to pixel resolution. Blend strength scales with the
@@ -50,6 +91,24 @@ def _attention_overlay(rgb, attn2d, cmap, alpha, floor):
     heat = cmap(up)[..., :3]
     a = np.where(up >= floor, alpha * up, 0.0)[..., None]
     return (1 - a) * rgb.astype(np.float32) / 255.0 + a * heat
+
+
+# What the per-patch values mean, keyed by VLMWorker.attn_weighting. A gradient map
+# is alpha * d(action score)/d(alpha), not attention at all, so labelling it
+# "attention" would invite exactly the wrong reading of the video.
+SIGNAL_LABELS = {
+    "raw": "attention",
+    "value_norm": "attention x ||v||",
+    "wo_norm": "attention x ||W_O v||",
+    "grad": "action-logit attribution",
+}
+
+
+def signal_label(steps_data):
+    """How to describe the per-patch values, from the mode the rollout recorded."""
+    signals = steps_data.get("sup/attn_signal") or []
+    mode = signals[0] if signals else "raw"
+    return SIGNAL_LABELS.get(mode, mode)
 
 
 def _draw_cloud(ax3d, pts, rgbs, nv, traj, cmap, elev, azim, heat_floor):
@@ -98,7 +157,8 @@ def save_attention_cloud_videos(steps_data, output_dir, filename="video_attn3d",
                                 min_depth=0.1, max_depth=4.9, elev=55, azim=-60,
                                 max_render_points=400_000, heat_floor=0.08,
                                 gamma=0.5, overlay_alpha=0.65,
-                                depth_scale=5.0, cam_offset=(0.0, 0.88, 0.0)):
+                                depth_scale=5.0, cam_offset=(0.0, 0.88, 0.0),
+                                norm_mode="peak"):
     """Render one growing 3D attention-heat video per probed decoder layer.
 
     Returns {layer_idx: mp4_path}, or {} if the required per-step data (depth,
@@ -157,7 +217,8 @@ def save_attention_cloud_videos(steps_data, output_dir, filename="video_attn3d",
     ax_img = fig.add_subplot(gs[2])
     sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=matplotlib.colors.Normalize(0, 1))
     cb = fig.colorbar(sm, cax=cax)
-    cb.set_label("attention (relative, per step)", color="white", fontsize=8)
+    label = signal_label(steps_data)
+    cb.set_label(f"{label} (relative, per step)", color="white", fontsize=8)
     cb.ax.yaxis.set_tick_params(color="gray", labelcolor="white", labelsize=7)
     cb.outline.set_edgecolor("gray")
 
@@ -239,21 +300,21 @@ def save_attention_cloud_videos(steps_data, output_dir, filename="video_attn3d",
                     m = _as_map(m)
                     flat_attn[frame_offsets[i]:frame_offsets[i] + len(m)] = m
 
-                # Shared per-step normalization (3D cloud + RGB panel): peak-normalize
-                # the whole step so only the strongest region saturates; gamma reveals
-                # the heavy-tailed secondary structure. Each layer gets its own scale,
-                # since attention mass differs wildly across depth.
-                scale = max(float(flat_attn.max()), 1e-8)
-                nv = np.clip(flat_attn[pids_r] / scale, 0, 1) ** gamma
+                # Shared per-step normalization (3D cloud + RGB panel) so the two are
+                # directly comparable; gamma reveals the heavy-tailed secondary
+                # structure. Each layer gets its own range, since attention mass
+                # differs wildly across depth.
+                lo, hi = attention_range(flat_attn, norm_mode)
+                nv = apply_attention_range(flat_attn[pids_r], lo, hi, gamma)
 
                 _draw_cloud(ax3d, pts_r, rgbs_r, nv, traj, cmap, elev, azim, heat_floor)
                 ax3d.text2D(0.02, 0.98,
-                            f"layer {li}: attention of current action decision over ALL frames seen so far",
+                            f"layer {li}: {label} of current action decision over ALL frames seen so far",
                             transform=ax3d.transAxes, color="white", fontsize=9, va="top")
 
                 # --- Draw RGB panel with the current frame's attention (same scale) ---
                 cur_map = _as_map(layer_maps[-1])[: gh * gw].reshape(gh, gw)
-                attn2d = np.clip(cur_map / scale, 0, 1) ** gamma
+                attn2d = apply_attention_range(cur_map, lo, hi, gamma)
                 ax_img.clear()
                 ax_img.set_axis_off()
                 ax_img.imshow(_attention_overlay(rgb, attn2d, cmap, overlay_alpha, heat_floor))

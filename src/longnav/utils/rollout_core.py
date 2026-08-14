@@ -166,6 +166,9 @@ class EpisodeRolloutMixin:
                     if viz3d is not None:
                         vlm_logs["attn_hist"] = viz3d[0]
                         vlm_logs["attn_hist_grids"] = viz3d[1]
+                        # The renderer labels its colorbar from this; the maps
+                        # themselves carry no hint of what they measure.
+                        vlm_logs["attn_signal"] = self.attn_weighting
                 # print(f"vlm step{step_count}")
                 # print("done")
                 #except for the first turn, all messages follow the exact same template.

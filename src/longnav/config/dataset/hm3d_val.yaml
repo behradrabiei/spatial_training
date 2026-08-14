@@ -1,6 +1,8 @@
 # @package _global_
 sim:
-  config_path: habitat_configs/objectnav_hm3d_rgbd_semantic.yaml
+  config_path: habitat_configs/objectnav_hm3d_v2.yaml
+  dataset_path: /home/brabiei/vault/habitat_data/evaluation_episodes/HM3D/objectnav_hm3d_v1/val/val.json.gz
+  scenes_dir: /home/brabiei/vault/habitat_data/scenes/HM3D/v1
   split: val
 task:
   subset_label: "everything"

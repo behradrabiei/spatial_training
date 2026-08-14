@@ -14,6 +14,9 @@ import cv2
 import numpy as np
 from enum import Enum, auto
 
+# numpy-only helpers, safe to import in the habitat ("vln") env
+from longnav.env.attn3d import attention_range, apply_attention_range
+
 def motion_blur_kernel(k: int, angle_deg: float = 0.0) -> np.ndarray:
     if k <= 1:
         return np.array([[1.0]], dtype=np.float32)
@@ -127,18 +130,19 @@ def dim_filtered_patches(rgb, vis_keep_mask, grid_thw, dim_factor=PATCH_DIM_FACT
     return out.astype(np.uint8)
 
 
-def overlay_attention_heatmap(rgb, attn_flat, grid_thw, alpha=0.5, merge_size=2):
+def overlay_attention_heatmap(rgb, attn_flat, grid_thw, alpha=0.5, merge_size=2,
+                              norm_mode="peak"):
     """Alpha-blend a per-patch attention heatmap over the RGB frame.
 
     attn_flat is a flat llm_h*llm_w vector of the action token's attention to this
     frame's patches (dropped patches are 0). The RGB input is left untouched.
+    See `attention_range` for what norm_mode does.
     """
     t, h, w = (int(x) for x in grid_thw)
     llm_h, llm_w = h // merge_size, w // merge_size
     attn2d = np.asarray(attn_flat, dtype=np.float32)[: llm_h * llm_w].reshape(llm_h, llm_w)
-    peak = float(attn2d.max())
-    if peak > 0:
-        attn2d = attn2d / peak
+    lo, hi = attention_range(attn2d, norm_mode)
+    attn2d = apply_attention_range(attn2d, lo, hi)
     H, W = rgb.shape[:2]
     heat = attn2d[(np.arange(H) * llm_h // H)][:, (np.arange(W) * llm_w // W)]
     heat_u8 = (heat * 255).astype(np.uint8)
@@ -147,7 +151,8 @@ def overlay_attention_heatmap(rgb, attn_flat, grid_thw, alpha=0.5, merge_size=2)
     return out.astype(np.uint8)
 
 
-def attention_heads_grid(rgb, head_maps, grid_thw, cols=4, gap=10, gap_color=255):
+def attention_heads_grid(rgb, head_maps, grid_thw, cols=4, gap=10, gap_color=255,
+                         norm_mode="peak"):
     """Tile per-head attention heatmap overlays into a grid (rows of `cols` panels),
     separated by `gap`-pixel gutters so panel boundaries are visible.
 
@@ -155,7 +160,7 @@ def attention_heads_grid(rgb, head_maps, grid_thw, cols=4, gap=10, gap_color=255
     """
     panels = []
     for i, m in enumerate(head_maps):
-        p = overlay_attention_heatmap(rgb, m, grid_thw) if m is not None else rgb.copy()
+        p = overlay_attention_heatmap(rgb, m, grid_thw, norm_mode=norm_mode) if m is not None else rgb.copy()
         cv2.putText(p, f"head {i}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
         panels.append(p)
     n_rows = (len(panels) + cols - 1) // cols
@@ -187,7 +192,8 @@ def stack_frames(top, bottom, gap=10, gap_color=255):
     gutter = np.full((gap, width, 3), gap_color, dtype=np.uint8)
     return np.concatenate([pad(top), gutter, pad(bottom)], axis=0)
 
-def save_run_video(steps_data, filename, output_dir, fps=4, quality=6,return_thumbnail=True):
+def save_run_video(steps_data, filename, output_dir, fps=4, quality=6,return_thumbnail=True,
+                   attn_norm_mode="peak"):
     """
     Stateless helper function to render video.
     """
@@ -228,7 +234,7 @@ def save_run_video(steps_data, filename, output_dir, fps=4, quality=6,return_thu
                 o = {**o, "filtered_rgb": o["rgb"].copy()}
         if viz_attention:
             if idx < len(attn_maps) and idx < len(attn_grids) and attn_maps[idx] is not None:
-                o = {**o, "attention_rgb": overlay_attention_heatmap(o["rgb"], attn_maps[idx], attn_grids[idx])}
+                o = {**o, "attention_rgb": overlay_attention_heatmap(o["rgb"], attn_maps[idx], attn_grids[idx], norm_mode=attn_norm_mode)}
             else:
                 o = {**o, "attention_rgb": o["rgb"].copy()}
         frame = vut.observations_to_image(o, info)
@@ -236,10 +242,10 @@ def save_run_video(steps_data, filename, output_dir, fps=4, quality=6,return_thu
             # Always append the grid (uniform frame height across the video). Frames
             # lacking head data (e.g. the terminal frame) show plain RGB tiles.
             if idx < len(attn_heads) and idx < len(attn_grids) and attn_heads[idx] is not None:
-                grid_img = attention_heads_grid(o["rgb"], attn_heads[idx], attn_grids[idx])
+                grid_img = attention_heads_grid(o["rgb"], attn_heads[idx], attn_grids[idx], norm_mode=attn_norm_mode)
             else:
                 n_heads = next((len(h) for h in attn_heads if h is not None), 16)
-                grid_img = attention_heads_grid(o["rgb"], [None] * n_heads, None)
+                grid_img = attention_heads_grid(o["rgb"], [None] * n_heads, None, norm_mode=attn_norm_mode)
             frame = stack_frames(frame, grid_img)
         images.append(frame)
     
@@ -534,7 +540,7 @@ class HabitatWorker:
                  explr_bonus = None,
                  collision_penalty = None,
                  fpstop_penalty = None,add_top_down_map = False,visualize_3d = False,
-                 visualize_attn3d = False
+                 visualize_attn3d = False, attn_norm_mode = "peak"
                  ):
         from habitat.config.default import get_config
         from habitat.config import read_write
@@ -566,6 +572,7 @@ class HabitatWorker:
         self.fpstop_penalty = fpstop_penalty
         self.visualize_3d = visualize_3d
         self.visualize_attn3d = visualize_attn3d
+        self.attn_norm_mode = attn_norm_mode
         self.postprocess = postprocess
         self.log_oracle = log_oracle
         self.enable_caching = enable_caching
@@ -915,7 +922,8 @@ class HabitatWorker:
 
     def save_video(self, output_dir, fps=4,quality = 3):
         filename = self.steps['info'][0]['episode_label']
-        video_path,thumbnail = save_run_video(self.steps,filename,output_dir,fps,quality)
+        video_path,thumbnail = save_run_video(self.steps,filename,output_dir,fps,quality,
+                                              attn_norm_mode=self.attn_norm_mode)
         # self.steps = defaultdict(list) # clear buffer after save
         return video_path, thumbnail
 
@@ -1177,7 +1185,8 @@ class LoggingHabitatWorker(HabitatWorker):
                 filename="video", # save_run_video adds extension
                 output_dir=save_dir,
                 quality=4,
-                return_thumbnail=True
+                return_thumbnail=True,
+                attn_norm_mode=self.attn_norm_mode
             )
             episode_logs["vid/episode_video"] = vid_path  # Path for WandB Video
             seq_path = os.path.join(save_dir, "sequence.json")
@@ -1203,7 +1212,8 @@ class LoggingHabitatWorker(HabitatWorker):
             if getattr(self, "visualize_attn3d", False):
                 try:
                     from longnav.env.attn3d import save_attention_cloud_videos
-                    attn3d_paths = save_attention_cloud_videos(self.steps, save_dir)
+                    attn3d_paths = save_attention_cloud_videos(self.steps, save_dir,
+                                                              norm_mode=self.attn_norm_mode)
                     if attn3d_paths:
                         # Only the deepest layer goes to wandb; the rest would mean a
                         # video upload per layer per episode.

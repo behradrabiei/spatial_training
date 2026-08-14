@@ -34,6 +34,22 @@ class VLMConfig:
     sparse_threshold: float = 0.95  # cosine sim cutoff for visual token filtering (keep if sim < threshold)
     save_outputs: bool = False # only need this for RL
     context_window: Optional[int] = None # None = full episode context; N = keep only the last N frames
+    # How the retained window is produced. "evict" slices the older turns' K/V out of the
+    # cache: cheap, but the surviving keys and values were computed while attending over the
+    # whole episode, so evicted frames still reach the decision through them. "recompute"
+    # rebuilds the window's K/V against a cache holding only the pinned prefix plus the
+    # window, making the decision a strict function of what the agent can still see. The
+    # difference between the two is the information leaked by eviction.
+    context_window_mode: str = "evict"
+    # What the attention visualizations measure. "raw" = attention weight alpha (max over
+    # heads). "value_norm" = alpha*||v||, "wo_norm" = alpha*||W_O v|| (both summed over
+    # heads): alpha only routes, so a key with high alpha and a small value vector
+    # contributes nothing. Weighted modes also make heads commensurable.
+    # "grad" = alpha*d(action score)/d(alpha), i.e. what actually drove the decision
+    # rather than what was merely loud. It costs one extra single-token forward and
+    # backward per step, requires visualize_attention_3d, and runs the decision forward
+    # under no_grad instead of inference_mode so the cache can be differentiated.
+    attn_weighting: str = "raw"
 
 @dataclass 
 class PolicyLossConfig:
@@ -175,6 +191,11 @@ class HabitatConfig:
     add_top_down_map:bool = False
     visualize_3d:bool = False # render accumulated 3D patch-filtering video (video_3d.mp4)
     visualize_attn3d:bool = False # render accumulated 3D attention-heat video (video_attn3d.mp4)
+    # How attention heatmaps are mapped to colour. "peak" = x/max, where one dominant
+    # patch sets the scale and crushes the rest to the ghost floor. "robust" clips both
+    # tails to percentiles of the nonzero entries so the hottest patches saturate
+    # instead of dictating the scale. See attn3d.attention_range.
+    attn_norm_mode: str = "peak"
 # --- Rollouts (both for Eval and RL) ---
 @dataclass
 class RolloutConfig:

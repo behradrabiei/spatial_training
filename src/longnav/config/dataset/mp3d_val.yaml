@@ -1,0 +1,8 @@
+# @package _global_
+sim:
+  config_path: habitat_configs/objectnav_mp3d.yaml
+  dataset_path: /home/brabiei/vault/habitat_data/evaluation_episodes/MP3D/objectnav_mp3d_v1/val/val.json.gz
+  scenes_dir: /home/brabiei/vault/habitat_data/scenes
+  split: val
+task:
+  subset_label: ""
