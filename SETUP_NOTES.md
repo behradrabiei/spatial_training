@@ -39,7 +39,7 @@ conda run -n vln pip install --no-dependencies -e .    # register longnav for Ra
 
 ## Skipped / optional
 
-- **flash-attn** — no prebuilt wheel for `sm_120`; FA3/FA4 can't run on desktop Blackwell. Repo defaults to `attn_impl=sdpa`, which works natively. Build recent FA2 from source with `TORCH_CUDA_ARCH_LIST="12.0"` only if throughput matters.
+- **flash-attn** — INSTALLED (2026-08-14) in `longnav_vlm`: flash_attn 2.8.3 via community prebuilt wheel with `sm_120` kernels ([mjun0812/flash-attention-prebuild-wheels](https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu128torch2.8-cp310-cp310-linux_x86_64.whl), cu128/torch2.8/cp310). Verified: `flash_attn_func` matches sdpa on the 5090 (max diff 2.4e-4 bf16), and `tests/eval_smoke.py` passes with `attn_impl="flash_attention_2"`. NB: config default is still `attn_impl=sdpa` — add `vlm.attn_impl=flash_attention_2` per run to use it. FA3/FA4 still can't run on desktop Blackwell.
 - **wandb login** — DONE (entity `brabiei-university-of-michigan`, verified end-to-end). Enable per-run with `task.wandb_project=<name>`; same `run_name`+`project` resumes.
 - **Hugging Face login** — public model download already works; only needed for private/push.
 - **Habitat HM3D dataset** — required for real sim runs (`train_rl`/`eval` with `dataset=hm3d_*`). Status:
