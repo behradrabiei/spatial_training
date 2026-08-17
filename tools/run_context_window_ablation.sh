@@ -5,8 +5,11 @@
 #   MODE=recompute PREFIX=hm3d_v2_100_recompwin WINDOWS="32" bash tools/run_context_window_ablation.sh
 #
 # MODE=evict slices old turns' K/V out of the cache; MODE=recompute rebuilds the window's
-# K/V from scratch, so evicted frames cannot reach the decision through the surviving keys.
-# Skip the "full" tag under recompute: nothing is ever evicted at full context, so the two
+# K/V from scratch, so evicted frames cannot reach the decision through the surviving keys;
+# MODE=reindex evicts like evict but renumbers survivors to contiguous mRoPE positions
+# (pre-rotation key cache, StreamingLLM-style):
+#   MODE=reindex PREFIX=hm3d_v2_100_reindexwin WINDOWS="32 16" bash tools/run_context_window_ablation.sh
+# Skip the "full" tag under non-evict modes: nothing is ever evicted at full context, so all
 # modes are identical there and the evict run is the shared anchor.
 set -euo pipefail
 

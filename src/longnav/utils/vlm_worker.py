@@ -14,7 +14,7 @@ from dataclasses import dataclass,field
 import torch.nn.functional as F
 from longnav.config_schema import VLMTrainingConfig
 
-CONTEXT_WINDOW_MODES = ("evict", "recompute")
+CONTEXT_WINDOW_MODES = ("evict", "recompute", "reindex")
 
 def compute_full_kl_penalty(log_probs: torch.Tensor, ref_log_probs: torch.Tensor) -> torch.Tensor:
     """
@@ -88,6 +88,24 @@ class VLMWorker:
                 raise NotImplementedError("context_window_mode='recompute' does not support attention "
                                           "visualization; the cache is rebuilt each step, so absolute "
                                           "KV indices cannot be carried across.")
+        if context_window_mode == "reindex":
+            if context_window is None:
+                # Same rationale as recompute: nothing is ever evicted at full context, so
+                # the run would silently pay the re-rotation cost for an ordinary eval.
+                raise ValueError("context_window_mode='reindex' requires context_window to be set.")
+            if self._any_attn_viz():
+                # _record_frame_keys and _grad_attribution_pass read raw cache keys, which
+                # are stored pre-rotation under reindex; the heat maps would be garbage.
+                raise NotImplementedError("context_window_mode='reindex' does not support attention "
+                                          "visualization; cached keys are stored pre-rotation.")
+            if not use_sparse:
+                # The per-slot position table is fed from TextMixin.forward, which only the
+                # sparse model subclass runs through; the stock model has no hook point.
+                raise NotImplementedError("context_window_mode='reindex' requires use_sparse=True.")
+            if save_outputs:
+                # The packed replay re-forwards the full history through the language model,
+                # which would double-append the position table and desync it from the cache.
+                raise ValueError("context_window_mode='reindex' does not support save_outputs=True.")
         if context_window is not None and save_outputs:
             print(f"[context_window] ⚠️ WARNING: context_window={context_window} with save_outputs=True. "
                   "The packed sequence replays the FULL uncropped history, so its logprobs will not "
@@ -104,6 +122,7 @@ class VLMWorker:
         
         self._is_merged = None
         self._is_lora = None
+        self._reindex_state = None  # set by load_model under context_window_mode='reindex'
         # Warmup the CUDA allocator
         if load_model:
             self.load_model()
@@ -124,6 +143,8 @@ class VLMWorker:
         self._decision_inputs = None
         if self.attn_probe is not None:
             self.attn_probe.reset()
+        if getattr(self, "_reindex_state", None) is not None:
+            self._reindex_state.reset()
         self.past_image_embeds = None #per batch list of image embed tensors of the form N_patch by N_hidden
         self.logit_indices = []
         # Sliding context window bookkeeping (see _apply_context_window).
@@ -169,6 +190,9 @@ class VLMWorker:
         self.language_model = self.vl_model.language_model
         if self.use_sparse:
             self.language_model.sparse_threshold = self.sparse_threshold
+        if self.context_window_mode == "reindex":
+            from longnav.utils.pre_rope import install_pre_rope
+            self._reindex_state = install_pre_rope(self.language_model)
         if self._any_attn_viz():
             self._attach_attention_probe()
 
@@ -654,6 +678,11 @@ class VLMWorker:
         Under context_window_mode='recompute' the survivors' K/V are rebuilt from scratch
         instead of being sliced out of the cache; see _rebuild_window_cache for why that is
         a different experiment.
+
+        Under context_window_mode='reindex' the eviction schedule and slicing are identical
+        to 'evict', but keys are cached pre-rotation (see longnav.utils.pre_rope), so the
+        survivors' mRoPE positions can be renumbered here to sit flush against the prefix --
+        no positional hole across the cut, StreamingLLM-style.
         '''
         import torch
 
@@ -702,6 +731,26 @@ class VLMWorker:
             for layer in self.past_key_values.layers:
                 layer.keys = torch.cat([layer.keys[..., :prefix, :], layer.keys[..., drop_end:, :]], dim=-2)
                 layer.values = torch.cat([layer.values[..., :prefix, :], layer.values[..., drop_end:, :]], dim=-2)
+
+            if self.context_window_mode == "reindex":
+                # The position table follows the same cut as the cache, then the surviving
+                # window is renumbered to start at _prefix_len. The cut lands on the
+                # held-back assistant header -- a text token, so t == h == w and one scalar
+                # shifts all three mRoPE components without disturbing intra-turn 2-D patch
+                # geometry (sparse-filter gaps within a turn are preserved by design).
+                st = self._reindex_state
+                kept_prefix = st.pos_table[..., :prefix]
+                kept_window = st.pos_table[..., drop_end:]
+                first = kept_window[:, 0, 0]
+                assert int(first[0]) == int(first[1]) == int(first[2]), \
+                    "reindex cut must land on a text token (assistant header)"
+                shift = int(first[0]) - self._prefix_len
+                assert shift > 0, f"eviction dropped {n_drop} tokens but no positions (shift={shift})"
+                st.pos_table = torch.cat([kept_prefix, kept_window - shift], dim=-1)
+                st.cos = st.sin = None  # stale length; rebuilt on the next forward's append
+                # _pos_id_fast keeps assigning from self.offset, so the next turn continues
+                # contiguously from the renumbered window.
+                self.offset -= shift
 
             self._trim_embed_db(first_keep)
 
@@ -1010,6 +1059,10 @@ class VLMWorker:
         query would attend to a duplicate of itself and split the softmax mass, so the
         row would not be the one that actually chose the action.
 
+        Unreachable under context_window_mode='reindex' (viz is refused at init): the slot
+        this pops and restores holds a pre-rotation key there, and the replay would also
+        double-append the reindex position table.
+
         The entry the replay appends in its place is put back rather than kept. It is
         the same computation, but a one-token matmul reduces in a different order than
         the chunk-wide one, and in bf16 that lands a unit in the last place away from
@@ -1026,6 +1079,8 @@ class VLMWorker:
         """
         import torch
 
+        assert self.context_window_mode != "reindex", \
+            "grad attribution pops raw cache keys, which are pre-rotation under reindex"
         if self.attn_probe is None or self.past_key_values is None or self._decision_inputs is None:
             return
         # Nothing else writes rows in this mode, so a step that bails below must clear

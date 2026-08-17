@@ -304,6 +304,14 @@ class TextMixin:
         # Always expose the current-chunk visual position mask so downstream code
         # (e.g. attention visualization) can locate this image's patch tokens.
         self.visual_pos_masks = visual_pos_masks.cpu() if visual_pos_masks is not None else None
+        # context_window_mode='reindex' (see longnav.utils.pre_rope): keep the per-slot
+        # mRoPE table in lockstep with the cache and compute the whole-cache rotation
+        # phases once, shared by all layers. Must run after the sparse filter above --
+        # only surviving tokens reach the cache.
+        reindex_state = getattr(self, "_reindex_state", None)
+        if reindex_state is not None:
+            reindex_state.append(position_ids)
+            reindex_state.cos, reindex_state.sin = self.rotary_emb(inputs_embeds, reindex_state.pos_table)
         outputs = super().forward(
             input_ids=input_ids,
             attention_mask=attention_mask,

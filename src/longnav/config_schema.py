@@ -39,7 +39,10 @@ class VLMConfig:
     # whole episode, so evicted frames still reach the decision through them. "recompute"
     # rebuilds the window's K/V against a cache holding only the pinned prefix plus the
     # window, making the decision a strict function of what the agent can still see. The
-    # difference between the two is the information leaked by eviction.
+    # difference between the two is the information leaked by eviction. "reindex" evicts on
+    # the same schedule as "evict" but caches keys pre-rotation and applies RoPE at
+    # attention time, renumbering survivors to contiguous mRoPE positions
+    # (StreamingLLM-style; no positional hole across the cut). Requires use_sparse.
     context_window_mode: str = "evict"
     # What the attention visualizations measure. "raw" = attention weight alpha (max over
     # heads). "value_norm" = alpha*||v||, "wo_norm" = alpha*||W_O v|| (both summed over
