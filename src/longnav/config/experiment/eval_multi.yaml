@@ -1,0 +1,22 @@
+# @package _global_
+# Multi-object eval: all visualization off, step cap above the 3x500 leg budget
+# so the multi worker (not the driver or habitat) always terminates the episode.
+task:
+  run_name: "name me"
+  wandb_project: "longnav_eval"
+  output_dir: ./dump/longnav_eval
+  jobtype: eval
+rollout:
+  max_steps: 1600
+  deterministic: true # argmax actions for reproducible eval
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17 # determinism
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false

@@ -55,5 +55,37 @@ class DummyEnvActor:
         returns True if the actor has exhausted its assigned episodes.
         '''
         return False
-    
+
+
+class MultiGoalDummyEnvActor(DummyEnvActor):
+    '''
+    Dummy env for the multi-object conversation path: switches instr_or_goal /
+    goal_idx every `steps_per_goal` steps (the way MultiObjectHabitatEnvActor
+    does on a correct stop). Ends on a stop at the final goal or once every
+    goal's budget is spent. Deterministic, unlike DummyEnvActor.
+    '''
+    def __init__(self, goals=("red cube", "green ball", "blue chair"), steps_per_goal=4):
+        self.goals = list(goals)
+        self.steps_per_goal = steps_per_goal
+
+    def _state(self):
+        state = get_dummy_state()
+        goal_idx = min(self.sc // self.steps_per_goal, len(self.goals) - 1)
+        state['obs'] = {"instr_or_goal": self.goals[goal_idx], "goal_idx": goal_idx}
+        state['done'] = False
+        state['info'] = {"goal_idx": goal_idx}
+        return state
+
+    def reset(self):
+        self.sc = 0
+        return np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8), self._state()
+
+    def step(self, action: int, supplementary_logs: Dict[str, Any] = None):
+        self.sc += 1
+        state = self._state()
+        on_last_goal = state['obs']['goal_idx'] == len(self.goals) - 1
+        state['reward'] = 1.0 if action == 0 and on_last_goal else -0.01
+        state['done'] = (action == 0 and on_last_goal) or self.sc >= self.steps_per_goal * len(self.goals)
+        return np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8), state
+
     

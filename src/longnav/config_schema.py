@@ -191,6 +191,10 @@ class HabitatConfig:
     explr_bonus: Optional[float] = 0.13
     collision_penalty: Optional[float] = 0.05
     fpstop_penalty: Optional[float] = 0.3
+    multi_object: bool = False # sequential-goal episodes (info['object_goals']) via MultiObjectHabitatEnvActor
+    leg_max_steps: int = 500 # multi_object: per-sub-goal step budget
+    leg_success_dist: Optional[float] = None # multi_object: sub-goal success threshold; None = habitat success_distance
+    minimal_logging: bool = False # skip video/sequence rendering on log flush
     add_top_down_map:bool = False
     visualize_3d:bool = False # render accumulated 3D patch-filtering video (video_3d.mp4)
     visualize_attn3d:bool = False # render accumulated 3D attention-heat video (video_attn3d.mp4)
@@ -220,7 +224,27 @@ class RolloutConfig:
         {"role": "user", "content": [{"type": "image"}]},
         {"role": "assistant", "content": [{"type": "text", "text": "**forward**"}]}
     ])
+
+    # Multi-object memory ablation: on each goal switch, wipe the VLM state (KV
+    # cache, sparse embed db, conversation) and restart from convo_start_template
+    # with the new goal — each leg becomes a fresh single-object episode that
+    # starts wherever the agent stands. Takes precedence over convo_goal_template.
+    flush_on_goal_switch: bool = False
+    goal_prompt: str = "${read_text:src/longnav/conf/prompts/objectnav_new_goal_prompt.txt}"
+    # Used instead of convo_turn_template on the step where the env switches to a
+    # new goal (multi-object episodes). Deliberately does NOT echo the previous
+    # action: the stop that completed the last goal would otherwise sit in the
+    # cache as the model's most recent utterance and bleed into the new leg.
+    convo_goal_template: List[Dict[str, Any]] = field(default_factory=lambda: [
+        {"role": "user", "content": [{"type": "text", "text": "${rollout.goal_prompt}"}]},
+        {"role": "user", "content": [{"type": "image"}]},
+        {"role": "assistant", "content": [{"type": "text", "text": "**forward**"}]}
+    ])
     stop_prob_threshold: Optional[float] = None
+    # Multi-object: for this many decisions after a goal switch, a stop pick is
+    # replaced by the best non-stop action (the model's own stop-state otherwise
+    # bleeds into the new goal and instantly ends the leg). 0 = off.
+    post_goal_stop_veto: int = 0
     visualize_token_filtering: bool = False  # dim filtered visual patches in rollout videos
     visualize_attention: bool = False  # overlay action-attention heatmap on RGB in rollout videos
     visualize_attention_heads: bool = False  # append a 4-wide grid of per-head attention heatmaps to rollout videos

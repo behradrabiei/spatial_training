@@ -177,7 +177,13 @@ class RLWorkerFactory:
 class SimWorkerFactory:
     @staticmethod
     def create(sim_dict: dict, res_cfg: ResourceConfig, task_cfg: RunConfig, logger_actor=None,config_overrides=None):
-        from longnav.env.habitat import HabitatEnvActor
+        sim_dict = dict(sim_dict)
+        if sim_dict.pop('multi_object', False):
+            from longnav.env.habitat_multi import MultiObjectHabitatEnvActor as env_actor_cls
+        else:
+            from longnav.env.habitat import HabitatEnvActor as env_actor_cls
+            sim_dict.pop('leg_max_steps', None)
+            sim_dict.pop('leg_success_dist', None)
         env_dict = {}
         if res_cfg.habitat_conda_env is not None:
             env_dict = {"conda": res_cfg.habitat_conda_env}
@@ -191,7 +197,7 @@ class SimWorkerFactory:
             sim_env_vars["__EGL_VENDOR_LIBRARY_FILENAMES"] = nvidia_egl
         sim_env_vars["DISPLAY"] = ""
         sim_runtime_env = env_dict | {"env_vars": sim_env_vars}
-        RemoteSim = ray.remote(HabitatEnvActor).options(
+        RemoteSim = ray.remote(env_actor_cls).options(
             resources={res_cfg.sim_resource_tag: 1},
             num_cpus=res_cfg.sim_cpus,
             num_gpus=res_cfg.sim_gpu_fraction,

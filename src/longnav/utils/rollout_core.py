@@ -128,6 +128,8 @@ class EpisodeRolloutMixin:
             # Trajectory Buffer (List is fine here!)
             trajectory_buffer = []
             instr_or_goal = state_dict['obs']['instr_or_goal']
+            current_goal, goal_idx = instr_or_goal, state_dict['obs'].get('goal_idx')
+            steps_since_goal_switch = float('inf')  # leg 1 is never vetoed
             # episode_label = state_dict['info']['episode_label']
             while not done and step_count < self.rollout_config['max_steps']:
                 # A. Prepare VLM Input
@@ -179,6 +181,13 @@ class EpisodeRolloutMixin:
                 )
                 if spguard_triggered:
                     vlm_logs['sum/spguard_trigger_count']=1
+                vlm_logs['sum/goal_veto_trigger_count'] = 0
+                if action_id == 0 and steps_since_goal_switch < self.rollout_config.get('post_goal_stop_veto', 0):
+                    pick = (lambda p: int(np.argmax(p))) if self.rollout_config.get("deterministic", False) \
+                        else (lambda p: int(np.random.choice(len(p), p=p / p.sum())))
+                    action_id = pick(action_probs[1:]) + 1
+                    vlm_logs['sum/goal_veto_trigger_count'] = 1
+                steps_since_goal_switch += 1
                     
                 entropy = -np.sum(action_probs * np.log(action_probs + 1e-9))
                 vlm_logs |= {'mean/entropy':entropy,'mean/action_prob':float(action_probs[action_id]),"action_probs":action_probs.tolist()} 
@@ -215,13 +224,30 @@ class EpisodeRolloutMixin:
                         with torch.no_grad():
                             trajectory_dict["values"] = self._compute_value(outputs).cpu().numpy()
                     trajectory_buffer.append(trajectory_dict)
-                messages = substitute_convo_template(self.rollout_config['convo_turn_template'],{"action":self.rollout_config['action_space'][action_id]})
+                # Multi-object episodes: when the env switches goals, deliver the new
+                # goal as an instruction turn instead of the bare image turn.
+                new_goal = state_dict['obs'].get('instr_or_goal', current_goal)
+                new_goal_idx = state_dict['obs'].get('goal_idx')
+                goal_changed = (new_goal_idx != goal_idx) if new_goal_idx is not None else (new_goal != current_goal)
+                if goal_changed and self.rollout_config.get('flush_on_goal_switch'):
+                    self.reset()  # fresh cache + start prompt; the sim continues in place
+                    messages = substitute_convo_template(self.rollout_config['convo_start_template'],state_dict['obs'] | self.rollout_config)
+                    current_goal, goal_idx = new_goal, new_goal_idx
+                    steps_since_goal_switch = 0
+                elif goal_changed and self.rollout_config.get('convo_goal_template'):
+                    messages = substitute_convo_template(self.rollout_config['convo_goal_template'],
+                                                         {"action": self.rollout_config['action_space'][action_id],
+                                                          "instr_or_goal": new_goal})
+                    current_goal, goal_idx = new_goal, new_goal_idx
+                    steps_since_goal_switch = 0
+                else:
+                    messages = substitute_convo_template(self.rollout_config['convo_turn_template'],{"action":self.rollout_config['action_space'][action_id]})
                 # print(f"sim step{step_count}")
                 done = state_dict['done']
                 step_count += 1
                 # Convert list of dicts -> Dict of Numpy Arrays (Zero-Copy Friendly)
             final_trajectory = self._pack_trajectory(trajectory_buffer) if collect_trajectory else None
-            final_info = state_dict['info'] | {"steps":step_count, "instr_or_goal":instr_or_goal}
+            final_info = state_dict['info'] | {"steps":step_count, "instr_or_goal":instr_or_goal, "final_instr_or_goal":current_goal}
             # Return Clean Tuple (No Actor Handles here)
             return state_dict['is_exhausted'], final_info, final_trajectory
         

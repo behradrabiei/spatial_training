@@ -1,0 +1,13 @@
+# @package _global_
+# OneMap multi-object benchmark ("One Map to Find Them All", ICRA 2025):
+# 236 episodes / 36 HM3D v0.2 val scenes, 3 sequential goals each.
+# Built by tools/convert_onemap_episodes.py.
+sim:
+  config_path: habitat_configs/objectnav_hm3d_multi.yaml
+  dataset_path: /home/brabiei/vault/habitat_data/evaluation_episodes/HM3D/onemap_multi/val/val.json.gz
+  scenes_dir: /home/brabiei/vault/habitat_data/scenes/HM3D/v2
+  split: val
+  multi_object: true
+task:
+  subset_label: ""
+  episode_json: /home/brabiei/Projects/World-Modelling/spatial_training/src/longnav/conf/episode_jsons/onemap_multi.json
