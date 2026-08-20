@@ -36,6 +36,12 @@ class ReindexState:
         self.pos_table = None
         self.cos = None
         self.sin = None
+        # Decision-row attention capture for context_window_mode='prune' (see
+        # longnav.utils.kv_prune). Armed by the worker around the decision forward only;
+        # plain reindex leaves capture_scores False and pays one getattr per layer.
+        self.capture_scores = False
+        self.score_sum = None  # (kv_len,) fp32 on device, summed over layers
+        self.score_layers = 0
 
     def append(self, position_ids):
         p = position_ids.detach()
@@ -79,6 +85,10 @@ def pre_rope_attention_forward(self, hidden_states, position_embeddings, attenti
             f"reindex position table covers {state.cos.shape[1]} slots but the cache holds "
             f"{key_states.shape[-2]}; a forward reached the cache without updating the table")
     key_states = _rotate(key_states, state.cos, state.sin)
+
+    if getattr(state, "capture_scores", False):
+        from longnav.utils.kv_prune import accumulate_decision_row
+        accumulate_decision_row(state, query_states, key_states, self.scaling)
 
     attention_interface = eager_attention_forward
     if self.config._attn_implementation != "eager":

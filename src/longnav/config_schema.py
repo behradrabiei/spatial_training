@@ -43,7 +43,18 @@ class VLMConfig:
     # the same schedule as "evict" but caches keys pre-rotation and applies RoPE at
     # attention time, renumbering survivors to contiguous mRoPE positions
     # (StreamingLLM-style; no positional hole across the cut). Requires use_sparse.
+    # "prune" enforces a hard KV token budget (kv_budget) on top of the reindex substrate:
+    # each step the lowest-importance unprotected slots are dropped, importance being an
+    # EMA of the decision token's attention to each slot. context_window is optional here
+    # and acts as the selection pool (older turns force-dropped on the evict schedule).
     context_window_mode: str = "evict"
+    # --- context_window_mode='prune' knobs (see longnav.utils.kv_prune) ---
+    kv_budget: Optional[int] = None  # hard cap on cache slots; required for mode='prune'
+    kv_prune_recent_turns: int = 2  # last N turns are never budget-pruned
+    kv_prune_ema_beta: float = 0.7  # importance EMA decay; 0 = last decision only (TOVA)
+    kv_prune_merge: bool = False  # merge dropped visual slots into nearest kept slot (CaM-style)
+    kv_prune_importance: str = "attn"  # 'attn' (decision-row attention) or 'random' (control)
+    kv_prune_granularity: str = "slot"  # 'slot' (TOVA-style) or 'turn' (whole-frame keyframe selection)
     # What the attention visualizations measure. "raw" = attention weight alpha (max over
     # heads). "value_norm" = alpha*||v||, "wo_norm" = alpha*||W_O v|| (both summed over
     # heads): alpha only routes, so a key with high alpha and a small value vector

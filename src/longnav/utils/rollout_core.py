@@ -141,9 +141,15 @@ class EpisodeRolloutMixin:
                 action_probs,action_logprobs,outputs = self.infer_probs(images=[rgb_pil],messages=messages,temperature = self.rollout_config['temperature'],pos_id_kwargs=pos_id_kwargs)
                 
                 vlm_logs |= {'mean/vlm_latency':time.time()-t0,'min/vlm_latency':time.time()-t0,'max/vlm_latency':time.time()-t0,'sum/spguard_trigger_count':0}
+                if self.past_key_values is not None:
+                    # Resident cache length after any eviction/pruning -- the memory metric
+                    # the context-compression experiments are scored on.
+                    kv_len = self.past_key_values.get_seq_length()
+                    vlm_logs |= {'mean/kv_len': kv_len, 'max/kv_len': kv_len}
                 try:
                     import torch
-                    vlm_logs |= {"vlm_mem_GB":torch.cuda.memory_allocated()/(1024**3)}
+                    vlm_mem = torch.cuda.memory_allocated()/(1024**3)
+                    vlm_logs |= {"vlm_mem_GB": vlm_mem, "max/vlm_mem_GB": vlm_mem}
                 except:
                     print("warning: could not get vlm mem")
                 if self.rollout_config.get("visualize_token_filtering"):
