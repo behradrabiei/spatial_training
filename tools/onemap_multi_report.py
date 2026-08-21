@@ -1,8 +1,8 @@
 """Aggregate a multi-object eval run into OneMap-style benchmark metrics.
 
-Usage: python3 tools/onemap_multi_report.py dump/longnav_eval/<run_name>
+Usage: python3 tools/onemap_multi_report.py dump/longnav_eval/<run_name> [repair_dir ...]
 
-Reads rollout/results_* JSONL (deduped by episode_label, last row wins) and
+Reads rollout/results_* JSONL (deduped by episode_label, valid/newest row wins) and
 reports, following OneMap's read_results naming:
   PR  (Progress) = mean fraction of sub-goals reached
   PPL            = mean of sum(spl_leg)/n_goals
@@ -21,28 +21,41 @@ def mean(xs):
     return sum(xs) / len(xs) if xs else 0.0
 
 
-def load_rows(run_dir):
+def load_rows(run_dirs):
     rows = {}
-    for path in sorted(glob.glob(os.path.join(run_dir, "rollout", "results_*"))):
+    paths = [
+        path
+        for run_dir in run_dirs
+        for path in sorted(glob.glob(os.path.join(run_dir, "rollout", "results_*")))
+    ]
+    for path in paths:
         with open(path) as f:
             for line in f:
                 line = line.strip()
                 if line:
                     row = json.loads(line)
-                    rows[row["episode_label"]] = row
+                    label = row["episode_label"]
+                    previous = rows.get(label)
+                    rank = ("progress" in row, row.get("timestamp", 0))
+                    previous_rank = (
+                        "progress" in previous,
+                        previous.get("timestamp", 0),
+                    ) if previous else None
+                    if previous_rank is None or rank > previous_rank:
+                        rows[label] = row
     return rows
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("run_dir")
+    parser.add_argument("run_dirs", nargs="+")
     parser.add_argument("--labels-json", default="src/longnav/conf/episode_jsons/onemap_multi.json",
                         help="expected episode labels; missing/broken episodes count as full failures")
     args = parser.parse_args()
 
-    rows = load_rows(args.run_dir)
+    rows = load_rows(args.run_dirs)
     if not rows:
-        raise SystemExit(f"no rollout/results_* rows found under {args.run_dir}")
+        raise SystemExit(f"no rollout/results_* rows found under {args.run_dirs}")
 
     with open(args.labels_json) as f:
         expected = json.load(f)
@@ -62,7 +75,8 @@ def main():
     sr = [r["all_success"] for r in valid] + [0.0] * n_failed_pad
     spl = [r["all_success"] * r["ppl"] for r in valid] + [0.0] * n_failed_pad
 
-    print(f"\n=== OneMap multi-object benchmark: {os.path.basename(os.path.normpath(args.run_dir))} ===")
+    run_names = " + ".join(os.path.basename(os.path.normpath(d)) for d in args.run_dirs)
+    print(f"\n=== OneMap multi-object benchmark: {run_names} ===")
     print(f"episodes: {len(valid)} evaluated / {n_total} total\n")
     print(f"  PR  (progress)          : {mean(progress):.4f}")
     print(f"  PPL (progress-wtd. SPL) : {mean(ppl):.4f}")
@@ -100,6 +114,28 @@ def main():
         reasons["missing/crashed"] = n_failed_pad
     for reason, count in sorted(reasons.items(), key=lambda kv: -kv[1]):
         print(f"    {reason:<18} {count:>4}  ({count / n_total:.1%})")
+
+    wrong_stop_by_leg = {i: 0 for i in range(3)}
+    immediate_post_switch = 0
+    for r in valid:
+        results = r["leg_results"].split(",") if r["leg_results"] else []
+        steps = [int(x) for x in r["leg_steps_list"].split(",")] if r["leg_steps_list"] else []
+        for i, result in enumerate(results):
+            if result != "wrong_stop":
+                continue
+            wrong_stop_by_leg[i] += 1
+            if i > 0 and i < len(steps) and steps[i] == 1:
+                immediate_post_switch += 1
+
+    wrong_stop_total = sum(wrong_stop_by_leg.values())
+    print("\n  wrong-stop location:")
+    for i, count in wrong_stop_by_leg.items():
+        print(f"    leg {i + 1}:            {count:>4}  ({count / n_total:.1%} of episodes)")
+    print(f"    immediate after switch: {immediate_post_switch:>4}  "
+          f"({immediate_post_switch / n_total:.1%} of episodes; "
+          f"{immediate_post_switch / wrong_stop_total:.1%} of wrong stops)"
+          if wrong_stop_total else
+          "    immediate after switch:    0")
     print()
 
 

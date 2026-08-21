@@ -28,7 +28,6 @@ class DummyEnvActor:
         state['reward'] = -0.01 if action != 0 else 1.0 # reward of 1 for stop, small negative reward otherwise
         state['done'] = state['done'] or action==0 # end episode
         return rgb, state
-    
     def reset(self):
         self.sc = 0
         print("resetting dummy env")
@@ -71,7 +70,11 @@ class MultiGoalDummyEnvActor(DummyEnvActor):
     def _state(self):
         state = get_dummy_state()
         goal_idx = min(self.sc // self.steps_per_goal, len(self.goals) - 1)
-        state['obs'] = {"instr_or_goal": self.goals[goal_idx], "goal_idx": goal_idx}
+        state['obs'] = {
+            "instr_or_goal": self.goals[goal_idx],
+            "goal_idx": goal_idx,
+            "goal_sequence": list(self.goals),
+        }
         state['done'] = False
         state['info'] = {"goal_idx": goal_idx}
         return state
@@ -87,5 +90,3 @@ class MultiGoalDummyEnvActor(DummyEnvActor):
         state['reward'] = 1.0 if action == 0 and on_last_goal else -0.01
         state['done'] = (action == 0 and on_last_goal) or self.sc >= self.steps_per_goal * len(self.goals)
         return np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8), state
-
-    

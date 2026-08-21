@@ -779,7 +779,7 @@ class HabitatWorker:
         print(f"Actor assigned with shard of {len(dataset.episodes)} episodes.")
 
 
-    def step(self, action:int,supplementary_logs={}):
+    def step(self, action:int,supplementary_logs={},_stop_guard_extras=None):
         """
         Standard step. 
         Args:
@@ -791,21 +791,24 @@ class HabitatWorker:
                 - WARNING: if you provide this, you MUST provide it every step, with the same keys. otherwise your data won't align properly!
         """
         self.reset_flag = False
-        extras = {'+fp_stop':-99999*int(not self.fp_guard),'+fn_stop':-99999*int(not self.fn_guard)} # massive neg for not enabled, 0 for enabled but not triggerd.
-        # oracle stop guards useful for reducin eval noise. #TODO: use habitat config instead of magic number
-        try:
-            last_distance = self.last_step['info']['distance_to_goal']
-            success_distance = self.config_env.habitat.task.measurements.success.success_distance
-            if action==0 and last_distance > success_distance:
-                if self.fp_guard:
-                    action = np.random.choice([1,2,3]) #chose random non stop action
-                extras['+fp_stop'] = 1 #record the false positive incident
-            if last_distance<success_distance and action!=0:
-                if self.fn_guard: 
-                    action = 0
-                extras['+fn_stop'] = 1
-        except:
-            print("warning! cannot calculate oracle guard!")
+        if _stop_guard_extras is None:
+            extras = {'+fp_stop':-99999*int(not self.fp_guard),'+fn_stop':-99999*int(not self.fn_guard)} # massive neg for not enabled, 0 for enabled but not triggerd.
+            # oracle stop guards useful for reducin eval noise. #TODO: use habitat config instead of magic number
+            try:
+                last_distance = self.last_step['info']['distance_to_goal']
+                success_distance = self.config_env.habitat.task.measurements.success.success_distance
+                if action==0 and last_distance > success_distance:
+                    if self.fp_guard:
+                        action = np.random.choice([1,2,3]) #chose random non stop action
+                    extras['+fp_stop'] = 1 #record the false positive incident
+                if last_distance<success_distance and action!=0:
+                    if self.fn_guard:
+                        action = 0
+                    extras['+fn_stop'] = 1
+            except:
+                print("warning! cannot calculate oracle guard!")
+        else:
+            extras = _stop_guard_extras
         import time
         # t0 = time.time()
         obs, reward, done, info = self.env.step(action)      
@@ -1451,4 +1454,3 @@ class HabitatEnvActor(LoggingHabitatWorker):
         else:
             patch_coords = state_dict['obs'].pop('patch_coords')
             return rgb, patch_coords,state_dict
-

@@ -230,6 +230,12 @@ class RolloutConfig:
     # with the new goal — each leg becomes a fresh single-object episode that
     # starts wherever the agent stands. Takes precedence over convo_goal_template.
     flush_on_goal_switch: bool = False
+    # Multi-object evaluation: reveal the complete ordered goal sequence in the
+    # first turn. False preserves the existing one-goal-at-a-time prompt.
+    reveal_all_goals: bool = False
+    # Conversation representation after a successful intermediate stop.
+    # "next_goal" preserves the existing default behavior.
+    multi_goal_transition: str = "next_goal"
     goal_prompt: str = "${read_text:src/longnav/conf/prompts/objectnav_new_goal_prompt.txt}"
     # Used instead of convo_turn_template on the step where the env switches to a
     # new goal (multi-object episodes). Deliberately does NOT echo the previous

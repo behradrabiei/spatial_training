@@ -8,6 +8,79 @@ import numpy as np
 from longnav.utils.tensor_utils import TensorPacker
 import time 
 
+MULTI_GOAL_TRANSITIONS = {
+    "next_goal",
+    "stop_then_next",
+    "stop_only",
+    "found_only",
+    "found_then_next",
+}
+
+
+def _all_goals_target(goals: List[str]) -> str:
+    if not goals:
+        raise ValueError("reveal_all_goals requires at least one goal")
+    return f"{', then '.join(goals)}, in that order"
+
+
+def build_initial_messages(rollout_config: Dict[str, Any], obs: Dict[str, Any]) -> List[Dict]:
+    """Build the first VLM turn, optionally revealing all ordered goals."""
+    if not rollout_config.get("reveal_all_goals", False):
+        return substitute_convo_template(
+            rollout_config["convo_start_template"], obs | rollout_config
+        )
+
+    goals = obs.get("goal_sequence")
+    if not isinstance(goals, (list, tuple)):
+        raise ValueError("reveal_all_goals requires obs['goal_sequence']")
+    substitutions = obs | rollout_config | {
+        "instr_or_goal": _all_goals_target(list(goals)),
+    }
+    return substitute_convo_template(
+        rollout_config["convo_start_template"], substitutions
+    )
+
+
+def build_goal_switch_messages(
+    rollout_config: Dict[str, Any], next_goal: str
+) -> List[Dict]:
+    """Build the incremental turn after a successful non-final stop."""
+    mode = rollout_config.get("multi_goal_transition", "next_goal")
+    if mode not in MULTI_GOAL_TRANSITIONS:
+        allowed = ", ".join(sorted(MULTI_GOAL_TRANSITIONS))
+        raise ValueError(f"invalid multi_goal_transition {mode!r}; expected one of: {allowed}")
+
+    # Preserve the pre-existing one-goal-at-a-time behavior exactly by default.
+    if mode == "next_goal" and not rollout_config.get("reveal_all_goals", False):
+        return substitute_convo_template(
+            rollout_config["convo_goal_template"], {"instr_or_goal": next_goal}
+        )
+
+    messages = []
+    if mode in {"stop_then_next", "stop_only"}:
+        messages.append(
+            {"role": "assistant", "content": [{"type": "text", "text": "**stop**"}]}
+        )
+    elif mode in {"found_only", "found_then_next"}:
+        messages.append(
+            {"role": "assistant", "content": [{"type": "text", "text": "**found**"}]}
+        )
+
+    if mode in {"next_goal", "stop_then_next", "found_then_next"}:
+        messages.append({
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": f"You have found the previous target. Your new target is “{next_goal}”.",
+            }],
+        })
+
+    messages.extend([
+        {"role": "user", "content": [{"type": "image"}]},
+        {"role": "assistant", "content": [{"type": "text", "text": "**forward**"}]},
+    ])
+    return messages
+
 def select_action(
     action_probs,
     *,
@@ -122,7 +195,11 @@ class EpisodeRolloutMixin:
                 pos_id_kwargs['mode'] = "bev"
             step_count = 0
             done = False
-            messages = substitute_convo_template(self.rollout_config['convo_start_template'],state_dict['obs'] | self.rollout_config)
+            mode = self.rollout_config.get("multi_goal_transition", "next_goal")
+            if mode not in MULTI_GOAL_TRANSITIONS:
+                allowed = ", ".join(sorted(MULTI_GOAL_TRANSITIONS))
+                raise ValueError(f"invalid multi_goal_transition {mode!r}; expected one of: {allowed}")
+            messages = build_initial_messages(self.rollout_config, state_dict['obs'])
             # 2. The Interaction Loop
             vlm_logs={}
             # Trajectory Buffer (List is fine here!)
@@ -231,13 +308,11 @@ class EpisodeRolloutMixin:
                 goal_changed = (new_goal_idx != goal_idx) if new_goal_idx is not None else (new_goal != current_goal)
                 if goal_changed and self.rollout_config.get('flush_on_goal_switch'):
                     self.reset()  # fresh cache + start prompt; the sim continues in place
-                    messages = substitute_convo_template(self.rollout_config['convo_start_template'],state_dict['obs'] | self.rollout_config)
+                    messages = build_initial_messages(self.rollout_config, state_dict['obs'])
                     current_goal, goal_idx = new_goal, new_goal_idx
                     steps_since_goal_switch = 0
-                elif goal_changed and self.rollout_config.get('convo_goal_template'):
-                    messages = substitute_convo_template(self.rollout_config['convo_goal_template'],
-                                                         {"action": self.rollout_config['action_space'][action_id],
-                                                          "instr_or_goal": new_goal})
+                elif goal_changed:
+                    messages = build_goal_switch_messages(self.rollout_config, new_goal)
                     current_goal, goal_idx = new_goal, new_goal_idx
                     steps_since_goal_switch = 0
                 else:
@@ -641,5 +716,3 @@ def collect_rollouts(
     result_list = [result_dict[i] for i in range(num_rollouts)]
     log_list = [log_dict[i] for i in range(num_rollouts)]
     return ray.get(rollouts), result_list, log_list
-
-

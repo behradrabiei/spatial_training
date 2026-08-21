@@ -31,8 +31,6 @@ MULTI_SUMMARY_KEYS = (
 
 class MultiObjectHabitatWorker(HabitatWorker):
     def __init__(self, *args, leg_max_steps=500, leg_success_dist=None, **kwargs):
-        if kwargs.get("fp_guard") or kwargs.get("fn_guard"):
-            raise ValueError("oracle stop guards track goal 1 only; disable fp_guard/fn_guard in multi_object mode")
         self.leg_max_steps = leg_max_steps
         self.leg_success_dist = leg_success_dist
         self._multi = None
@@ -69,19 +67,39 @@ class MultiObjectHabitatWorker(HabitatWorker):
         return super()._reset(episode_id, output_schema, logging_schema)
 
     def step(self, action: int, supplementary_logs={}):
+        action, guard_extras = self._apply_stop_guards(action)
         if action != 0:
             self._pending = "move"
-            return super().step(action, supplementary_logs)
+            return super().step(action, supplementary_logs, _stop_guard_extras=guard_extras)
         m = self._multi
         d = self._geodesic_to_goal(m["goals"][m["goal_idx"]])
         success = np.isfinite(d) and d < self._success_dist()
         if success and m["goal_idx"] < len(m["goals"]) - 1:
             self._pending = "success_advance"
-            return self._fabricated_stop_step(supplementary_logs)
+            return self._fabricated_stop_step(supplementary_logs, guard_extras)
         self._pending = "success_final" if success else "wrong_stop"
-        return super().step(0, supplementary_logs)
+        return super().step(0, supplementary_logs, _stop_guard_extras=guard_extras)
 
-    def _fabricated_stop_step(self, supplementary_logs={}):
+    def _apply_stop_guards(self, action):
+        """Apply stop guards against the active sub-goal, not Habitat's goal 1."""
+        extras = {
+            "+fp_stop": -99999 * int(not self.fp_guard),
+            "+fn_stop": -99999 * int(not self.fn_guard),
+        }
+        m = self._multi
+        distance = self._geodesic_to_goal(m["goals"][m["goal_idx"]])
+        inside_goal = np.isfinite(distance) and distance < self._success_dist()
+        if action == 0 and not inside_goal:
+            if self.fp_guard:
+                action = int(np.random.choice([1, 2, 3]))
+            extras["+fp_stop"] = 1
+        elif action != 0 and inside_goal:
+            if self.fn_guard:
+                action = 0
+            extras["+fn_stop"] = 1
+        return action, extras
+
+    def _fabricated_stop_step(self, supplementary_logs={}, guard_extras=None):
         """A stop that advances the goal without stepping habitat (which would end
         the episode). Deliberately mirrors the tail of HabitatWorker.step so the
         cached lists stay aligned with real steps — the logger and video renderer
@@ -93,7 +111,10 @@ class MultiObjectHabitatWorker(HabitatWorker):
             "done": False,
             "info": dict(self.last_step["info"]),
         }
-        extras = {"+fp_stop": -99999 * int(not self.fp_guard), "+fn_stop": -99999 * int(not self.fn_guard)}
+        extras = guard_extras or {
+            "+fp_stop": -99999 * int(not self.fp_guard),
+            "+fn_stop": -99999 * int(not self.fn_guard),
+        }
         if self.postprocess:
             step_dict = self._postprocess_step(step_dict)
             extras["+stuck"] = False
@@ -153,6 +174,7 @@ class MultiObjectHabitatWorker(HabitatWorker):
         m = self._multi
         obs["+instr_or_goal"] = m["goals"][m["goal_idx"]]
         obs["+goal_idx"] = m["goal_idx"]
+        obs["+goal_sequence"] = list(m["goals"])
         info["+goal_idx"] = m["goal_idx"]
         self._pending = None
         return step_dict
