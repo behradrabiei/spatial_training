@@ -77,6 +77,77 @@ def substitute_convo_template(conversation_template: List[Dict], substitutions: 
     return new_conversation
 
 class EpisodeRolloutMixin:
+    def _collect_visualization_logs(self) -> Dict[str, Any]:
+        """Collect the enabled, serializable visualization payloads for one decision."""
+        logs = {}
+        if self.rollout_config.get("visualize_token_filtering"):
+            viz = self.get_filter_visualization()
+            if viz is not None:
+                logs["vis_keep_mask"], logs["image_grid_thw"] = viz
+        if self.rollout_config.get("visualize_attention"):
+            viz = self.get_attention_visualization()
+            if viz is not None:
+                logs["attn_map"], logs["attn_grid_thw"] = viz
+        if self.rollout_config.get("visualize_attention_heads"):
+            viz = self.get_attention_heads_visualization()
+            if viz is not None:
+                logs["attn_heads"], logs["attn_grid_thw"] = viz
+        if self.rollout_config.get("visualize_attention_3d"):
+            viz = self.get_attention_3d_visualization()
+            if viz is not None:
+                logs["attn_hist"], logs["attn_hist_grids"] = viz
+                logs["attn_signal"] = self.attn_weighting
+                masses = self.get_attention_mass_fractions()
+                if masses is not None:
+                    logs["attn_visual_mass_frac"] = masses["visual"]
+                    logs["attn_instruction_mass_frac"] = masses["instruction"]
+        return logs
+
+    def predict_rollout_step(self, rgb, messages, pos_id_kwargs=None) -> Dict[str, Any]:
+        """Run one cached rollout decision without returning model tensors.
+
+        This is the interactive counterpart to the inference block in
+        :meth:`run_episode`.  Keeping it on the model actor avoids transferring the
+        model output (which contains the growing KV cache) through Ray.
+        """
+        rgb_pil = Image.fromarray(np.asarray(rgb, dtype=np.uint8))
+        started = time.time()
+        action_probs, action_logprobs, _ = self.infer_probs(
+            images=[rgb_pil],
+            messages=messages,
+            temperature=self.rollout_config["temperature"],
+            pos_id_kwargs=pos_id_kwargs or {"mode": "standard"},
+        )
+        action_id, spguard_triggered = select_action(
+            action_probs,
+            deterministic=self.rollout_config.get("deterministic", False),
+            stop_prob_threshold=self.rollout_config.get("stop_prob_threshold"),
+        )
+        latency = time.time() - started
+        entropy = -np.sum(action_probs * np.log(action_probs + 1e-9))
+        supplementary_logs = {
+            "mean/vlm_latency": latency,
+            "min/vlm_latency": latency,
+            "max/vlm_latency": latency,
+            "sum/spguard_trigger_count": int(spguard_triggered),
+            "mean/entropy": float(entropy),
+            "mean/action_prob": float(action_probs[action_id]),
+            "action_probs": action_probs.tolist(),
+            **self._collect_visualization_logs(),
+        }
+        try:
+            import torch
+            supplementary_logs["vlm_mem_GB"] = torch.cuda.memory_allocated() / (1024 ** 3)
+        except Exception:
+            pass
+        return {
+            "model_action_id": action_id,
+            "action_probs": action_probs.tolist(),
+            "action_logprobs": action_logprobs.tolist(),
+            "spguard_triggered": spguard_triggered,
+            "supplementary_logs": supplementary_logs,
+        }
+
     def _pack_trajectory(self, buffer: List[Dict]) -> Dict[str, np.ndarray]:
         """
         Converts list of dicts to a dict of numpy arrays (Columnar format).
@@ -146,29 +217,7 @@ class EpisodeRolloutMixin:
                     vlm_logs |= {"vlm_mem_GB":torch.cuda.memory_allocated()/(1024**3)}
                 except:
                     print("warning: could not get vlm mem")
-                if self.rollout_config.get("visualize_token_filtering"):
-                    viz = self.get_filter_visualization()
-                    if viz is not None:
-                        vlm_logs["vis_keep_mask"] = viz[0]
-                        vlm_logs["image_grid_thw"] = viz[1]
-                if self.rollout_config.get("visualize_attention"):
-                    aviz = self.get_attention_visualization()
-                    if aviz is not None:
-                        vlm_logs["attn_map"] = aviz[0]
-                        vlm_logs["attn_grid_thw"] = aviz[1]
-                if self.rollout_config.get("visualize_attention_heads"):
-                    hviz = self.get_attention_heads_visualization()
-                    if hviz is not None:
-                        vlm_logs["attn_heads"] = hviz[0]
-                        vlm_logs["attn_grid_thw"] = hviz[1]
-                if self.rollout_config.get("visualize_attention_3d"):
-                    viz3d = self.get_attention_3d_visualization()
-                    if viz3d is not None:
-                        vlm_logs["attn_hist"] = viz3d[0]
-                        vlm_logs["attn_hist_grids"] = viz3d[1]
-                        # The renderer labels its colorbar from this; the maps
-                        # themselves carry no hint of what they measure.
-                        vlm_logs["attn_signal"] = self.attn_weighting
+                vlm_logs |= self._collect_visualization_logs()
                 # print(f"vlm step{step_count}")
                 # print("done")
                 #except for the first turn, all messages follow the exact same template.
@@ -615,5 +664,4 @@ def collect_rollouts(
     result_list = [result_dict[i] for i in range(num_rollouts)]
     log_list = [log_dict[i] for i in range(num_rollouts)]
     return ray.get(rollouts), result_list, log_list
-
 

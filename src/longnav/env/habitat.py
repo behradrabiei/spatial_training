@@ -611,10 +611,11 @@ class HabitatWorker:
                         map_padding=3,
                         map_resolution=512,
                         draw_goal_positions=True,
-                        # Drawing goal AABBs requires per-scene semantic
-                        # annotations (sem_scene.objects) to be available for the
-                        # loaded scene dataset.
-                        draw_goal_aabbs=True,
+                        # Goal positions cover every same-floor goal instance.
+                        # AABB drawing additionally indexes semantic scene objects
+                        # and crashes on valid episodes whose semantic annotation is
+                        # absent or incomplete.
+                        draw_goal_aabbs=False,
                         draw_shortest_path=True,
                         draw_view_points=True,
                         draw_border=True,
@@ -1099,9 +1100,51 @@ class HabitatWorker:
         }
     def close(self):
         """Close environment"""
+        self.finish_live_recording()
         if self.env is not None:
             self.env.close()
             self.env = None
+
+    def start_live_recording(self, output_dir, fps=4):
+        """Start the interactive RGB + 3D-attention recording for this episode."""
+        self.finish_live_recording()
+        from longnav.env.attn3d import LiveAttentionCloudRenderer
+        self.live_attention_renderer = LiveAttentionCloudRenderer(
+            output_dir=output_dir,
+            fps=fps,
+            norm_mode=self.attn_norm_mode,
+        )
+        return {
+            "current_image": self.live_attention_renderer.current_path,
+            "video": self.live_attention_renderer.video_path,
+        }
+
+    def render_live_step(self, prediction, mode, step, episode_index, action_names):
+        """Render the current cached observation with a model prediction."""
+        renderer = getattr(self, "live_attention_renderer", None)
+        if renderer is None:
+            raise RuntimeError("start_live_recording() must be called before render_live_step()")
+        if not self.steps["obs"] or not self.steps["info"]:
+            raise RuntimeError("No current Habitat observation is available to render")
+        return renderer.append(
+            obs=self.steps["obs"][-1],
+            info=self.steps["info"][-1],
+            prediction=prediction,
+            mode=mode,
+            step=step,
+            episode_index=episode_index,
+            action_names=action_names,
+        )
+
+    def finish_live_recording(self):
+        """Finalize and detach the interactive video writer, if one is active."""
+        renderer = getattr(self, "live_attention_renderer", None)
+        if renderer is None:
+            return None
+        try:
+            return renderer.close()
+        finally:
+            self.live_attention_renderer = None
 
     def _sanitize(self, data):
         """
@@ -1451,4 +1494,3 @@ class HabitatEnvActor(LoggingHabitatWorker):
         else:
             patch_coords = state_dict['obs'].pop('patch_coords')
             return rgb, patch_coords,state_dict
-
