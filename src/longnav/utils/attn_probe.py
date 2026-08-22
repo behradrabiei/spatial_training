@@ -116,6 +116,7 @@ class AttentionProbe:
         self.rows = {}
         self.head_rows = {}
         self.grad_rows = {}  # layer -> live attention tensor, awaiting backward_from
+        self.mass_rows = {}  # layer -> mean-over-heads row; true probability mass (raw mode only)
         self.kv_len = None
         # Only the cached generation forward should be captured; see `enabled`.
         self.enabled = False
@@ -169,6 +170,10 @@ class AttentionProbe:
                     self.head_rows[idx] = heads.to("cpu", torch.float32)
                 if self.weighting == "raw":
                     self.rows[idx] = heads.amax(0).to("cpu", torch.float32)
+                    # Each head's softmax row sums to 1, so the mean over heads is a
+                    # true probability distribution -- unlike the amax above, which
+                    # exists for display. Mass statistics must read this row.
+                    self.mass_rows[idx] = heads.mean(0).to("cpu", torch.float32)
                 else:
                     row = heads.sum(0)
                     # Bound the range before the fp16 serialization downstream. Every
@@ -285,7 +290,7 @@ class AttentionProbe:
         """
         import torch
 
-        for store in (self.banks, self.rows, self.head_rows):
+        for store in (self.banks, self.rows, self.head_rows, self.mass_rows):
             for idx, tensor in store.items():
                 store[idx] = torch.cat([tensor[..., :prefix], tensor[..., drop_end:]], dim=-1)
 
@@ -302,5 +307,6 @@ class AttentionProbe:
         self.rows = {}
         self.head_rows = {}
         self.grad_rows = {}
+        self.mass_rows = {}
         self.kv_len = None
         self.banks = {}

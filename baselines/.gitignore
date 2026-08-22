@@ -1,0 +1,8 @@
+.cache/
+.envs/
+.tools/
+Uni-NaVid/
+habitat-lab/
+results/
+__pycache__/
+*.pyc

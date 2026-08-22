@@ -803,7 +803,11 @@ class VLMWorker:
                 if 'mm_token_type_ids' in turn_inputs.keys():
                     turn_inputs["mm_token_type_ids"] = turn_inputs['mm_token_type_ids'][:,:(postfix_starts[-1]-1)]
 
-        if self.context_window is not None and self._prefix_len is None:
+        # Pin the instruction span on the first turn whenever a context window
+        # needs it, or the 3D attention mass stats want to report it.
+        if self._prefix_len is None and (
+            self.context_window is not None or self.visualize_attention_3d
+        ):
             self._prefix_len = self._find_prompt_prefix_len(turn_inputs['input_ids'])
 
         t = time.time()
@@ -1174,6 +1178,45 @@ class VLMWorker:
             per_layer[idx] = maps
         grids = [rec["grid_thw"] for rec in self._frame_records]
         return per_layer, grids
+
+    def get_attention_mass_fractions(self):
+        """Visual and instruction mass fractions of the decision row, or None.
+
+        Returns {"visual": float, "instruction": float} when both can be computed.
+        "visual" is mass on still-resident image-patch keys; "instruction" is mass
+        on the pinned leading prompt span (goal + action space), which is always
+        pure text and stays at cache positions [0, _prefix_len).
+
+        In raw mode this reads the probe's mean-over-heads row, which is a true
+        probability distribution -- the amax row the heat maps use is not one. The
+        weighted/grad rows are only peak-scaled by a scalar, so the fractions are
+        unchanged by that; under 'grad' they read as "share of positive attribution"
+        rather than attention probability. With a context window active, evicted
+        frames drop out of the visual share, but the instruction span stays pinned.
+        """
+        import torch
+
+        if not self.visualize_attention_3d or self.attn_probe is None or not self._frame_records:
+            return None
+        if not self.attn3d_layer_ids or self._prefix_len is None:
+            return None
+        layer = self.attn3d_layer_ids[-1]
+        row = self.attn_probe.mass_rows.get(layer, self.attn_probe.rows.get(layer))
+        if row is None:
+            return None
+        total = float(row.sum())
+        if total <= 0:
+            return None
+        idxs = [rec["abs_kv_idx"] for rec in self._frame_records if rec["abs_kv_idx"] is not None]
+        if not idxs:
+            return None
+        vis_idx = torch.cat(idxs)
+        vis_idx = vis_idx[vis_idx < row.numel()]
+        n_instr = min(int(self._prefix_len), row.numel())
+        return {
+            "visual": float(row[vis_idx].sum()) / total,
+            "instruction": float(row[:n_instr].sum()) / total,
+        }
 
     def merge_adapter(self):
         print("Merging LoRA adapters for inference...")

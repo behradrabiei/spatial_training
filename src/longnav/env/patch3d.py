@@ -56,6 +56,14 @@ def _render_frame(pts, cols, keep, traj, fig, ax, elev, azim, max_points):
     grayscale ghost so the model's selection stands out while scene geometry
     remains readable.
     """
+    # Negate z, matching attn3d._draw_cloud: habitat is right-handed with -z
+    # forward, so plotting (x, z, y) directly would mirror the scene and disagree
+    # with the top-down map orientation.
+    flip = np.array([1.0, 1.0, -1.0], dtype=np.float32)
+    if len(pts):
+        pts = pts * flip
+    traj = [np.asarray(p, dtype=np.float32) * flip for p in traj]
+
     ax.clear()
     ax.set_axis_off()
 

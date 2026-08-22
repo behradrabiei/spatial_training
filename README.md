@@ -63,6 +63,25 @@ Example:
 python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_val +experiment=eval +resources=octo task.run_name=my_awesome_eval_run
 ```
 
+### Interactive eval
+
+Run one eval episode under keyboard control, then press Space to hand control to
+the model:
+
+```
+python -m longnav.scripts.teleop_eval \
+  +checkpoint=longnav +dataset=hm3d_v2_val +experiment=eval +resources=single \
+  task.run_name=my_teleop_run task.episode_json=/path/to/episodes.json \
+  teleop.episode_index=0
+```
+
+Controls are `W/A/D` (forward/left/right), `X` (stop), optional `R/F`
+(look up/down), Space (model handoff), and `Q` (abort). The command prints the
+path to an atomically refreshed `current.png`; the completed MP4 and JSON trace
+are written beside it under the run's `teleop/` directory. Each frame contains
+annotated RGB, final-layer 3D attention, and a Habitat top-down map with goal
+instances and the accumulated agent trajectory.
+
 ## Sim to Real Serving 🤖
 Serve the FAST API:
 ```
@@ -85,4 +104,3 @@ Config overrides are defined within the [config directory](src/longnav/config) w
 See [dummy env structure](src/longnav/env/env_base.py) for reference. Any compatible Env may be used by the [rollout collection orchestration](src/longnav/utils/rollout_core.py) to produce rollouts for training steps.
 
 At a high level, the Env Actors return dictionaries of standard RL outputs. However, RGB observation is separated out for better Ray performance.
-
