@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 import traceback
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -114,6 +115,21 @@ def nonnegative_int(value: str) -> int:
     return parsed
 
 
+@contextmanager
+def isolated_torch_rng(seed: int, device: torch.device):
+    """Seed one generation call, then restore the caller's Torch RNG state."""
+    devices: list[int] = []
+    if device.type == "cuda":
+        devices = [
+            device.index if device.index is not None else torch.cuda.current_device()
+        ]
+    with torch.random.fork_rng(devices=devices):
+        torch.random.default_generator.manual_seed(seed)
+        if devices:
+            torch.cuda.default_generators[devices[0]].manual_seed(seed)
+        yield
+
+
 class UniNaVidPolicy:
     """Inference-only policy preserving the official two-action evaluator behavior."""
 
@@ -126,6 +142,7 @@ class UniNaVidPolicy:
         context_window: int | None = None,
         no_visual_tokens: bool = False,
         current_frame_only_64: bool = False,
+        sampling_seed: int | None = None,
     ) -> None:
         from uninavid.constants import (
             DEFAULT_IMAGE_TOKEN,
@@ -155,6 +172,7 @@ class UniNaVidPolicy:
         self.context_window = context_window
         self.no_visual_tokens = no_visual_tokens
         self.current_frame_only_64 = current_frame_only_64
+        self.sampling_seed = sampling_seed
 
         model_name = get_model_name_from_path(str(model_path))
         self.tokenizer, self.model, self.image_processor, self.context_len = (
@@ -184,9 +202,22 @@ class UniNaVidPolicy:
     def reset(self) -> None:
         self.pending_actions = []
         self.new_rgb_frames = []
+        self.inference_index = 0
+        self.last_inference_seed: int | None = None
         self.model.config.run_type = "eval"
         self.model.get_model().initialize_online_inference_nav_feat_cache()
         self.model.get_model().new_frames = 0
+
+    def discard_pending_actions(self) -> None:
+        """Force the next observation through inference without resetting history."""
+        self.pending_actions = []
+
+    @staticmethod
+    def inference_seed_for_call(base_seed: int, inference_index: int) -> int:
+        """Derive the stable RNG seed for one model-generation call."""
+        if inference_index < 0:
+            raise ValueError("inference_index must be non-negative")
+        return (int(base_seed) + inference_index) % (2**63 - 1)
 
     @staticmethod
     def parse_actions(output: str, limit: int) -> tuple[list[str], list[str], bool]:
@@ -338,7 +369,16 @@ class UniNaVidPolicy:
         )
         images = self._process_images()
         self.model.update_prompt([[question]])
-        with torch.inference_mode():
+        inference_seed = None
+        rng_context: Any = nullcontext()
+        if self.sampling_seed is not None:
+            inference_seed = self.inference_seed_for_call(
+                self.sampling_seed, self.inference_index
+            )
+            self.inference_index += 1
+            rng_context = isolated_torch_rng(inference_seed, self.device)
+        self.last_inference_seed = inference_seed
+        with torch.inference_mode(), rng_context:
             output_ids = self.model.generate(
                 input_ids,
                 images=images,
@@ -369,6 +409,7 @@ class UniNaVidPolicy:
                 "invalid_tokens": [],
                 "fallback_stop": False,
                 "inference_seconds": 0.0,
+                "inference_seed": None,
             }
 
         prompt = PROMPT_TEMPLATE.format(instruction)
@@ -389,6 +430,7 @@ class UniNaVidPolicy:
             "invalid_tokens": invalid,
             "fallback_stop": fallback,
             "inference_seconds": elapsed,
+            "inference_seed": self.last_inference_seed,
         }
 
 

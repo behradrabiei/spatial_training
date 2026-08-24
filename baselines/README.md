@@ -27,6 +27,56 @@ bash baselines/run.sh smoke
 bash baselines/run.sh full
 ```
 
+Interactively drive one single-object HM3D-v2 episode and then press Space to
+hand control permanently to Uni-NaVid with:
+
+```bash
+bash baselines/run.sh teleop --episode-index 0
+```
+
+Use `--seed N` (default `30`) for a reproducible teleop/model run. The seed is
+applied to Habitat and independently to each Uni-NaVid generation call, so
+stochastic sampling cannot be shifted by unrelated CUDA random-number use. To
+reproduce the actions, keep the same episode, seed, inference options, hardware
+and software environment, and enter the same manual key sequence before Space.
+
+The controls are `W/A/D/X` for forward/left/right/stop, Space for model
+handoff, and `Q` to abort. During teleoperation, Uni-NaVid runs a fresh preview
+on every observation and retains the visual history of the manually driven
+trajectory. Its normal buffered-action behavior resumes after handoff.
+
+The live view and video place the annotated RGB observation beside Habitat's
+top-down map with goal instances and the agent trajectory. They and the JSON
+trace are written under `results/uninavid_teleop/<index>_<episode-label>/` as `current.png`,
+`episode.mp4`, and `trace.json`. Attention heat maps are intentionally disabled:
+Uni-NaVid's mixed 2x2, 8x8, and similarity-merged visual tokens do not retain the
+spatial provenance required by LongNav's 3D attention renderer.
+
+Run Uni-NaVid on the 236-episode OneMap sequential multi-object benchmark with:
+
+```bash
+bash baselines/run.sh multi-validate
+bash baselines/run.sh multi-smoke
+bash baselines/run.sh multi-full
+bash baselines/run.sh multi-all-goals-smoke
+bash baselines/run.sh multi-all-goals-full
+```
+
+The full multi-object run is resumable and writes to
+`results/onemap_multi_uninavid_sequential`. Goals are disclosed one at a time.
+When the model successfully stops at an intermediate goal, the evaluator keeps
+the visual history, discards any buffered future action, and appends the new task
+to the text context. Model actions are never added to that context. Stop actions
+are scored as emitted: no false-positive or false-negative oracle stop guard and
+no post-switch stop veto are used.
+
+The `multi-all-goals-*` modes instead put the complete ordered sequence in the
+initial task (for example, `Find chair, then plant, then bed, in that order.`),
+while retaining the same visual memory, task updates, and no-oracle stopping.
+Their full results are written to
+`results/onemap_multi_uninavid_all_goals`.
+
+
 The full command uses `--resume`; completed episode JSON files are skipped.
 Pass evaluator overrides after the command, for example:
 

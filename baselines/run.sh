@@ -32,7 +32,7 @@ fi
 cd "$BASELINE_ROOT/Uni-NaVid"
 COMMAND="${1:-}"
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 {download|validate|model-check|smoke|eval|full} [extra arguments]" >&2
+  echo "Usage: $0 {download|validate|model-check|smoke|eval|full|teleop|multi-validate|multi-smoke|multi-full|multi-all-goals-smoke|multi-all-goals-full} [extra arguments]" >&2
   exit 2
 fi
 shift
@@ -58,6 +58,28 @@ case "$COMMAND" in
   full)
     exec "$PYTHON" -m uninavid_hm3d.eval --resume \
       --output "$BASELINE_ROOT/results/hm3d_v2_100" "$@"
+    ;;
+  teleop)
+    exec "$PYTHON" -m uninavid_hm3d.teleop "$@"
+    ;;
+  multi-validate)
+    exec "$PYTHON" -m uninavid_hm3d.eval_multi --validate-only "$@"
+    ;;
+  multi-smoke)
+    exec "$PYTHON" -m uninavid_hm3d.eval_multi --limit 1 --video \
+      --output "$BASELINE_ROOT/results/onemap_multi_uninavid_sequential_smoke" "$@"
+    ;;
+  multi-full)
+    exec "$PYTHON" -m uninavid_hm3d.eval_multi --resume \
+      --output "$BASELINE_ROOT/results/onemap_multi_uninavid_sequential" "$@"
+    ;;
+  multi-all-goals-smoke)
+    exec "$PYTHON" -m uninavid_hm3d.eval_multi --reveal-all-goals --limit 1 --video \
+      --output "$BASELINE_ROOT/results/onemap_multi_uninavid_all_goals_smoke" "$@"
+    ;;
+  multi-all-goals-full)
+    exec "$PYTHON" -m uninavid_hm3d.eval_multi --reveal-all-goals --resume \
+      --output "$BASELINE_ROOT/results/onemap_multi_uninavid_all_goals" "$@"
     ;;
   *)
     echo "Unknown command: $COMMAND" >&2
