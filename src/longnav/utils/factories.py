@@ -7,6 +7,7 @@ from longnav.config_schema import *
 from typing import List, Dict, Any, Iterator, Optional,Union
 import logging
 import json
+from dataclasses import asdict, is_dataclass
 thread_cap_env = {
     "env_vars": {
         "OMP_NUM_THREADS": "1", 
@@ -231,8 +232,8 @@ class WandbFactory:
         Returns a Ray Actor for logging to WandB, and set of episode labels to skip.
         Checks the episode_label column of the existing run (if any) to determine which episodes have already been logged, and returns that as a set to skip.
         '''
-        if not run_cfg.wandb_project: 
-            return None
+        if not run_cfg.wandb_project:
+            return None, set()
         
         from longnav.utils.logging_workers import WandbLoggerActor
         
@@ -279,15 +280,15 @@ class ExpBootstrapper:
         # Resolve all interpolations (Stage 1)
         # This turns ${read_text:...} into actual file content
         try:
-            self.resolved_dict = OmegaConf.to_container(cfg, resolve=True)
+            if OmegaConf.is_config(cfg):
+                self.resolved_dict = OmegaConf.to_container(cfg, resolve=True)
+            elif is_dataclass(cfg):
+                self.resolved_dict = asdict(cfg)
+            else:
+                raise TypeError(f"Unsupported config type: {type(cfg).__name__}")
         except Exception as e:
             print(f"⚠️ Failed to resolve config interpolations: {e}")
-            try:
-                from dataclasses import asdict
-                self.resolved_dict = asdict(cfg)
-            except Exception as e:
-                print(f"⚠️ Failed to convert config to dict: {e}")
-                self.resolved_dict = {}
+            self.resolved_dict = {}
         self.typed_cfg = cfg 
 
     def setup_cluster(self):

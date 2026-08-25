@@ -1,6 +1,9 @@
+[submodule ".habitat-lab"]
+	path = .habitat-lab
+	url = https://github.com/facebookresearch/habitat-lab.git
 [submodule "verl"]
 	path = verl
-	url = git@github.com:volcengine/verl.git
+	url = https://github.com/volcengine/verl.git
 [submodule "ovon"]
 	path = ovon
-	url = git@github.com:naokiyokoyama/ovon.git
+	url = https://github.com/naokiyokoyama/ovon.git

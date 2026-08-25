@@ -3,6 +3,10 @@ This repository provides the implementation of LongNav.
 
 ### 🚧 🚧 under construction 🚧🚧
 ## Installation 🛠️
+
+For an NCSA Delta installation with offline compute-node model loading, see
+[cluster/delta/README.md](cluster/delta/README.md).
+
 ### RL trainer
 Create the main conda environment responsible for vlm trainer
 ```

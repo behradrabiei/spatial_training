@@ -723,16 +723,33 @@ class HabitatWorker:
         self.steps = defaultdict(list)
         self.last_step = None
         self.reset_flag = False
-        self.assigned_labels = set(assigned_episode_labels) if assigned_episode_labels is not None else None
+        self.assigned_labels = (
+            set(assigned_episode_labels)
+            if assigned_episode_labels is not None
+            else None
+        )
 
         if self.assigned_labels is not None:
-            # Filter Episodes
+            # Some generated ObjectNav datasets reuse episode IDs across goals.
+            # An assigned label still denotes one episode, so keep its first
+            # deterministic occurrence instead of silently expanding the shard.
+            selected_labels = set()
+
             def filter_fn(eps):
                 scene_id = get_scene_id(eps.scene_id)
                 episode_label = f'{scene_id}_{eps.episode_id}'
-                return episode_label in self.assigned_labels
+                if (
+                    episode_label not in self.assigned_labels
+                    or episode_label in selected_labels
+                ):
+                    return False
+                selected_labels.add(episode_label)
+                return True
 
             dataset = self.full_dataset.filter_episodes(filter_fn)
+            missing_labels = self.assigned_labels - selected_labels
+            if missing_labels:
+                print(f"WARNING: Assigned episode labels not found: {sorted(missing_labels)}")
         else:
             dataset = self.full_dataset
         try:

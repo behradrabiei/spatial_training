@@ -1,3 +1,5 @@
+import os
+
 from longnav.config_schema import *
 from longnav.utils.factories import ExpBootstrapper,get_shard_iterator
 from longnav.env.env_base import DummyEnvActor
@@ -14,7 +16,11 @@ cfg.resources.num_vlms=1
 cfg.resources.vlm_gpu_fraction=0.3
 cfg.resources.num_sims=2
 cfg.resources.vlm_conda_env=None
+cfg.resources.object_spilling_directory = os.environ.get(
+    "RAY_OBJECT_SPILL_DIR", cfg.resources.object_spilling_directory
+)
 
+cfg.vlm.model_id = os.environ.get("LONGNAV_MODEL_ID", cfg.vlm.model_id)
 cfg.vlm.attn_impl = "sdpa"
 cfg.vlm.save_outputs=True
 cfg.rollout.convo_start_template=[
@@ -27,7 +33,7 @@ cfg.training.rl_config.n_rollout=4
 advantage_estimator_fn = get_adv_estimator_fn("reinforce_plus_plus")
 
 cfg.task.run_name = "rl_step"
-cfg.task.wandb_project = "longnav_smoke_test"
+cfg.task.wandb_project = None
 bootstrapper = ExpBootstrapper(cfg)
 
 bootstrapper.setup_cluster()
@@ -158,4 +164,6 @@ for i in range(3):
                 print(f"Error in training future: {e}")
                 completed_count += 1
                 print(f"[{completed_count}/{total_tasks}] Complete with error. Check logs for details.")
-ray.get(wandb_actor.close.remote())
+if wandb_actor is not None:
+    ray.get(wandb_actor.close.remote())
+ray.shutdown()

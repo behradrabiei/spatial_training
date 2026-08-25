@@ -1,3 +1,5 @@
+import os
+
 from longnav.config_schema import *
 from longnav.utils.factories import ExpBootstrapper,get_shard_iterator
 from longnav.env.env_base import DummyEnvActor
@@ -7,6 +9,10 @@ import ray
 cfg = RLConfig()
 cfg.resources.osm_gb=28
 cfg.resources.vlm_conda_env=None
+cfg.resources.object_spilling_directory = os.environ.get(
+    "RAY_OBJECT_SPILL_DIR", cfg.resources.object_spilling_directory
+)
+cfg.vlm.model_id = os.environ.get("LONGNAV_MODEL_ID", cfg.vlm.model_id)
 cfg.vlm.attn_impl = "sdpa"
 cfg.rollout.convo_start_template=[
         {"role": "user", "content": [{"type": "text", "text": "example substitution: $instr_or_goal"}]},

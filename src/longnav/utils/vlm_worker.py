@@ -44,7 +44,10 @@ class VLMWorker:
         fa_utils._is_packed_sequence = patched
         import torch
         from transformers import AutoProcessor
-        self.processor = AutoProcessor.from_pretrained(model_id)
+        self.processor = AutoProcessor.from_pretrained(
+            model_id,
+            fix_mistral_regex=True,
+        )
         self.vocab = vocab
         self.vocab_ids = self._vocab_to_ids(vocab)
         self.save_outputs = save_outputs
