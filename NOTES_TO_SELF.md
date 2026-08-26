@@ -68,3 +68,15 @@ python -m longnav.scripts.eval \
   task.subset_label="" \
   task.episode_json=$PWD/dump/hm3d_v2_smoke_labels.json \
   task.shard_size=5
+## Delta: HAMLET v2 (memory token in context, n_moment=8) RL from the stage-1 adapter — 2026-08-26
+# CPU unit checks (login node):
+PYTHONPATH=src /work/nvme/bgon/brabiei/longnav_runtime/envs/longnav_vlm/bin/python tests/hamlet_unit.py
+# 1-GPU pre-flight on full-length episodes (smoke gate + 2 real episodes at 350 steps, peak VRAM):
+PRE=$(sbatch --parsable --export=ALL,MINI_STEPS=350,MINI_ROLLOUT=2,MINI_OPT_STEPS=2 cluster/delta/test_hamlet.sbatch)
+# 12 h 4xA100 run, gated on the pre-flight (run_rl_train.sh pins stage-1 reward shaping + lr 1.25e-6):
+MAIN=$(sbatch --parsable --time=12:00:00 --dependency=afterok:$PRE \
+  --export=ALL,RUN_NAME=hamlet_mem_20260826,MAX_WALLCLOCK_HOURS=11.4 cluster/delta/train_hamlet.sbatch)
+# Checkpoint watchdog: 36-episode argmax evals of checkpoints 3,7,11,15,31,47,...,final; scancel on success <= 0.10
+nohup cluster/delta/watch_train.sh $MAIN hamlet_mem_20260826 \
+  > /work/nvme/bgon/brabiei/longnav_runtime/logs/watch_hamlet_mem_20260826.out 2>&1 &
+# results: /work/nvme/bgon/brabiei/longnav_runtime/runs/hamlet_mem_20260826/{progress.json,eval36.jsonl,checkpoints/}
