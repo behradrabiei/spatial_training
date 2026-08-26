@@ -14,6 +14,10 @@ export LONGNAV_MODEL_ROOT="${LONGNAV_MODEL_ROOT:-${LONGNAV_RUNTIME_ROOT}/models}
 export LONGNAV_MODEL_MANIFEST="${LONGNAV_MODEL_MANIFEST:-${LONGNAV_MODEL_ROOT}/manifest.json}"
 export LONGNAV_OUTPUT_ROOT="${LONGNAV_OUTPUT_ROOT:-${LONGNAV_RUNTIME_ROOT}/runs}"
 export LONGNAV_MANIFEST_ROOT="${LONGNAV_MANIFEST_ROOT:-${LONGNAV_RUNTIME_ROOT}/manifests}"
+export LONGNAV_LOG_ROOT="${LONGNAV_LOG_ROOT:-${LONGNAV_RUNTIME_ROOT}/logs}"
+# Habitat working directory (sim.workspace): holds data/scene_datasets symlinks
+# so the episodes' cwd-relative scene_dataset_config paths resolve on Delta.
+export LONGNAV_SIM_WORKSPACE="${LONGNAV_SIM_WORKSPACE:-${LONGNAV_RUNTIME_ROOT}/workspace}"
 
 export HABITAT_SIM_COMMIT="${HABITAT_SIM_COMMIT:-57ee4941dc4765240f0f91f70b2c97a919bf9038}"
 export HABITAT_SIM_SOURCE="${HABITAT_SIM_SOURCE:-${LONGNAV_RUNTIME_ROOT}/sources/habitat-sim}"
@@ -29,6 +33,9 @@ export TORCH_HOME="${TORCH_HOME:-${LONGNAV_RUNTIME_ROOT}/cache/torch}"
 export LONGNAV_HM3D_EPISODES="${LONGNAV_HM3D_EPISODES:-${HABITAT_DATA_ROOT}/evaluation_episodes/HM3D/objectnav_hm3d_v2/val/val.json.gz}"
 export LONGNAV_HM3D_SCENES="${LONGNAV_HM3D_SCENES:-${HABITAT_DATA_ROOT}/scenes/HM3D/v2}"
 export LONGNAV_SMOKE_EPISODES="${LONGNAV_SMOKE_EPISODES:-${LONGNAV_DELTA_DIR}/hm3d_v2_smoke5.json}"
+# HM3D ObjectNav v1 train split (what the first RL stage trained on); scenes
+# resolve through the `hm3d -> hm3d_v0.2` symlink created by prepare_hm3d_train.sh.
+export LONGNAV_HM3D_TRAIN_EPISODES="${LONGNAV_HM3D_TRAIN_EPISODES:-${HABITAT_DATA_ROOT}/evaluation_episodes/HM3D/objectnav_hm3d_v1/train/train.json.gz}"
 
 longnav_find_conda() {
     if [[ -n "${CONDA_EXE:-}" && -x "${CONDA_EXE}" ]]; then
@@ -72,3 +79,14 @@ longnav_require_data() {
     longnav_require_file "${scene_dir}/4ok3usBNeis.basis.glb"
     longnav_require_file "${scene_dir}/4ok3usBNeis.basis.navmesh"
 }
+
+# Ray's conda runtime_env (utils/factories.py) shells out to `conda info --json`
+# and `conda activate <prefix>` on every node. Compute nodes have no conda on
+# PATH, so point Ray at the miniforge the envs were built with.
+if [[ -z "${RAY_CONDA_HOME:-}" ]]; then
+    _longnav_conda_bin="$(longnav_find_conda 2>/dev/null || true)"
+    if [[ -n "${_longnav_conda_bin}" ]]; then
+        export RAY_CONDA_HOME="$(cd -- "$(dirname -- "${_longnav_conda_bin}")/.." && pwd)"
+    fi
+    unset _longnav_conda_bin
+fi

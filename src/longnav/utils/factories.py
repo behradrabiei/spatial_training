@@ -242,10 +242,12 @@ class WandbFactory:
             runtime_env={"conda": res_cfg.vlm_conda_env}
         )
         import wandb
-        api = wandb.Api()
         # fetch latest run id matching name
         id = None
         try:
+            # Api() itself raises without credentials (e.g. an offline cluster); treat
+            # that like "no previous run" instead of crashing the driver.
+            api = wandb.Api()
             runs = api.runs(run_cfg.wandb_project,filters={"displayName":run_cfg.run_name})
             print(f"Found {len(runs)} existing runs with name '{run_cfg.run_name}' in project '{run_cfg.wandb_project}'.")
         except:

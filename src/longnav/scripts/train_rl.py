@@ -16,6 +16,7 @@ eval "$(python3 -m longnav.training_scripts.train_rl.py -sc install=bash)"
 NOTE: tab completion only works if your command uses python not python3. somehow.
 '''
 import os
+import copy
 
 from verl.single_controller import ray
 # NUCLEAR THREAD CAP: Must be set before importing numpy/torch/ray
@@ -51,6 +52,11 @@ def main(cfg: RLConfig):
     from longnav.utils.rollout_core import collect_rollouts
     from verl.trainer.ppo.core_algos import get_adv_estimator_fn
     import json
+    import time
+    import re
+    t_start = time.time()
+    cycle_times = []
+    progress_rows = []
 
     def debug_signal_handler(sig, frame):
         # should allow us to interrupt the loop, save data etc, and resume
@@ -70,6 +76,7 @@ def main(cfg: RLConfig):
 
     advantage_estimator_fn = get_adv_estimator_fn(cfg.training.rl_config.advantage_estimator)
     print(f"Model ID: {cfg.vlm.model_id}")
+    print(f"HAMLET enabled: {cfg.vlm.hamlet.enabled}")
     bootstrapper = ExpBootstrapper(cfg)
     logger = get_console_logger()
 
@@ -128,7 +135,44 @@ def main(cfg: RLConfig):
             logger=logger
         )
         num_rollouts = bootstrapper.typed_cfg.training.total_optimization_steps*bootstrapper.typed_cfg.training.grad_accum_steps//bootstrapper.typed_cfg.training.rl_config.n_rollout
-        for global_cycle in range(num_rollouts):
+        run_dir = os.path.join(bootstrapper.typed_cfg.task.output_dir, bootstrapper.typed_cfg.task.run_name)
+        progress_path = os.path.join(run_dir, "progress.json")
+        start_cycle = 0
+        restoring_state = bool(bootstrapper.typed_cfg.training.load_optim or bootstrapper.typed_cfg.training.load_sched)
+        if restoring_state:
+            # Numbered checkpoints are authoritative. For checkpoint_final, recover
+            # the last completed cycle from the source run's progress file.
+            checkpoint = os.path.abspath(bootstrapper.typed_cfg.training.checkpoint)
+            match = re.fullmatch(r"checkpoint_(\d+)", os.path.basename(checkpoint))
+            if match:
+                start_cycle = int(match.group(1)) + 1
+            else:
+                source_progress = os.path.join(os.path.dirname(os.path.dirname(checkpoint)), "progress.json")
+                if not os.path.isfile(source_progress):
+                    raise ValueError(f"cannot recover resume cycle from {checkpoint}; missing {source_progress}")
+                with open(source_progress) as f:
+                    source_rows = json.load(f)
+                if not source_rows:
+                    raise ValueError(f"cannot recover resume cycle from empty {source_progress}")
+                start_cycle = int(source_rows[-1]["cycle/idx"]) + 1
+            if os.path.isfile(progress_path):
+                with open(progress_path) as f:
+                    progress_rows = json.load(f)
+                if progress_rows and int(progress_rows[-1]["cycle/idx"]) >= start_cycle:
+                    raise ValueError(f"{progress_path} already reaches cycle {progress_rows[-1]['cycle/idx']}, "
+                                     f"but checkpoint resumes at cycle {start_cycle}")
+            logger.info(f"Resuming training at cycle {start_cycle} from {checkpoint}")
+        budget_h = bootstrapper.typed_cfg.training.max_wallclock_hours
+        for global_cycle in range(start_cycle, num_rollouts):
+            # ---------------------------------- wall-clock budget --------------------------------------
+            if budget_h is not None:
+                elapsed_h = (time.time() - t_start) / 3600.0
+                est_cycle_h = (float(np.mean(cycle_times)) / 3600.0) if cycle_times else 0.0
+                if elapsed_h + est_cycle_h > budget_h:
+                    logger.info(f"Wall-clock budget reached: {elapsed_h:.2f}h elapsed + ~{est_cycle_h:.2f}h/cycle "
+                                f"> {budget_h}h. Stopping before cycle {global_cycle}.")
+                    break
+            t_cycle = time.time()
             if FREEZE_DATA:
                 # reset the dataset
                 shard_iter = get_shard_iterator(
@@ -142,15 +186,25 @@ def main(cfg: RLConfig):
 
             # rollout_list = collect_rollouts(sims,trainers,shard_iter,target_episodes=bootstrapper.typed_cfg.training.rl_config.n_rollout) #
             rollout_list,result_list,log_list = collect_rollouts(sims,trainers,shard_iter,bootstrapper.typed_cfg.training.rl_config.n_rollout) #
+            t_rollout = time.time() - t_cycle
+            t_train0 = time.time()
 
-            print("done collecting")
+            print(f"done collecting ({t_rollout:.0f}s)")
             num_vlms = len(trainers)
             # -------------------------------------------unpack and collate the trajectories
 
-            trajectory_list += [tup[0] for tup in rollout_list]
+            # Each postproc result is ONE plasma object holding (trajectory, packed embeds,
+            # metadata), and ray.get hands back zero-copy views into it -- so keeping the
+            # small trajectory dict for the n_adv baseline history would pin the whole
+            # ~0.8 GB object. With n_adv=256 that is ~200 GB of pinned objects: the store
+            # spills and restores every cycle (cycles went from 3 to 15 min on Delta).
+            # Copy the history out of plasma, and put each episode's packed embeds once
+            # per cycle (a plain-value task arg is re-serialized on every epoch).
+            trajectory_list += [copy.deepcopy(tup[0]) for tup in rollout_list]
             trajectory_list = trajectory_list[-bootstrapper.typed_cfg.training.rl_config.n_adv:]
             traj_batch = collate_trajectories(trajectory_list)
-            model_inputs = [(tup[1],tup[2]) for tup in rollout_list]
+            model_inputs = [(ray.put(tup[1]), tup[2]) for tup in rollout_list]
+            del rollout_list
             
             values = traj_batch.get("values",None)
             distances = traj_batch.get('distance_to_goal',None)
@@ -291,6 +345,36 @@ def main(cfg: RLConfig):
                         
                     except Exception as e:
                         logger.error(f"[{completed_count}/{total_tasks}] Task failed: {e}")
+            # ------------------------------------ cycle summary --------------------------------------
+            t_train = time.time() - t_train0
+            cycle_times.append(time.time() - t_cycle)
+            def _mean_of(key):
+                vals = [r[key] for r in result_list if isinstance(r, dict) and r.get(key) is not None]
+                return float(np.mean(vals)) if vals else None
+            cycle_row = {
+                "cycle/idx": global_cycle,
+                "cycle/episodes": len(result_list),
+                "cycle/rollout_s": t_rollout,
+                "cycle/train_s": t_train,
+                "cycle/cycle_s": cycle_times[-1],
+                "cycle/elapsed_h": (time.time() - t_start) / 3600.0,
+                "cycle/success": _mean_of("success"),
+                "cycle/spl": _mean_of("spl"),
+                "cycle/mean_steps": _mean_of("steps"),
+                "cycle/adv_std": advantages.std().item(),
+                "cycle/return_mean": global_return_mean,
+            }
+            logger.info("cycle summary: " + json.dumps(cycle_row))
+            progress_rows.append(cycle_row)
+            try:
+                os.makedirs(run_dir, exist_ok=True)
+                with open(progress_path, "w") as f:
+                    json.dump(progress_rows, f, indent=1)
+            except Exception as e:
+                logger.warning(f"could not write progress.json: {e}")
+            if wandb_actor is not None:
+                wandb_actor.log_row.remote(cycle_row)
+
             #------------------------------------ save checkpoint ------------------------------------
             steps_until_save = (global_cycle+1) % bootstrapper.typed_cfg.training.save_step
             if steps_until_save == 0:
@@ -300,6 +384,10 @@ def main(cfg: RLConfig):
                 print(f"T-{steps_until_save} steps until checkpoint!")
 
             del model_inputs
+        # Reached either the step budget or the wall-clock budget: keep the final weights.
+        final_path = os.path.join(run_dir, "checkpoints", "checkpoint_final")
+        logger.info(f"Saving final checkpoint to {final_path}")
+        ray.get(trainers[0].save_checkpoint_unsafe.remote(final_path))
     finally:
 
         cleanup()

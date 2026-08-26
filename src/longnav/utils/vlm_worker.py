@@ -13,6 +13,8 @@ from dataclasses import dataclass,field
 # from transformers.models.qwen3_vl.modeling_qwen3_vl import rotate_half
 import torch.nn.functional as F
 from longnav.config_schema import VLMTrainingConfig
+from longnav.utils.hamlet import (HAMLET_MODULE_NAME, attach_hamlet, make_moment_embed_hook,
+                                  splice_moment_tokens, moment_positions, forward_embeds_core)
 
 CONTEXT_WINDOW_MODES = ("evict", "recompute", "reindex")
 
@@ -37,7 +39,7 @@ def compute_full_kl_penalty(log_probs: torch.Tensor, ref_log_probs: torch.Tensor
     return kl
 
 class VLMWorker:
-    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,sparse_threshold=0.95,bev_canvas_size=2000,save_pixels=False,visualize_attention=False,visualize_attention_heads=False,visualize_attention_3d=False,attn3d_layers=None,context_window=None,context_window_mode="evict",attn_weighting="raw"):
+    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,sparse_threshold=0.95,bev_canvas_size=2000,save_pixels=False,visualize_attention=False,visualize_attention_heads=False,visualize_attention_3d=False,attn3d_layers=None,context_window=None,context_window_mode="evict",attn_weighting="raw",hamlet=None):
         import transformers.modeling_flash_attention_utils as fa_utils
         def patched(position_ids, batch_size):
             return False
@@ -113,6 +115,26 @@ class VLMWorker:
             print(f"[context_window] ⚠️ WARNING: context_window={context_window} with save_outputs=True. "
                   "The packed sequence replays the FULL uncropped history, so its logprobs will not "
                   "match the windowed rollout. Intended for eval only.")
+        # HAMLET (moment tokens + memory module fused at the decision token); see
+        # longnav.utils.hamlet. The module itself is created in load_model so it exists
+        # on the base model before any PEFT wrapping.
+        self.hamlet_cfg = dict(hamlet) if hamlet else None
+        self.hamlet_enabled = bool(self.hamlet_cfg and self.hamlet_cfg.get("enabled", False))
+        self.moment_ids = []
+        self._hamlet_hook = None
+        self._moment_history = []
+        self._last_hamlet_stats = None
+        self.vision_end_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_end|>")
+        if self.hamlet_enabled:
+            if not use_sparse:
+                # last_hidden_state and the packed replay embeds only come out of the
+                # sparse model class; the stock class returns neither.
+                raise NotImplementedError("vlm.hamlet.enabled requires use_sparse=True.")
+            if attn_weighting == "grad":
+                # The one-token attribution replay re-derives the decision from the
+                # cache alone; it has no memory fusion, so its scores would explain a
+                # different policy than the one that acted.
+                raise NotImplementedError("vlm.hamlet.enabled does not support attn_weighting='grad'.")
         # Attention weights are only readable with the eager attention kernel;
         # sdpa/flash return None. Auto-force eager when a heatmap viz is on.
         if self._any_attn_viz() and self.attn_implementation != "eager":
@@ -150,6 +172,10 @@ class VLMWorker:
             self._reindex_state.reset()
         self.past_image_embeds = None #per batch list of image embed tensors of the form N_patch by N_hidden
         self.logit_indices = []
+        # HAMLET: one (n_moment, hidden) moment summary per decision so far. Kept outside
+        # the KV cache on purpose -- it survives context-window eviction.
+        self._moment_history = []
+        self._last_hamlet_stats = None
         # Sliding context window bookkeeping (see _apply_context_window).
         self._abs_bounds = []  # cumulative cache length after each turn, as if nothing were evicted
         self._vis_counts = []  # visual patches kept per turn, for trimming the sparse embed db
@@ -193,11 +219,53 @@ class VLMWorker:
         self.language_model = self.vl_model.language_model
         if self.use_sparse:
             self.language_model.sparse_threshold = self.sparse_threshold
+        if self.hamlet_enabled:
+            self.moment_ids = attach_hamlet(self.model, self.hamlet_cfg, self.processor.tokenizer)
+            # The incremental rollout forward looks ids up through embed_tokens; the hook
+            # swaps the placeholder rows for the learnable moment embeddings. Training
+            # replays stored embeds and does the swap explicitly (forward_embeds_core).
+            self._hamlet_hook = self.model.get_input_embeddings().register_forward_hook(
+                make_moment_embed_hook(lambda: self._hamlet()(mode="moment_embeds"), self.moment_ids))
+            print(f"[hamlet] attached: n_moment={len(self.moment_ids)} placeholder ids "
+                  f"{self.moment_ids[0]}..{self.moment_ids[-1]}, d_mem={self.hamlet_cfg.get('d_mem')}, "
+                  f"memory_window={self.hamlet_cfg.get('memory_window')}")
         if self.context_window_mode == "reindex":
             from longnav.utils.pre_rope import install_pre_rope
             self._reindex_state = install_pre_rope(self.language_model)
         if self._any_attn_viz():
             self._attach_attention_probe()
+
+    def _hamlet(self):
+        """The HAMLET module, through PEFT's ModulesToSaveWrapper once wrapped (so
+        disable_adapter() routes to the untrained no-op copy for the ref policy)."""
+        return getattr(self.model, HAMLET_MODULE_NAME)
+
+    def _hamlet_readout(self, outputs, turn_inputs):
+        """Memory-fused action logits for the decision token of the current chunk.
+
+        Reads this turn's moment hidden states off the same forward that produced the
+        decision hidden state, appends them to the episode's moment history, runs the
+        memory read-out for the current block, and re-applies lm_head. Returns
+        (1, vocab) float logits, the shape infer_step expects from outputs.logits[0].
+        """
+        hidden = outputs["last_hidden_state"][0]  # (S_kept, H), post final norm
+        ids = turn_inputs["input_ids"][0].cpu()
+        keep = self.language_model.seq_keep_mask  # cpu bool over this chunk, set by TextMixin
+        if keep is not None:
+            ids = ids[keep]
+        if ids.shape[0] != hidden.shape[0]:
+            raise RuntimeError(f"hamlet: {ids.shape[0]} kept ids vs {hidden.shape[0]} hidden rows")
+        pos = moment_positions(ids, self.moment_ids)
+        if pos.shape[0] != 1:
+            raise RuntimeError(f"hamlet: expected one moment block per turn, found {pos.shape[0]}")
+        self._moment_history.append(hidden[pos[0].to(hidden.device)])
+        moments = torch.stack(self._moment_history)  # (t+1, n_moment, H)
+        h_dec = hidden[-1:]  # the '**' decision token is always the chunk's last position
+        delta = self._hamlet()(mode="fuse", h_dec=h_dec, moments=moments)
+        logits = self.model.lm_head(h_dec + delta).float()  # (1, V)
+        ratio = float(delta.float().norm() / h_dec.float().norm().clamp_min(1e-6))
+        self._last_hamlet_stats = {"mean/hamlet_delta_ratio": ratio, "max/hamlet_delta_ratio": ratio}
+        return logits
 
     def _any_attn_viz(self):
         return self.visualize_attention or self.visualize_attention_heads or self.visualize_attention_3d
@@ -368,11 +436,18 @@ class VLMWorker:
                     self.cumulative_inputs[k] = v
 
     def render_cumulative_inputs(self,summarize_images = True):
+        input_ids = self.cumulative_inputs['input_ids']
+        if self.moment_ids:
+            # HAMLET placeholders sit above the tokenizer vocabulary; render them as the
+            # <|vision_pad|> special token so decode does not choke on unknown ids.
+            lo, hi = self.moment_ids[0], self.moment_ids[-1]
+            pad_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_pad|>")
+            input_ids = torch.where((input_ids >= lo) & (input_ids <= hi), torch.full_like(input_ids, pad_id), input_ids)
         if not summarize_images:
-            return self.processor.batch_decode(self.cumulative_inputs['input_ids'])
+            return self.processor.batch_decode(input_ids)
         else:
             # image_mask = self.cumulative_inputs['input_ids'] == self.processor.image_token_id
-            sequences = [torch.unique_consecutive(sequence,return_counts=True) for sequence in self.cumulative_inputs['input_ids'].numpy()]
+            sequences = [torch.unique_consecutive(sequence,return_counts=True) for sequence in input_ids.numpy()]
             return self.processor.batch_decode(sequences)
     
     def _calculate_pos_id(self,pos_id_kwargs=None):
@@ -806,6 +881,11 @@ class VLMWorker:
                 if 'mm_token_type_ids' in turn_inputs.keys():
                     turn_inputs["mm_token_type_ids"] = turn_inputs['mm_token_type_ids'][:,:(postfix_starts[-1]-1)]
 
+        # HAMLET: one block of moment placeholders per turn, after the frame so they
+        # summarize it, before the assistant header so the decision token stays last.
+        if self.hamlet_enabled:
+            turn_inputs = splice_moment_tokens(turn_inputs, self.moment_ids, self.vision_end_id, len(self.prefix_ids))
+
         # Pin the instruction span on the first turn whenever a context window
         # needs it, or the 3D attention mass stats want to report it.
         if self._prefix_len is None and (
@@ -864,7 +944,10 @@ class VLMWorker:
                     self.attn_probe.enabled = False
             self.past_key_values = outputs['past_key_values']
              # Compute logprobs directly (1-to-1 mapping)
-            relevant_logits = outputs.logits[0].float()
+            if self.hamlet_enabled:
+                relevant_logits = self._hamlet_readout(outputs, turn_inputs)
+            else:
+                relevant_logits = outputs.logits[0].float()
             if not full_logprobs:
                 relevant_logits = relevant_logits[...,self.vocab_ids]
             if np.abs(temperature-1.0) > 1e-7:
@@ -1283,35 +1366,28 @@ class VLMWrapper(nn.Module):
     """
     Thin wrapper that enables forward pass of the language model to play nicely with DDP
     """
-    def __init__(self, vlm):
+    def __init__(self, vlm, moment_ids=()):
         super().__init__()
         self.vlm = vlm # Can be PeftModel
+        self.moment_ids = list(moment_ids)  # HAMLET placeholder ids; empty = HAMLET off
+        self.last_stats = {}
         self._freeze_vision_tower()
 
     def _forward_embeds(self,embeds_inputs,compute_values=False,value_grad_scale=0.1):
-        embeds_inputs = {k:v.to('cuda') for k,v in embeds_inputs.items()}
-        embeds_inputs['inputs_embeds'] = embeds_inputs['inputs_embeds'].to(self.vlm.dtype)
-        if self.vlm.training:
-            embeds_inputs['inputs_embeds'].requires_grad_(True)
-        embeds_inputs['deepstack_visual_embeds'] = [v.to(self.vlm.dtype) for v in embeds_inputs['deepstack_visual_embeds']]
-        logits_to_keep = embeds_inputs.pop('logits_to_keep')
-        embeds_inputs.pop('input_ids_reference')
-        embeds_inputs['seq_keep_mask']='everything' # force keeping everything since seq is already sparse
-        hidden = self.vlm.model.model.language_model(**embeds_inputs).last_hidden_state #TODO: fix this mess
-        values = None
-        if compute_values:
-            value_hidden = hidden[:,logits_to_keep].to(self.vlm.value_head.dtype)
-            if value_grad_scale<=0:
-                # 1. Fully Detached (Old way)
-                value_hidden = value_hidden.detach()
-            
-            else:             
-                # Forward: Identity. Backward: Gradient * scale.
-                value_hidden = (value_hidden * value_grad_scale) + (value_hidden.detach() * (1 - value_grad_scale))
-
-
-            values = self.vlm.value_head(value_hidden).squeeze(-1)
-        logits = self.vlm.lm_head(hidden[:,logits_to_keep])
+        # Resolved at call time so it is the PEFT ModulesToSaveWrapper once wrapped.
+        hamlet = getattr(self.vlm, HAMLET_MODULE_NAME, None) if self.moment_ids else None
+        logits, values, self.last_stats = forward_embeds_core(
+            embeds_inputs,
+            language_model=self.vlm.model.model.language_model, #TODO: fix this mess
+            lm_head=self.vlm.lm_head,
+            dtype=self.vlm.dtype,
+            training=self.vlm.training,
+            hamlet=hamlet,
+            moment_ids=self.moment_ids,
+            compute_values=compute_values,
+            value_head=getattr(self.vlm, "value_head", None),
+            value_grad_scale=value_grad_scale,
+        )
         return logits,values
 
     def forward(self, mode = "embeds_inputs",**inputs):
@@ -1439,8 +1515,11 @@ class VLMTrainingMixin:
         # 5. Create Optimizer
         # Only optimize parameters that require gradients (i.e., the Adapters)
         print(f"accelerator device: {self.accelerator.device}")
-        wrapper = VLMWrapper(self.model)
-        rest_params = [p for n, p in wrapper.named_parameters() if "value_head" not in n and p.requires_grad]
+        wrapper = VLMWrapper(self.model, moment_ids=self.moment_ids)
+        self._wrapper = wrapper
+        hamlet_key = f".{HAMLET_MODULE_NAME}."
+        rest_params = [p for n, p in wrapper.named_parameters()
+                       if "value_head" not in n and hamlet_key not in n and p.requires_grad]
 
         optimizer_grouped_parameters = [
             {
@@ -1458,6 +1537,18 @@ class VLMTrainingMixin:
                     "lr": config.value_head_learning_rate,
                     "name": "value_head"
                 }]
+        # HAMLET is a fresh module (the LoRA is not): it gets its own learning rate.
+        # Only the trainable ModulesToSaveWrapper copy has requires_grad; PEFT freezes
+        # the original, which disable_adapter() routes the ref policy through.
+        self._hamlet_params = [p for n, p in wrapper.named_parameters() if hamlet_key in n and p.requires_grad]
+        if self._hamlet_params:
+            optimizer_grouped_parameters += [{
+                "params": self._hamlet_params,
+                "lr": float(self.hamlet_cfg.get("learning_rate", 1e-4)),
+                "name": "hamlet",
+            }]
+            print(f"[hamlet] {sum(p.numel() for p in self._hamlet_params)/1e6:.1f}M trainable params "
+                  f"at lr {float(self.hamlet_cfg.get('learning_rate', 1e-4))}")
         optimizer = AdamW(optimizer_grouped_parameters)
         scheduler = get_scheduler(
             name="linear",
@@ -1489,6 +1580,11 @@ class VLMTrainingMixin:
                 config.peft_config.modules_to_save = []
             if "value_head" not in config.peft_config.modules_to_save:
                 config.peft_config.modules_to_save.append("value_head")
+            # Same treatment for HAMLET: full-rank trainable copy, saved in the adapter.
+            # Adapters that predate the module (the stage-1 LoRA checkpoint) carry no
+            # HAMLET keys; load_checkpoint fills them from the init (_fill_missing_aux_keys).
+            if self.hamlet_enabled and HAMLET_MODULE_NAME not in config.peft_config.modules_to_save:
+                config.peft_config.modules_to_save.append(HAMLET_MODULE_NAME)
             try:
                 peft_kwargs = asdict(config.peft_config)
             except:
@@ -1525,20 +1621,21 @@ class VLMTrainingMixin:
         return loss.item()
 
     def _forward_embeds(self,rl_embeds_inputs,compute_values=False):
-        model = self.model
-        embeds_inputs = {k:v.to('cuda') for k,v in rl_embeds_inputs.items()}
-        embeds_inputs['inputs_embeds'] = embeds_inputs['inputs_embeds'].to(self.model.dtype)
-        if model.training:
-            embeds_inputs['inputs_embeds'].requires_grad_(True)
-        embeds_inputs['deepstack_visual_embeds'] = [v.to(self.model.dtype) for v in embeds_inputs['deepstack_visual_embeds']]
-        logits_to_keep = embeds_inputs.pop('logits_to_keep')
-        embeds_inputs.pop('input_ids_reference')
-        embeds_inputs['seq_keep_mask']='everything' # force keeping everything since seq is already sparse
-        hidden = self.language_model(**embeds_inputs,).last_hidden_state
-        values = None
-        if compute_values:
-            values = model.value_head(hidden[:,logits_to_keep].to(model.value_head.dtype)).squeeze(-1)
-        logits = model.lm_head(hidden[:,logits_to_keep])
+        # Same replay as the DDP training forward (forward_embeds_core), so old/ref
+        # log-probs and the training log-probs are computed by one code path.
+        hamlet = self._hamlet() if self.hamlet_enabled else None
+        logits, values, _ = forward_embeds_core(
+            rl_embeds_inputs,
+            language_model=self.language_model,
+            lm_head=self.model.lm_head,
+            dtype=self.model.dtype,
+            training=self.model.training,
+            hamlet=hamlet,
+            moment_ids=self.moment_ids,
+            compute_values=compute_values,
+            value_head=getattr(self.model, "value_head", None),
+            value_grad_scale=None,
+        )
         return logits,values
     
     def _forward_seq(self,rl_seq_inputs):
@@ -1774,12 +1871,32 @@ class VLMTrainingMixin:
             )
             # Log the norm (Detect explosions if this spikes > 10.0)
             metrics['train/grad_norm'] = grad_norm.item() if hasattr(grad_norm, 'item') else grad_norm
-            
+
             self.optimizer.step()
             self.scheduler.step()
             metrics['train/lr'] = self.scheduler.get_last_lr()[0]
+            metrics['train/max_mem_GB'] = torch.cuda.max_memory_allocated() / (1024 ** 3)  # process peak (rollout + replay)
+            metrics |= self._hamlet_train_metrics()
             self.optimizer.zero_grad()
         return metrics    
+
+    def _hamlet_train_metrics(self):
+        """Gradient norm of the HAMLET parameters, the read-out projection's weight
+        norm (0 at init, non-zero after the first update) and the mean
+        ||delta||/||h_dec|| of this replay. Call after optimizer.step(), before zero_grad."""
+        params = getattr(self, "_hamlet_params", None)
+        if not params:
+            return {}
+        with torch.no_grad():
+            sq = sum(p.grad.float().norm() ** 2 for p in params if p.grad is not None)
+            metrics = {
+                'train/hamlet_grad_norm': float(sq ** 0.5) if torch.is_tensor(sq) else 0.0,
+                'train/hamlet_out_proj_norm': float(self._hamlet()(mode="out_proj_norm")),
+            }
+        stats = getattr(self._wrapper, "last_stats", None) or {}
+        if "hamlet_delta_ratio" in stats:
+            metrics['train/hamlet_delta_ratio'] = stats["hamlet_delta_ratio"]
+        return metrics
     
     def save_adapter(self, path):
         """
@@ -1795,6 +1912,7 @@ class VLMTrainingMixin:
             # unwrapped = self.accelerator.unwrap_model(self.ddp_model)
             # unwrapped.vlm.save_pretrained(path)
             self.model.save_pretrained(path)
+            self._save_hamlet_reference(path)
             print(f"Adapters saved to {path}")
 
     def save_adapter_unsafe(self, path):
@@ -1804,7 +1922,18 @@ class VLMTrainingMixin:
         """
         
         self.model.save_pretrained(path)
+        self._save_hamlet_reference(path)
         print(f"Adapters saved to {path}")
+
+    def _save_hamlet_reference(self, path):
+        """Persist PEFT's frozen HAMLET copy, which adapter checkpoints omit."""
+        if not self.hamlet_enabled:
+            return
+        reference = getattr(self._hamlet(), "original_module", None)
+        if reference is None:
+            return
+        state = {name: value.detach().cpu() for name, value in reference.state_dict().items()}
+        torch.save(state, os.path.join(path, "hamlet_reference.pt"))
 
     def save_checkpoint_unsafe(self, path):
         """
@@ -1819,12 +1948,38 @@ class VLMTrainingMixin:
         # Standard DDP models are replicated, so Rank 0 has everything.
         # save_pretrained is a local I/O operation.
         self.model.save_pretrained(path)
+        self._save_hamlet_reference(path)
         # 2. Save Optimizer & Scheduler
         # In Standard DDP, optimizer states are identical across ranks.
         # Saving Rank 0's copy is sufficient to restore training.
         torch.save(self.optimizer.state_dict(), os.path.join(path, "optimizer.pt"))
         torch.save(self.scheduler.state_dict(), os.path.join(path, "scheduler.pt"))
         print(f"✅ Checkpoint saved to: {path}")
+
+    def _fill_missing_aux_keys(self, adapter_state_dict, adapter_name="default"):
+        """PEFT indexes every key of every ``modules_to_save`` wrapper when it loads
+        an adapter (there is no strict=False on that path), so an adapter saved
+        before a module existed -- the stage-1 LoRA checkpoint loaded with HAMLET
+        on -- would raise KeyError. Fill such keys with the module's current
+        (init) values instead, and say which modules were left at init."""
+        from peft.utils.other import AuxiliaryTrainingWrapper
+        left_at_init = set()
+        for name, module in self.model.named_modules():
+            if not isinstance(module, AuxiliaryTrainingWrapper):
+                continue
+            key_map = module.adapter_state_dict_load_map(adapter_name)
+            copies = getattr(module, "modules_to_save", None)
+            if not key_map or copies is None or adapter_name not in copies:
+                continue
+            current = copies[adapter_name].state_dict()
+            for k in key_map:
+                full = f"{name}.{k}"
+                if full not in adapter_state_dict:
+                    adapter_state_dict[full] = current[k].detach().clone()
+                    left_at_init.add(name)
+        if left_at_init:
+            print(f" -> adapter has no weights for {sorted(left_at_init)}; left at init")
+        return adapter_state_dict
 
     def load_checkpoint(self, path, strict_base_check=True,load_optim=True,load_sched=False):
         """
@@ -1844,14 +1999,30 @@ class VLMTrainingMixin:
                 print(f"⚠️ WARNING: Checkpoint base '{saved_base}' != Current '{self.model_id}'")
         # 2. Load Weights (Adapters + Value Head)
         # This updates self.model in-place, preserving optimizer references
+        had_hamlet_state = False
         if os.path.exists(os.path.join(path, "adapter_model.bin")) or os.path.exists(os.path.join(path, "adapter_model.safetensors")):
              adapter_state_dict = load_peft_weights(path)
+             had_hamlet_state = any(".hamlet." in key for key in adapter_state_dict)
+             adapter_state_dict = self._fill_missing_aux_keys(adapter_state_dict)
              set_peft_model_state_dict(self.model, adapter_state_dict)
              print(" -> Adapters and (maybe) Value Head loaded.")
         else:
              print(" -> ⚠️ No adapter weights found in checkpoint.")
 
-        # 3. Load Optimizer
+        # 3. Restore the frozen HAMLET reference policy. PEFT deliberately omits
+        # original_module from adapter_model.safetensors, but its moment embeddings
+        # affect the reference logits, so a training resume must preserve this copy.
+        if self.hamlet_enabled:
+            ref_path = os.path.join(path, "hamlet_reference.pt")
+            reference = getattr(self._hamlet(), "original_module", None)
+            if reference is not None and os.path.exists(ref_path):
+                ref_state = torch.load(ref_path, map_location="cpu", weights_only=True)
+                reference.load_state_dict(ref_state)
+                print(" -> Frozen HAMLET reference loaded.")
+            elif had_hamlet_state:
+                print(" -> ⚠️ HAMLET checkpoint has no frozen reference state; using a fresh reference.")
+
+        # 4. Load Optimizer
         opt_path = os.path.join(path, "optimizer.pt")
         if os.path.exists(opt_path) and load_optim:
             print("loading optimizer!")
@@ -1859,12 +2030,12 @@ class VLMTrainingMixin:
             self.optimizer.load_state_dict(opt_state)
             print(" -> Optimizer loaded.")
         
-        # 4. Load Scheduler
+        # 5. Load Scheduler
         sched_path = os.path.join(path, "scheduler.pt")
         if os.path.exists(sched_path) and load_sched:
             print("loading scheduler!")
             sched_state = torch.load(sched_path, map_location=self.accelerator.device)
-            self.scheduler.load_state_dict(sched_state,weights_only=True)
+            self.scheduler.load_state_dict(sched_state)
             print(" -> Scheduler loaded.")
 
 class DataGenerator:

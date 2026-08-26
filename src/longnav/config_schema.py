@@ -20,6 +20,21 @@ class ResourceConfig:
     vlm_cpus: int = 4
     sim_cpus: int = 4
 
+# --- 2. HAMLET (moment tokens + memory module, arXiv 2510.00695) ---
+@dataclass
+class HamletConfig:
+    """See longnav.utils.hamlet for the design and how it maps onto this policy."""
+    enabled: bool = False
+    n_moment: int = 4          # learnable moment tokens spliced after every frame
+    d_mem: int = 512           # memory transformer width (LLM hidden -> d_mem -> LLM hidden)
+    n_layers: int = 2
+    n_heads: int = 8
+    ffn_mult: int = 4
+    memory_window: Optional[int] = None  # None = whole episode; N = per-layer attention window of N decisions (receptive field ~ n_layers*N)
+    max_blocks: int = 1024     # longest episode (in decisions) the memory accepts
+    learning_rate: float = 1e-4          # own optimizer group; the LoRA keeps training.learning_rate
+    moment_init_std: float = 0.02        # moment embeds = mean embedding row + N(0, std)
+
 # --- 3. Model & Worker Configs ---
 @dataclass
 class VLMConfig:
@@ -53,8 +68,11 @@ class VLMConfig:
     # backward per step, requires visualize_attention_3d, and runs the decision forward
     # under no_grad instead of inference_mode so the cache can be differentiated.
     attn_weighting: str = "raw"
+    # History-aware policy add-on (moment tokens + memory module). Off by default;
+    # requires use_sparse=True and is incompatible with attn_weighting='grad'.
+    hamlet: HamletConfig = field(default_factory=HamletConfig)
 
-@dataclass 
+@dataclass
 class PolicyLossConfig:
     clip_cov_ratio: Optional[float] = 0.0002
     clip_cov_ub: Optional[float] = 5.0
@@ -152,6 +170,10 @@ class VLMTrainingConfig:
     total_optimization_steps: int = 100000 # used for linear LR schedule
     warmup_steps: int = 64
     save_step: Optional[int] = 10
+    # Stop launching new rollout cycles once this many hours have elapsed since the
+    # driver started (a final checkpoint is written first). None = run to
+    # total_optimization_steps. Sized so a SLURM job ends cleanly before its limit.
+    max_wallclock_hours: Optional[float] = None
 
     # Value Head Configuration
     value_head_learning_rate: float = 5e-4  # Often higher than Adapter LR

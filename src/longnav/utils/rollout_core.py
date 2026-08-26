@@ -150,6 +150,12 @@ def substitute_convo_template(conversation_template: List[Dict], substitutions: 
     return new_conversation
 
 class EpisodeRolloutMixin:
+    def _hamlet_logs(self) -> Dict[str, Any]:
+        """Per-decision HAMLET stats from the last infer_step (empty when off).
+        Present on every step or on none, as the sim's supplementary-log contract
+        requires."""
+        return dict(getattr(self, "_last_hamlet_stats", None) or {})
+
     def _collect_visualization_logs(self) -> Dict[str, Any]:
         """Collect the enabled, serializable visualization payloads for one decision."""
         logs = {}
@@ -207,10 +213,11 @@ class EpisodeRolloutMixin:
             "mean/action_prob": float(action_probs[action_id]),
             "action_probs": action_probs.tolist(),
             **self._collect_visualization_logs(),
+            **self._hamlet_logs(),
         }
         try:
             import torch
-            supplementary_logs["vlm_mem_GB"] = torch.cuda.memory_allocated() / (1024 ** 3)
+            supplementary_logs["max/vlm_mem_GB"] = torch.cuda.max_memory_allocated() / (1024 ** 3)
         except Exception:
             pass
         return {
@@ -293,10 +300,12 @@ class EpisodeRolloutMixin:
                 vlm_logs |= {'mean/vlm_latency':time.time()-t0,'min/vlm_latency':time.time()-t0,'max/vlm_latency':time.time()-t0,'sum/spguard_trigger_count':0}
                 try:
                     import torch
-                    vlm_logs |= {"vlm_mem_GB":torch.cuda.memory_allocated()/(1024**3)}
+                    # 'max/' so the sim's reducer (sup/<reduction>/<name>) keeps the episode peak
+                    vlm_logs |= {"max/vlm_mem_GB": torch.cuda.max_memory_allocated() / (1024**3)}
                 except:
                     print("warning: could not get vlm mem")
                 vlm_logs |= self._collect_visualization_logs()
+                vlm_logs |= self._hamlet_logs()
                 # print(f"vlm step{step_count}")
                 # print("done")
                 #except for the first turn, all messages follow the exact same template.

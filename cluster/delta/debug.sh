@@ -16,6 +16,7 @@ Commands:
   habitat     Reset and step one real HM3D v2 episode
   eval-smoke  Run the repository's dummy-environment inference smoke test
   rl-smoke    Run the repository's one-step RL smoke test
+  hamlet-smoke Run the HAMLET (moment tokens + memory) rollout/train/checkpoint smoke test
   hm3d        Run and validate the five-episode HM3D evaluation
 EOF
 }
@@ -73,6 +74,12 @@ case "${command_name}" in
         export LONGNAV_MODEL_ID="$(model_path base)"
         cd "${LONGNAV_REPO_ROOT}"
         exec "${LONGNAV_VLM_ENV}/bin/python" tests/rl_smoke.py
+        ;;
+    hamlet-smoke)
+        require_gpu_session
+        export LONGNAV_MODEL_ID="$(model_path base)"
+        cd "${LONGNAV_REPO_ROOT}"
+        exec "${LONGNAV_VLM_ENV}/bin/python" tests/hamlet_smoke.py
         ;;
     hm3d)
         require_gpu_session

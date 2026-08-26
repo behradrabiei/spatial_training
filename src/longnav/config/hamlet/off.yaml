@@ -1,0 +1,5 @@
+# @package _global_
+# Explicitly disable HAMLET (the default). Compose with `+hamlet=off`.
+vlm:
+  hamlet:
+    enabled: false
