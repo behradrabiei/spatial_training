@@ -13,9 +13,9 @@ import json, glob, sys, numpy as np
 run=sys.argv[1]; rows=[json.loads(l) for f in glob.glob(f"/work/nvme/bgon/brabiei/longnav_runtime/runs/{run}/rollout/results_*") for l in open(f) if l.strip()]
 if not rows: print(f"EVAL {run}: no result rows"); sys.exit()
 s=np.array([r['success'] for r in rows]); spl=np.array([r['spl'] for r in rows]); n=np.array([r['n_steps'] for r in rows])
-d=[r.get('sup/mean_hamlet_delta_ratio') for r in rows if r.get('sup/mean_hamlet_delta_ratio') is not None]
+d=[r.get('sup/mean_hamlet_mem_ratio') for r in rows if r.get('sup/mean_hamlet_mem_ratio') is not None]
 lap=np.array([r.get('last_action_prob', np.nan) for r in rows])
-print(f"EVAL {run}: n={len(rows)} success={s.mean():.3f} spl={spl.mean():.3f} steps={n.mean():.0f} timeouts={(n>=350).mean():.2f} stop_conf={np.nanmean(lap):.2f}" + (f" delta_ratio={np.mean(d):.4f}" if d else ""))
+print(f"EVAL {run}: n={len(rows)} success={s.mean():.3f} spl={spl.mean():.3f} steps={n.mean():.0f} timeouts={(n>=350).mean():.2f} stop_conf={np.nanmean(lap):.2f}" + (f" mem_ratio={np.mean(d):.4f}" if d else ""))
 PYEOF
 }
 declare -A job_of done_of spec_h spec_c; order=()

@@ -9,10 +9,13 @@
 #SBATCH --mem=240G
 #SBATCH --time=08:00:00
 #SBATCH --output=/work/nvme/bgon/brabiei/longnav_runtime/logs/hamlet_rl_%j.out
-# 8-hour HAMLET second-stage RL on one 4xA100-40GB node. Submit from the repo root:
+# HAMLET second-stage RL on one 4xA100-40GB node (8 h by default). Submit from the repo root:
 #   sbatch cluster/delta/train_hamlet.sbatch            # optionally: RUN_NAME=... sbatch --export=ALL ...
+#   12 h: sbatch --time=12:00:00 --export=ALL,RUN_NAME=<run>,MAX_WALLCLOCK_HOURS=11.4 cluster/delta/train_hamlet.sbatch
 # The training loop stops itself after MAX_WALLCLOCK_HOURS (default 7.6 h) and
-# writes checkpoints/checkpoint_final before the job limit.
+# writes checkpoints/checkpoint_final before the job limit. Pair with
+# cluster/delta/watch_train.sh <job id> <run> to evaluate checkpoints as they land
+# and cancel the job if the argmax success collapses.
 set -Eeuo pipefail
 cd "${SLURM_SUBMIT_DIR}"
 source cluster/delta/env.sh

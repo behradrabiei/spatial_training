@@ -32,11 +32,11 @@ echo "[test] === mini real run ($(( $(date +%s) - t0 ))s) ==="
 # MINI_STEPS / MINI_ROLLOUT / MINI_OPT_STEPS: episode cap, episodes per cycle, optimizer steps
 # (e.g. MINI_STEPS=350 MINI_ROLLOUT=2 MINI_OPT_STEPS=2 to measure peak VRAM on full-length episodes)
 RUN_NAME="hamlet_mini_${SLURM_JOB_ID}" MAX_WALLCLOCK_HOURS=0.3 SAVE_STEP=1 OSM_GB=12 \
+    TOTAL_STEPS="${MINI_OPT_STEPS:-8}" \
     cluster/delta/run_rl_train.sh \
     resources.num_vlms=1 resources.num_sims=2 \
     "rollout.max_steps=${MINI_STEPS:-40}" \
-    "training.rl_config.n_rollout=${MINI_ROLLOUT:-2}" training.rl_config.n_adv=8 \
-    "training.total_optimization_steps=${MINI_OPT_STEPS:-8}"
+    "training.rl_config.n_rollout=${MINI_ROLLOUT:-2}" training.rl_config.n_adv=8
 echo "[test] === done ($(( $(date +%s) - t0 ))s) ==="
 ls -la "${LONGNAV_OUTPUT_ROOT}/hamlet_mini_${SLURM_JOB_ID}/checkpoints" || true
 cat "${LONGNAV_OUTPUT_ROOT}/hamlet_mini_${SLURM_JOB_ID}/progress.json" || true

@@ -3,8 +3,9 @@
 Runs the RL worker in-process on one GPU (the env is a Ray DummyEnvActor, as in
 tests/rl_smoke.py) and checks the invariants the HAMLET port relies on:
 
-1. exactly one moment block per decision reaches the packed episode, and the
-   fused read-out is an exact no-op at init (delta == 0);
+1. exactly one memory block and one moment block per decision reach the packed
+   episode together with the stored moment history, and the memory read-out is
+   an exact no-op at init (memory token == mem_embed, ratio == 0);
 2. the packed replay (old_logprobs) reproduces the incremental rollout
    log-probs, and the reference pass (adapters disabled -> untrained HAMLET
    copy) equals them before any update;
@@ -13,7 +14,7 @@ tests/rl_smoke.py) and checks the invariants the HAMLET port relies on:
    packed-sequence mask bug, see forward_embeds_core);
 3. two RL steps train the module (warmup 0): the first step's PPO ratio is ~1,
    out_proj leaves zero after step 1, the memory transformer receives gradient
-   at step 2, delta becomes non-zero;
+   at step 2, the memory read-out becomes non-zero;
 4. the checkpoint carries both active and frozen-reference HAMLET weights and
    restores them, the optimizer, and the scheduler bit-for-bit;
 5. rollout under context_window=4 (evict) keeps the full moment history;
@@ -38,7 +39,8 @@ from longnav.utils.rollout_core import RLWorker
 from verl.trainer.ppo.core_algos import get_adv_estimator_fn
 
 MAX_STEPS = 10
-N_MOMENT = 4
+N_MOMENT = 8
+N_MEM = 1
 
 
 class FixedLengthDummyEnv(DummyEnvActor):
@@ -60,6 +62,7 @@ def make_cfg():
     cfg.vlm.save_outputs = True
     cfg.vlm.hamlet.enabled = True
     cfg.vlm.hamlet.n_moment = N_MOMENT
+    cfg.vlm.hamlet.n_mem = N_MEM
     cfg.rollout.convo_start_template = [
         {"role": "user", "content": [{"type": "text", "text": "example substitution: $instr_or_goal"}]},
         {"role": "user", "content": [{"type": "image"}]},
@@ -102,20 +105,24 @@ def main():
     env = ray.remote(FixedLengthDummyEnv).remote()
     cfg = make_cfg()
     worker = make_worker(cfg)
-    assert worker.hamlet_enabled and len(worker.moment_ids) == N_MOMENT
+    assert worker.hamlet_enabled and len(worker.moment_ids) == N_MOMENT and len(worker.mem_ids) == N_MEM
     assert HAMLET_MODULE_NAME in cfg.training.peft_config.modules_to_save
 
-    # ---- 1. rollout: one moment block per decision, delta == 0 at init ----
+    # ---- 1. rollout: one memory + one moment block per decision, read-out == 0 at init ----
     traj, packed = rollout(worker, env)
     T = len(traj["actions"])
     assert T == MAX_STEPS, f"fixed-length dummy episode should have {MAX_STEPS} steps, got {T}"
     assert len(worker._moment_history) == T, (len(worker._moment_history), T)
-    assert worker._last_hamlet_stats["mean/hamlet_delta_ratio"] == 0.0, worker._last_hamlet_stats
+    assert worker._last_hamlet_stats["mean/hamlet_mem_ratio"] == 0.0, worker._last_hamlet_stats
     pos = moment_positions(packed["input_ids_reference"][0], worker.moment_ids)
-    assert pos.shape == (T, N_MOMENT), pos.shape
+    kpos = moment_positions(packed["input_ids_reference"][0], worker.mem_ids)
+    assert pos.shape == (T, N_MOMENT) and kpos.shape == (T, N_MEM), (pos.shape, kpos.shape)
     assert packed["logits_to_keep"].shape[0] == T
     assert bool((pos[:, -1] < packed["logits_to_keep"].to(pos.device)).all()), "moment block must precede its decision"
-    print(f"[1] ok: {T} decisions, {T}x{N_MOMENT} moment tokens, delta==0 at init")
+    assert bool((kpos[:, -1] < pos[:, 0]).all()), "memory block must precede its turn's moment block"
+    hidden = worker.model.config.text_config.hidden_size
+    assert tuple(packed["moment_history"].shape) == (T, N_MOMENT, hidden), packed["moment_history"].shape
+    print(f"[1] ok: {T} decisions, {T}x{N_MOMENT} moment + {T}x{N_MEM} memory tokens, read-out==0 at init")
 
     # ---- 2. replay == rollout, ref == old before any update ----
     old = traj["old_logprobs"]
@@ -178,9 +185,9 @@ def main():
     assert abs(m1["actor/ppo_kl"]) < 0.05, f"ppo_kl at step 1 should be ~0: {m1}"
     m2 = worker.train_rl_step(packed, row["actions"], row["old_log_prob"], row["advantages"], row["returns"],
                               None, row.get("rollout_logprobs", None), row.get("ref_logprobs", None))
-    assert m2["train/hamlet_grad_norm"] > 0 and m2["train/hamlet_delta_ratio"] > 0, m2
+    assert m2["train/hamlet_grad_norm"] > 0 and m2["train/hamlet_mem_ratio"] > 0, m2
     print(f"[3] ok: step1 {m1['train/hamlet_out_proj_norm']=:.3e}; step2 grad {m2['train/hamlet_grad_norm']:.3e} "
-          f"delta_ratio {m2['train/hamlet_delta_ratio']:.3e}")
+          f"mem_ratio {m2['train/hamlet_mem_ratio']:.3e} moment_drift {m2.get('train/hamlet_moment_drift', float('nan')):.3e}")
 
     # ---- 4. checkpoint carries HAMLET; eval load path restores it ----
     ckpt = tempfile.mkdtemp(prefix="hamlet_ckpt_")
@@ -217,7 +224,7 @@ def main():
     assert len(worker2._moment_history) == T2, (len(worker2._moment_history), T2)
     if T2 > 5:
         assert worker2._n_evicted > 0, "context window never evicted"
-    assert worker2._last_hamlet_stats["mean/hamlet_delta_ratio"] > 0, "trained read-out should be non-zero"
+    assert worker2._last_hamlet_stats["mean/hamlet_mem_ratio"] > 0, "trained read-out should be non-zero"
     print(f"[5] ok: {T2} steps under context_window=4, evicted {worker2._n_evicted} turns, history {len(worker2._moment_history)}")
 
     # ---- 6. a LoRA-only adapter (the stage-1 checkpoint) loads with HAMLET on ----

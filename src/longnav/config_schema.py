@@ -25,7 +25,8 @@ class ResourceConfig:
 class HamletConfig:
     """See longnav.utils.hamlet for the design and how it maps onto this policy."""
     enabled: bool = False
-    n_moment: int = 4          # learnable moment tokens spliced after every frame
+    n_moment: int = 8          # learnable moment tokens spliced after every frame
+    n_mem: int = 1             # memory tokens per turn (the read-out fed back into the context)
     d_mem: int = 512           # memory transformer width (LLM hidden -> d_mem -> LLM hidden)
     n_layers: int = 2
     n_heads: int = 8

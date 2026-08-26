@@ -1,10 +1,12 @@
 # @package _global_
-# HAMLET (arXiv 2510.00695): moment tokens + memory module fused at the decision
-# token. See longnav.utils.hamlet. Compose with `+hamlet=on`.
+# HAMLET (arXiv 2510.00695): moment tokens + memory module whose read-out is fed
+# back into the LM context as a memory token every turn. See longnav.utils.hamlet.
+# Compose with `+hamlet=on`.
 vlm:
   hamlet:
     enabled: true
-    n_moment: 4
+    n_moment: 8
+    n_mem: 1
     d_mem: 512
     n_layers: 2
     n_heads: 8

@@ -4,7 +4,11 @@
 # and inside an interactive session. Extra Hydra overrides are passed through:
 #   RUN_NAME=hamlet_mini cluster/delta/run_rl_train.sh rollout.max_steps=60 training.rl_config.n_rollout=4
 # Environment knobs: RUN_NAME, OSM_GB (64), SAVE_STEP (4), MAX_WALLCLOCK_HOURS (7.6),
-# WANDB_API_KEY (online logging; otherwise wandb runs offline under LONGNAV_OUTPUT_ROOT).
+# WANDB_API_KEY (online logging; otherwise wandb runs offline under LONGNAV_OUTPUT_ROOT),
+# reward shaping COLLISION_PENALTY (0.02) / EXPLR_BONUS (0.03) / FPSTOP_PENALTY (null) --
+# the stage-1 run's values (its saved config), not the schema defaults 0.05/0.13/0.3 the
+# first HAMLET runs silently used -- and the LoRA schedule LR (1.25e-6, the lr stage 1
+# ended at after 7424 scheduler steps) / WARMUP_STEPS (32) / TOTAL_STEPS (20000).
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -109,6 +113,12 @@ cd "${LONGNAV_REPO_ROOT}"
     "resources.habitat_conda_env=${LONGNAV_HABITAT_ENV}" \
     "resources.object_spilling_directory=${RAY_OBJECT_SPILL_DIR}" \
     "resources.osm_gb=${OSM_GB:-64}" \
+    "sim.collision_penalty=${COLLISION_PENALTY:-0.02}" \
+    "sim.explr_bonus=${EXPLR_BONUS:-0.03}" \
+    "sim.fpstop_penalty=${FPSTOP_PENALTY:-null}" \
+    "training.learning_rate=${LR:-1.25e-6}" \
+    "training.warmup_steps=${WARMUP_STEPS:-32}" \
+    "training.total_optimization_steps=${TOTAL_STEPS:-20000}" \
     "training.save_step=${SAVE_STEP:-4}" \
     "training.max_wallclock_hours=${MAX_WALLCLOCK_HOURS:-7.6}" \
     "${RESUME_OVERRIDES[@]}" \

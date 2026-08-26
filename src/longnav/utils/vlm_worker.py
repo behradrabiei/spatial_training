@@ -14,7 +14,7 @@ from dataclasses import dataclass,field
 import torch.nn.functional as F
 from longnav.config_schema import VLMTrainingConfig
 from longnav.utils.hamlet import (HAMLET_MODULE_NAME, attach_hamlet, make_moment_embed_hook,
-                                  splice_moment_tokens, moment_positions, forward_embeds_core)
+                                  splice_moment_tokens, moment_positions, forward_embeds_core, mem_ratio)
 
 CONTEXT_WINDOW_MODES = ("evict", "recompute", "reindex")
 
@@ -121,10 +121,13 @@ class VLMWorker:
         self.hamlet_cfg = dict(hamlet) if hamlet else None
         self.hamlet_enabled = bool(self.hamlet_cfg and self.hamlet_cfg.get("enabled", False))
         self.moment_ids = []
+        self.mem_ids = []
         self._hamlet_hook = None
         self._moment_history = []
+        self._current_mem_rows = None  # (n_mem, H) memory-token rows for the turn being forwarded
         self._last_hamlet_stats = None
         self.vision_end_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_end|>")
+        self.vision_start_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_start|>")
         if self.hamlet_enabled:
             if not use_sparse:
                 # last_hidden_state and the packed replay embeds only come out of the
@@ -220,14 +223,15 @@ class VLMWorker:
         if self.use_sparse:
             self.language_model.sparse_threshold = self.sparse_threshold
         if self.hamlet_enabled:
-            self.moment_ids = attach_hamlet(self.model, self.hamlet_cfg, self.processor.tokenizer)
+            self.moment_ids, self.mem_ids = attach_hamlet(self.model, self.hamlet_cfg, self.processor.tokenizer)
             # The incremental rollout forward looks ids up through embed_tokens; the hook
-            # swaps the placeholder rows for the learnable moment embeddings. Training
-            # replays stored embeds and does the swap explicitly (forward_embeds_core).
+            # swaps the placeholder rows for the learnable moment embeddings and for this
+            # turn's memory read-out rows (_hamlet_prepare_turn). Training replays stored
+            # embeds and does both swaps explicitly (forward_embeds_core).
             self._hamlet_hook = self.model.get_input_embeddings().register_forward_hook(
-                make_moment_embed_hook(lambda: self._hamlet()(mode="moment_embeds"), self.moment_ids))
-            print(f"[hamlet] attached: n_moment={len(self.moment_ids)} placeholder ids "
-                  f"{self.moment_ids[0]}..{self.moment_ids[-1]}, d_mem={self.hamlet_cfg.get('d_mem')}, "
+                make_moment_embed_hook(self._hamlet_rows_for_hook, self.moment_ids + self.mem_ids))
+            print(f"[hamlet] attached: n_moment={len(self.moment_ids)} n_mem={len(self.mem_ids)} placeholder ids "
+                  f"{self.moment_ids[0]}..{self.mem_ids[-1]}, d_mem={self.hamlet_cfg.get('d_mem')}, "
                   f"memory_window={self.hamlet_cfg.get('memory_window')}")
         if self.context_window_mode == "reindex":
             from longnav.utils.pre_rope import install_pre_rope
@@ -240,14 +244,33 @@ class VLMWorker:
         disable_adapter() routes to the untrained no-op copy for the ref policy)."""
         return getattr(self.model, HAMLET_MODULE_NAME)
 
-    def _hamlet_readout(self, outputs, turn_inputs):
-        """Memory-fused action logits for the decision token of the current chunk.
+    def _hamlet_rows_for_hook(self):
+        """Placeholder embedding table for the embed_tokens hook: the moment
+        embeddings followed by the current turn's memory rows."""
+        if self._current_mem_rows is None:
+            raise RuntimeError("hamlet: memory rows for this turn were not prepared (_hamlet_prepare_turn)")
+        return torch.cat([self._hamlet()(mode="moment_embeds"), self._current_mem_rows.to(self.device)], dim=0)
 
-        Reads this turn's moment hidden states off the same forward that produced the
-        decision hidden state, appends them to the episode's moment history, runs the
-        memory read-out for the current block, and re-applies lm_head. Returns
-        (1, vocab) float logits, the shape infer_step expects from outputs.logits[0].
-        """
+    def _hamlet_prepare_turn(self):
+        """Before the forward of turn t: the memory read-out over the moment blocks
+        of turns 0..t-1 becomes this turn's memory-token input rows (n_mem, H)."""
+        hamlet = self._hamlet()
+        t = len(self._moment_history)
+        with torch.no_grad():
+            if t:
+                moments = torch.stack(self._moment_history)  # (t, n_moment, H)
+            else:
+                hidden_size = self.model.config.text_config.hidden_size
+                moments = torch.zeros(0, len(self.moment_ids), hidden_size, device=self.device, dtype=self.model.dtype)
+            rows = hamlet(mode="readout", moments=moments, query_blocks=torch.tensor([t], device=self.device))[0]
+            self._current_mem_rows = rows.detach()
+            ratio = mem_ratio(rows, hamlet(mode="mem_embeds"))
+        self._last_hamlet_stats = {"mean/hamlet_mem_ratio": ratio, "max/hamlet_mem_ratio": ratio}
+
+    def _hamlet_record_moments(self, outputs, turn_inputs):
+        """After the forward of turn t: read this turn's moment hidden states off the
+        chunk's last_hidden_state and append them to the episode's moment history
+        (what the next turn's read-out and the training replay consume)."""
         hidden = outputs["last_hidden_state"][0]  # (S_kept, H), post final norm
         ids = turn_inputs["input_ids"][0].cpu()
         keep = self.language_model.seq_keep_mask  # cpu bool over this chunk, set by TextMixin
@@ -258,14 +281,10 @@ class VLMWorker:
         pos = moment_positions(ids, self.moment_ids)
         if pos.shape[0] != 1:
             raise RuntimeError(f"hamlet: expected one moment block per turn, found {pos.shape[0]}")
+        if moment_positions(ids, self.mem_ids).shape[0] != 1:
+            raise RuntimeError("hamlet: expected one memory block per turn")
         self._moment_history.append(hidden[pos[0].to(hidden.device)])
-        moments = torch.stack(self._moment_history)  # (t+1, n_moment, H)
-        h_dec = hidden[-1:]  # the '**' decision token is always the chunk's last position
-        delta = self._hamlet()(mode="fuse", h_dec=h_dec, moments=moments)
-        logits = self.model.lm_head(h_dec + delta).float()  # (1, V)
-        ratio = float(delta.float().norm() / h_dec.float().norm().clamp_min(1e-6))
-        self._last_hamlet_stats = {"mean/hamlet_delta_ratio": ratio, "max/hamlet_delta_ratio": ratio}
-        return logits
+        self._current_mem_rows = None
 
     def _any_attn_viz(self):
         return self.visualize_attention or self.visualize_attention_heads or self.visualize_attention_3d
@@ -440,7 +459,7 @@ class VLMWorker:
         if self.moment_ids:
             # HAMLET placeholders sit above the tokenizer vocabulary; render them as the
             # <|vision_pad|> special token so decode does not choke on unknown ids.
-            lo, hi = self.moment_ids[0], self.moment_ids[-1]
+            lo, hi = self.moment_ids[0], (self.mem_ids or self.moment_ids)[-1]
             pad_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_pad|>")
             input_ids = torch.where((input_ids >= lo) & (input_ids <= hi), torch.full_like(input_ids, pad_id), input_ids)
         if not summarize_images:
@@ -536,16 +555,22 @@ class VLMWorker:
         inputs_embeds = torch.cat(self.outputs['inputs_embeds'],dim=1)
         input_ids = self.cumulative_inputs['input_ids'][:,self.seq_keep_mask]
         self.outputs = defaultdict(list) # reset outputs.
-        
-        
-        return {
+
+
+        packed = {
             "deepstack_visual_embeds": torch.stack(deepstack,dim=0).cpu(), #N_layer by N_patch by N_hidden
             "position_ids": position_ids.cpu(),
             "visual_pos_masks": visual_pos_masks.cpu(),
             "inputs_embeds": inputs_embeds.cpu(),
             "input_ids_reference": input_ids.cpu(),
-            "logits_to_keep": self._get_sparse_logit_indices().cpu()  
+            "logits_to_keep": self._get_sparse_logit_indices().cpu()
         }
+        if self.hamlet_enabled:
+            # HAMLET: the rollout's moment hidden states, one (n_moment, H) block per
+            # decision. The replay rebuilds the memory-token rows from these (they are
+            # constants of the replay; see longnav.utils.hamlet).
+            packed["moment_history"] = torch.stack(self._moment_history).cpu()
+        return packed
 
     def _pack_inputs(self):
         '''
@@ -881,10 +906,13 @@ class VLMWorker:
                 if 'mm_token_type_ids' in turn_inputs.keys():
                     turn_inputs["mm_token_type_ids"] = turn_inputs['mm_token_type_ids'][:,:(postfix_starts[-1]-1)]
 
-        # HAMLET: one block of moment placeholders per turn, after the frame so they
-        # summarize it, before the assistant header so the decision token stays last.
+        # HAMLET: per turn one memory placeholder block before the frame and one block
+        # of moment placeholders after it, before the assistant header so the decision
+        # token stays last. The memory rows are the read-out over the previous turns.
         if self.hamlet_enabled:
-            turn_inputs = splice_moment_tokens(turn_inputs, self.moment_ids, self.vision_end_id, len(self.prefix_ids))
+            turn_inputs = splice_moment_tokens(turn_inputs, self.moment_ids, self.vision_end_id, len(self.prefix_ids),
+                                               mem_ids=self.mem_ids, vision_start_id=self.vision_start_id)
+            self._hamlet_prepare_turn()
 
         # Pin the instruction span on the first turn whenever a context window
         # needs it, or the 3D attention mass stats want to report it.
@@ -945,9 +973,8 @@ class VLMWorker:
             self.past_key_values = outputs['past_key_values']
              # Compute logprobs directly (1-to-1 mapping)
             if self.hamlet_enabled:
-                relevant_logits = self._hamlet_readout(outputs, turn_inputs)
-            else:
-                relevant_logits = outputs.logits[0].float()
+                self._hamlet_record_moments(outputs, turn_inputs)
+            relevant_logits = outputs.logits[0].float()
             if not full_logprobs:
                 relevant_logits = relevant_logits[...,self.vocab_ids]
             if np.abs(temperature-1.0) > 1e-7:
@@ -1366,10 +1393,11 @@ class VLMWrapper(nn.Module):
     """
     Thin wrapper that enables forward pass of the language model to play nicely with DDP
     """
-    def __init__(self, vlm, moment_ids=()):
+    def __init__(self, vlm, moment_ids=(), mem_ids=()):
         super().__init__()
         self.vlm = vlm # Can be PeftModel
         self.moment_ids = list(moment_ids)  # HAMLET placeholder ids; empty = HAMLET off
+        self.mem_ids = list(mem_ids)
         self.last_stats = {}
         self._freeze_vision_tower()
 
@@ -1384,6 +1412,7 @@ class VLMWrapper(nn.Module):
             training=self.vlm.training,
             hamlet=hamlet,
             moment_ids=self.moment_ids,
+            mem_ids=self.mem_ids,
             compute_values=compute_values,
             value_head=getattr(self.vlm, "value_head", None),
             value_grad_scale=value_grad_scale,
@@ -1515,7 +1544,7 @@ class VLMTrainingMixin:
         # 5. Create Optimizer
         # Only optimize parameters that require gradients (i.e., the Adapters)
         print(f"accelerator device: {self.accelerator.device}")
-        wrapper = VLMWrapper(self.model, moment_ids=self.moment_ids)
+        wrapper = VLMWrapper(self.model, moment_ids=self.moment_ids, mem_ids=self.mem_ids)
         self._wrapper = wrapper
         hamlet_key = f".{HAMLET_MODULE_NAME}."
         rest_params = [p for n, p in wrapper.named_parameters()
@@ -1632,6 +1661,7 @@ class VLMTrainingMixin:
             training=self.model.training,
             hamlet=hamlet,
             moment_ids=self.moment_ids,
+            mem_ids=self.mem_ids,
             compute_values=compute_values,
             value_head=getattr(self.model, "value_head", None),
             value_grad_scale=None,
@@ -1882,8 +1912,9 @@ class VLMTrainingMixin:
 
     def _hamlet_train_metrics(self):
         """Gradient norm of the HAMLET parameters, the read-out projection's weight
-        norm (0 at init, non-zero after the first update) and the mean
-        ||delta||/||h_dec|| of this replay. Call after optimizer.step(), before zero_grad."""
+        norm (0 at init, non-zero after the first update), the mean memory-token
+        read-out ratio ||MEM - mem_embed||/||mem_embed|| of this replay and the
+        replay-vs-stored moment drift. Call after optimizer.step(), before zero_grad."""
         params = getattr(self, "_hamlet_params", None)
         if not params:
             return {}
@@ -1894,8 +1925,9 @@ class VLMTrainingMixin:
                 'train/hamlet_out_proj_norm': float(self._hamlet()(mode="out_proj_norm")),
             }
         stats = getattr(self._wrapper, "last_stats", None) or {}
-        if "hamlet_delta_ratio" in stats:
-            metrics['train/hamlet_delta_ratio'] = stats["hamlet_delta_ratio"]
+        for key in ("hamlet_mem_ratio", "hamlet_moment_drift"):
+            if key in stats:
+                metrics[f'train/{key}'] = stats[key]
         return metrics
     
     def save_adapter(self, path):
