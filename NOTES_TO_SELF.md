@@ -80,3 +80,7 @@ MAIN=$(sbatch --parsable --time=12:00:00 --dependency=afterok:$PRE \
 nohup cluster/delta/watch_train.sh $MAIN hamlet_mem_20260826 \
   > /work/nvme/bgon/brabiei/longnav_runtime/logs/watch_hamlet_mem_20260826.out 2>&1 &
 # results: /work/nvme/bgon/brabiei/longnav_runtime/runs/hamlet_mem_20260826/{progress.json,eval36.jsonl,checkpoints/}
+# Tele-op a checkpoint (needs a TTY on a GPU node): allocate, attach, run
+salloc --no-shell --account=bgon-delta-gpu --partition=gpuA100x4-interactive -N1 -n1 -c16 --gpus-per-node=1 --mem=64G --time=01:00:00 -J teleop
+srun --jobid=<alloc id> --overlap --pty bash --login
+TELEOP_CHECKPOINT=/work/nvme/bgon/brabiei/longnav_runtime/runs/hamlet_mem_20260826/checkpoints/checkpoint_111 EPISODE_INDEX=0 cluster/delta/run_teleop.sh
