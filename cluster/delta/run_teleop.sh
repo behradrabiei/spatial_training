@@ -11,7 +11,9 @@
 #        or into EVAL_EPISODES (optional JSON label list, e.g. cluster/delta/hm3d_v2_val36.json),
 #        RUN_NAME (teleop_<utc>), TELEOP_FPS (4), EVAL_MAX_STEPS (350), OSM_GB (12).
 #        Extra Hydra overrides may follow as arguments.
-# Output: $LONGNAV_OUTPUT_ROOT/<RUN_NAME>/teleop/<EPISODE_INDEX>_<label>/{current.png,episode.mp4,trace.json}
+# Output (on the home filesystem, next to the repo, not /work/nvme):
+#   $TELEOP_OUTPUT_DIR/<RUN_NAME>/teleop/<EPISODE_INDEX>_<label>/{current.png,episode.mp4,trace.json}
+#   TELEOP_OUTPUT_DIR defaults to $LONGNAV_REPO_ROOT/dump/teleop
 set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/env.sh"
@@ -27,12 +29,14 @@ longnav_require_file "${TELEOP_CHECKPOINT}/adapter_model.safetensors"
 EPISODES="${EVAL_EPISODES:-}"   # empty = index the whole dataset loaded by habitat
 [[ -z "${EPISODES}" ]] || longnav_require_file "${EPISODES}"
 export RAY_OBJECT_SPILL_DIR="${RAY_OBJECT_SPILL_DIR:-/tmp/${USER}/longnav-${SLURM_JOB_ID}/spill}"
-mkdir -p "${RAY_OBJECT_SPILL_DIR}" "${LONGNAV_OUTPUT_ROOT}"
+TELEOP_OUTPUT_DIR="${TELEOP_OUTPUT_DIR:-${LONGNAV_REPO_ROOT}/dump/teleop}"
+mkdir -p "${RAY_OBJECT_SPILL_DIR}" "${TELEOP_OUTPUT_DIR}"
 RUN_NAME="${RUN_NAME:-teleop_$(date -u +%Y%m%dT%H%M%SZ)}"
 export HYDRA_FULL_ERROR=1 WANDB_MODE=offline TOKENIZERS_PARALLELISM=false HABITAT_SIM_LOG=quiet MAGNUM_LOG=quiet
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 stop_ray() { "${LONGNAV_VLM_ENV}/bin/ray" stop --force >/dev/null 2>&1 || true; }
 trap stop_ray EXIT
+echo "[run_teleop] output=${TELEOP_OUTPUT_DIR}/${RUN_NAME}/teleop"
 echo "[run_teleop] run=${RUN_NAME} hamlet=${TELEOP_HAMLET:-on} episode_index=${EPISODE_INDEX:-0} of ${EPISODES:-full HM3D-v2 val} ckpt=${TELEOP_CHECKPOINT}"
 cd "${LONGNAV_REPO_ROOT}"
 "${LONGNAV_VLM_ENV}/bin/python" -m longnav.scripts.teleop_eval \
@@ -49,7 +53,7 @@ cd "${LONGNAV_REPO_ROOT}"
     "sim.scenes_dir=${LONGNAV_HM3D_SCENES}" \
     "rollout.max_steps=${EVAL_MAX_STEPS:-350}" \
     "task.run_name=${RUN_NAME}" \
-    "task.output_dir=${LONGNAV_OUTPUT_ROOT}" \
+    "task.output_dir=${TELEOP_OUTPUT_DIR}" \
     task.subset_label= \
     "task.episode_json=${EPISODES}" \
     "teleop.episode_index=${EPISODE_INDEX:-0}" \

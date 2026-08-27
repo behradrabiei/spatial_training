@@ -87,4 +87,4 @@ TELEOP_CHECKPOINT=/work/nvme/bgon/brabiei/longnav_runtime/runs/hamlet_mem_202608
 # EPISODE_INDEX = position in the full HM3D-v2 val set == position in src/longnav/conf/episode_jsons/hm3d_v2_val.json
 # (1000 episodes, scenes alphabetical, 28 per scene, label <scene>_<0..27>; habitat renumbers episode_id per scene on load).
 # EVAL_EPISODES=<json> (e.g. cluster/delta/hm3d_v2_val36.json) indexes that list instead.
-# Live frame: $LONGNAV_OUTPUT_ROOT/<RUN_NAME>/teleop/<EPISODE_INDEX>_<label>/current.png (printed as 'Live image:' at start)
+# Live frame: <repo>/dump/teleop/<RUN_NAME>/teleop/<EPISODE_INDEX>_<label>/current.png (home fs, not nvme; TELEOP_OUTPUT_DIR overrides; printed as 'Live image:' at start)
