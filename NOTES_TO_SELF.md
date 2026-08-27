@@ -84,3 +84,5 @@ nohup cluster/delta/watch_train.sh $MAIN hamlet_mem_20260826 \
 salloc --no-shell --account=bgon-delta-gpu --partition=gpuA100x4-interactive -N1 -n1 -c16 --gpus-per-node=1 --mem=64G --time=01:00:00 -J teleop
 srun --jobid=<alloc id> --overlap --pty bash --login
 TELEOP_CHECKPOINT=/work/nvme/bgon/brabiei/longnav_runtime/runs/hamlet_mem_20260826/checkpoints/checkpoint_111 EPISODE_INDEX=0 cluster/delta/run_teleop.sh
+# EPISODE_INDEX indexes the full HM3D-v2 val set (1000 episodes; scenes alphabetical, 28 per scene); EVAL_EPISODES=<json> restricts to a label list.
+# Live frame: $LONGNAV_OUTPUT_ROOT/<RUN_NAME>/teleop/<EPISODE_INDEX>_<label>/current.png (printed as 'Live image:' at start)
