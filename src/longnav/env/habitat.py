@@ -713,7 +713,7 @@ class HabitatWorker:
             raise TypeError(f"Instruction must be str, got {type(val)}")
     def total_episodes(self):
         return self.full_dataset.num_episodes
-    def assign_shard(self,assigned_episode_labels = None):
+    def assign_shard(self,assigned_episode_labels = None, assigned_episode_indices=None):
         from habitat.core.dataset import EpisodeIterator
         import longnav.utils.measures
         from habitat.gym import make_gym_from_config
@@ -729,7 +729,20 @@ class HabitatWorker:
             else None
         )
 
-        if self.assigned_labels is not None:
+        if assigned_episode_indices is not None:
+            # Select by position in the full dataset (habitat's load order: scene files
+            # alphabetically, episodes in file order). On datasets whose episode_id
+            # restarts per goal category (the official HM3D-v2 val) the label
+            # scene_episodeid is not unique, so a position is the only way to address
+            # every episode; export_dataset_catalog() lists what each index denotes.
+            wanted = {int(i) for i in assigned_episode_indices}
+            n_total = len(self.full_dataset.episodes)
+            out_of_range = sorted(i for i in wanted if not 0 <= i < n_total)
+            if out_of_range:
+                print(f"WARNING: Assigned episode indices out of range for {n_total} episodes: {out_of_range}")
+            keep = {id(ep) for i, ep in enumerate(self.full_dataset.episodes) if i in wanted}
+            dataset = self.full_dataset.filter_episodes(lambda ep: id(ep) in keep)
+        elif self.assigned_labels is not None:
             # Some generated ObjectNav datasets reuse episode IDs across goals.
             # An assigned label still denotes one episode, so keep its first
             # deterministic occurrence instead of silently expanding the shard.
@@ -882,6 +895,17 @@ class HabitatWorker:
     def get_episodes(self):
         return self.env.episodes
     
+    def export_dataset_catalog(self):
+        """index -> label / scene / episode_id / object_category for every episode of
+        the full dataset, in habitat's load order (what assign_shard's
+        assigned_episode_indices refer to)."""
+        rows = []
+        for i, ep in enumerate(self.full_dataset.episodes):
+            scene_id = get_scene_id(ep.scene_id)
+            rows.append({"index": i, "label": f"{scene_id}_{ep.episode_id}", "scene": scene_id,
+                         "episode_id": ep.episode_id, "object_category": getattr(ep, "object_category", None)})
+        return rows
+
     def export_dataset_labels(self):
         """Exports the list of episode labels in the current shard."""
         labels = []
@@ -1339,10 +1363,10 @@ class LoggingHabitatWorker(HabitatWorker):
             self.flush_logs_to_disk()
         return super().reset(episode_id,output_schema,logging_schema)
 
-    def assign_shard(self, assigned_episode_labels=None):
+    def assign_shard(self, assigned_episode_labels=None, assigned_episode_indices=None):
         if len(self.steps['action'])>0 and self.auto_flush:
             self.flush_logs_to_disk()
-        return super().assign_shard(assigned_episode_labels)
+        return super().assign_shard(assigned_episode_labels, assigned_episode_indices)
     
 if __name__ == "__main__":
     import time

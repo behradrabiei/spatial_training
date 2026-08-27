@@ -5,8 +5,9 @@
 #   cluster/delta/request_interactive.sh      (or: srun --jobid=<alloc> --overlap --pty bash --login)
 #   TELEOP_CHECKPOINT=<adapter dir> EPISODE_INDEX=0 cluster/delta/run_teleop.sh
 # Knobs: TELEOP_CHECKPOINT (default: staged stage-1 adapter), TELEOP_HAMLET (on|off, default on --
-#        must match how the checkpoint was trained), EPISODE_INDEX (0) into the FULL HM3D-v2 val
-#        set (1000 episodes, habitat's load order: scenes alphabetically, episodes in file order)
+#        must match how the checkpoint was trained), EPISODE_INDEX (0): position in the full
+#        HM3D-v2 val set = position in src/longnav/conf/episode_jsons/hm3d_v2_val.json (1000
+#        episodes, scenes alphabetical, label <scene>_<0..27>; index 28*k+j = scene k, episode j),
 #        or into EVAL_EPISODES (optional JSON label list, e.g. cluster/delta/hm3d_v2_val36.json),
 #        RUN_NAME (teleop_<utc>), TELEOP_FPS (4), EVAL_MAX_STEPS (350), OSM_GB (12).
 #        Extra Hydra overrides may follow as arguments.

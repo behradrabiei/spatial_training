@@ -207,11 +207,23 @@ def main(cfg: TeleopEvalConfig):
         simulators = bootstrapper.bootstrap_sims(logger=None)
         model, simulator = models[0], simulators[0]
 
-        labels = explicit_labels
-        if labels is None:
-            labels = resolve_episode_labels(cfg, ray.get(simulator.export_dataset_labels.remote()))
-        episode_label = select_episode_label(labels, cfg.teleop.episode_index)
-        ray.get(simulator.assign_shard.remote([episode_label]))
+        if explicit_labels is not None:
+            episode_label = select_episode_label(explicit_labels, cfg.teleop.episode_index)
+            ray.get(simulator.assign_shard.remote([episode_label]))
+        else:
+            # No label list: teleop.episode_index addresses the whole dataset by
+            # position (scene files alphabetically, episodes in file order). Labels
+            # cannot do that on datasets whose episode_id restarts per goal category.
+            catalog = ray.get(simulator.export_dataset_catalog.remote())
+            if not 0 <= cfg.teleop.episode_index < len(catalog):
+                raise IndexError(
+                    f"teleop.episode_index={cfg.teleop.episode_index} is out of range for {len(catalog)} episodes"
+                )
+            entry = catalog[cfg.teleop.episode_index]
+            episode_label = entry["label"]
+            print(f"Episode index {cfg.teleop.episode_index} of {len(catalog)}: {episode_label} "
+                  f"(scene {entry['scene']}, goal {entry['object_category']})")
+            ray.get(simulator.assign_shard.remote(None, [cfg.teleop.episode_index]))
         rgb, state, pos_id_kwargs = unpack_actor_state(ray.get(simulator.reset.remote()))
         actual_label = state["info"]["episode_label"]
         final_info = state["info"]
