@@ -53,8 +53,53 @@ class VLMConfig:
     kv_prune_recent_turns: int = 2  # last N turns are never budget-pruned
     kv_prune_ema_beta: float = 0.7  # importance EMA decay; 0 = last decision only (TOVA)
     kv_prune_merge: bool = False  # merge dropped visual slots into nearest kept slot (CaM-style)
-    kv_prune_importance: str = "attn"  # 'attn' (decision-row attention) or 'random' (control)
+    # 'attn' (decision-row attention EMA), 'random' (control), 'stratified' (equal per-turn),
+    # 'diversity' (FPS on sparse embeds), 'kl' (leave-one-frame-out KL, frame-proportional),
+    # 'keep_one' (keep-one-frame-in KL vs the no-history prior -- the CVPR'26 standalone
+    # information measure, frame-proportional), 'fisher' / 'fisher_diversity' (gradient
+    # Fisher), 'grid' (random's per-frame quotas, filled by farthest-point picks on the mRoPE
+    # (row, col) token grid).
+    kv_prune_importance: str = "attn"
     kv_prune_granularity: str = "slot"  # 'slot' (TOVA-style) or 'turn' (whole-frame keyframe selection)
+    kv_prune_candidate_scope: str = "all"  # 'visual' protects every in-window text slot
+    kv_prune_seed: int = 17  # reset per episode for scheduling-independent sampling
+    kv_prune_fisher_pool_factor: float = 2.0  # Fisher candidates passed to hybrid FPS
+    # --- 'voxel_dedup' / 'voxel_strat': need sim.voxel_kwargs (per-patch world voxels from
+    # depth + pose), sim.output_schema.obs.patch_coords=true and rollout.pos_id_mode=standard.
+    kv_prune_voxel_cap: int = 1  # voxel_dedup: max visual slots kept per world cell (newest first)
+    kv_prune_voxel_scale: int = 2  # integer coarsening of the sim's voxel ids (0.15 m * scale per cell)
+    kv_prune_voxel_2d: bool = True  # bucket on (x, z) only -- habitat y is up
+    # --- influence diagnostic (tools/kl_influence.py): every step, KL(P_t || P_t^{-f}) for EVERY
+    # cached frame f (one decision replay per frame), logged as sup/kl_influence. Needs prune mode;
+    # run it with an unreachable kv_budget and context_window=null to keep the full cache.
+    kv_prune_log_influence: bool = False
+    kv_prune_influence_stride: int = 1  # score every k-th step; skipped steps log []
+    # --- layer-selective pruning ("When Token Pruning is Worse than Random", CVPR'26, arXiv
+    # 2512.07580): the budget applies only to decoder layers [layer_start, layer_end); the other
+    # layers keep the window-only cache, so memory savings scale with the fraction of layers
+    # pruned (sup/mean_kv_len reports the layer-mean length, kv_len_layer_max / kv_len_master
+    # the unpruned length). Refuses kv_prune_granularity='turn' and kv_prune_merge.
+    kv_prune_layer_start: int = 0  # first decoder layer whose cache is budget-pruned (0 = every layer)
+    kv_prune_layer_end: Optional[int] = None  # exclusive end of the pruned range; None = through the last layer
+    # 'attn' selector under layer-selective pruning: whose decision rows are averaged. 'pruned' =
+    # the pruned range, 'all' = every layer, 'boundary' = layer_start-1 only (FastV-style).
+    kv_prune_score_layers: str = "pruned"
+    # Visual-blind arm (hypothesis test for the information horizon): on decoder layers
+    # [layer_start, layer_end) no query may attend to ANY visual slot -- cached history and the
+    # current frame alike -- and visual slots are dropped from those layers' caches after each
+    # step. Text and the frame window are untouched; kv_budget / importance are ignored.
+    kv_prune_visual_blind: bool = False
+    # --- layer-influence diagnostic (tools/layer_influence.py): per step, KL(P_t || P_t with the
+    # visual slots hidden from layers >= i) for each probe layer i, once for history-only visual
+    # slots (sup/layer_influence_hist) and once including the recent turns (sup/layer_influence_all).
+    # One decision replay per probe and row. Needs prune mode; run with an unreachable kv_budget.
+    kv_prune_log_layer_influence: bool = False
+    kv_prune_layer_influence_starts: List[int] = field(default_factory=lambda: [0, 4, 8, 12, 16, 20, 24, 28])
+    # --- keep-one-in vs leave-one-out diagnostic (tools/keep_one_influence.py): per probe layer i
+    # and EVERY cached frame f, KL(P only f || P no visual) and KL(P full || P without f), hidings
+    # on layers >= i (sup/keep_one_influence, sup/leave_one_influence). 1 + 2 * n_frames replays per
+    # probe layer per scored step -- use a window and kv_prune_influence_stride.
+    kv_prune_log_keep_one: bool = False
     # What the attention visualizations measure. "raw" = attention weight alpha (max over
     # heads). "value_norm" = alpha*||v||, "wo_norm" = alpha*||W_O v|| (both summed over
     # heads): alpha only routes, so a key with high alpha and a small value vector
@@ -188,7 +233,11 @@ class HabitatConfig:
     split: str = "val"
     fp_guard: bool = False
     fn_guard: bool = False
-    voxel_kwargs: Optional[Dict[str, Any]] = field(default_factory=lambda: None)
+    # Per-patch world voxels from depth + pose (longnav.utils.voxel_utils.patch_voxels kwargs:
+    # patch_size, resolution, fov_degrees). Empty = off. A dict default (not None) so Hydra can
+    # add keys on the command line: `+sim.voxel_kwargs.patch_size=32 ...` (see
+    # tools/run_kv_prune_ablation.sh VOXEL=true).
+    voxel_kwargs: Dict[str, Any] = field(default_factory=dict)
     output_schema: Optional[Dict[str, Any]] = field(default_factory=lambda: {
         "obs": {"rgb": True, "instr_or_goal": True, "patch_coords": False},
         "info": {"episode_label": True, "spl": True, "soft_spl":True, "success": True,"distance_to_goal":True},
@@ -239,6 +288,10 @@ class RolloutConfig:
     # Decoder layers feeding the 3D heat video, one video each. Negative indices
     # count from the end; null probes every layer.
     attn3d_layers: Optional[List[int]] = field(default_factory=lambda: [-1])
+    # Position ids when the sim attaches per-patch world coords (sim.voxel_kwargs set):
+    # 'auto' = 'bev' whenever coords arrive (legacy behaviour); 'standard' = stock mRoPE,
+    # the coords are only forwarded to the KV-prune voxel selectors; 'bev' = force bev.
+    pos_id_mode: str = "auto"
 
 
 # --- Experiment housekeeping ---

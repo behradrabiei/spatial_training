@@ -310,7 +310,8 @@ class TextMixin:
         # only surviving tokens reach the cache.
         reindex_state = getattr(self, "_reindex_state", None)
         if reindex_state is not None:
-            reindex_state.append(position_ids)
+            reindex_state.append(position_ids,
+                                 visual_pos_masks[0] if visual_pos_masks is not None else None)
             reindex_state.cos, reindex_state.sin = self.rotary_emb(inputs_embeds, reindex_state.pos_table)
         outputs = super().forward(
             input_ids=input_ids,

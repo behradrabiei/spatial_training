@@ -109,6 +109,10 @@ class EpisodeRolloutMixin:
             # 1. Resolve the initial state (Blocking wait for reset to finish)
             # Ray automatically waits for initial_state_ref to be ready before starting this task,
             # but we call ray.get to access the data.
+            # 'auto' keeps the legacy behaviour (attached patch coords => bev position ids);
+            # 'standard' keeps stock mRoPE and only forwards the coords to the KV-prune
+            # voxel selectors (see VLMWorker._turn_voxel_rows).
+            pos_id_mode = self.rollout_config.get("pos_id_mode", "auto")
             pos_id_kwargs={
                 "mode": "standard"
             }
@@ -116,10 +120,10 @@ class EpisodeRolloutMixin:
                 rgb,state_dict = initial_state_ref
                 print("using normal mode")
             elif len(initial_state_ref)==3:
-                print("using bev mode")
                 rgb,patch_coords,state_dict = initial_state_ref
                 pos_id_kwargs['patch_coords'] = patch_coords
-                pos_id_kwargs['mode'] = "bev"
+                pos_id_kwargs['mode'] = "bev" if pos_id_mode == "auto" else pos_id_mode
+                print(f"using {pos_id_kwargs['mode']} mode (patch coords attached)")
             step_count = 0
             done = False
             messages = substitute_convo_template(self.rollout_config['convo_start_template'],state_dict['obs'] | self.rollout_config)
@@ -140,12 +144,42 @@ class EpisodeRolloutMixin:
                 t0 = time.time()
                 action_probs,action_logprobs,outputs = self.infer_probs(images=[rgb_pil],messages=messages,temperature = self.rollout_config['temperature'],pos_id_kwargs=pos_id_kwargs)
                 
-                vlm_logs |= {'mean/vlm_latency':time.time()-t0,'min/vlm_latency':time.time()-t0,'max/vlm_latency':time.time()-t0,'sum/spguard_trigger_count':0}
-                if self.past_key_values is not None:
+                vlm_logs |= {'mean/vlm_latency':time.time()-t0,'min/vlm_latency':time.time()-t0,'max/vlm_latency':time.time()-t0,'sum/vlm_latency':time.time()-t0,'sum/spguard_trigger_count':0}
+                kv_stats = self.kv_stats()
+                if kv_stats is not None:
                     # Resident cache length after any eviction/pruning -- the memory metric
-                    # the context-compression experiments are scored on.
-                    kv_len = self.past_key_values.get_seq_length()
-                    vlm_logs |= {'mean/kv_len': kv_len, 'max/kv_len': kv_len}
+                    # the context-compression experiments are scored on. kv_len is the
+                    # layer-mean (memory-equivalent) length; layers differ only under
+                    # layer-selective pruning, where kv_len_layer_max / kv_len_master expose
+                    # the unpruned and master lengths.
+                    kv_mean, kv_layer_max, kv_master = kv_stats
+                    vlm_logs |= {'mean/kv_len': kv_mean, 'max/kv_len': kv_mean,
+                                 'max/kv_len_layer_max': kv_layer_max,
+                                 'mean/kv_len_master': kv_master}
+                if getattr(self, "context_window_mode", None) == "prune":
+                    vlm_logs |= {
+                        "mean/prune_score_latency": self._prune_score_latency,
+                        "sum/prune_score_latency": self._prune_score_latency,
+                        "sum/prune_replay_count": self._prune_replay_count,
+                        "mean/kv_visual_slots": self._prune_visual_slots,
+                        "mean/kv_text_slots": self._prune_text_slots,
+                    }
+                    if getattr(self, "kv_prune_log_influence", False):
+                        # Ragged per-step rows (len t+1) land raw in sequence.json as
+                        # sup/kl_influence; kv_visual_new marks frames whose KL is vacuous.
+                        vlm_logs["kl_influence"] = list(getattr(self, "_kl_influence_row", []))
+                        vlm_logs["mean/kv_visual_new"] = getattr(self, "_prune_visual_new", 0)
+                    if getattr(self, "kv_prune_log_layer_influence", False):
+                        # One KL per probe layer (vlm.kv_prune_layer_influence_starts), raw in
+                        # sequence.json as sup/layer_influence_{hist,all}; [] on skipped steps.
+                        vlm_logs["layer_influence_hist"] = list(getattr(self, "_layer_influence_hist", []))
+                        vlm_logs["layer_influence_all"] = list(getattr(self, "_layer_influence_all", []))
+                    if getattr(self, "kv_prune_log_keep_one", False):
+                        # Per probe layer, per cached frame: keep-one-in and leave-one-out KL
+                        # (sup/keep_one_influence, sup/leave_one_influence); [] on skipped steps.
+                        vlm_logs["keep_one_influence"] = [list(r) for r in getattr(self, "_keep_one_rows", [])]
+                        vlm_logs["leave_one_influence"] = [list(r) for r in getattr(self, "_leave_one_rows", [])]
+                        vlm_logs["mean/kv_visual_new"] = getattr(self, "_prune_visual_new", 0)
                 try:
                     import torch
                     vlm_mem = torch.cuda.memory_allocated()/(1024**3)
@@ -197,10 +231,11 @@ class EpisodeRolloutMixin:
                 state_ref = ray.get(env_handle.step.remote(action_id,supplementary_logs=vlm_logs))
                 if len(state_ref)==2:
                     rgb,state_dict = state_ref
+                    pos_id_kwargs.pop('patch_coords', None)
                 elif len(state_ref)==3:
                     rgb,patch_coords,state_dict = state_ref
                     pos_id_kwargs['patch_coords'] = patch_coords
-                    pos_id_kwargs['mode'] = "bev"
+                    pos_id_kwargs['mode'] = "bev" if pos_id_mode == "auto" else pos_id_mode
                 vlm_logs = {'mean/sim_latency':time.time()-t0,'min/sim_latency':time.time()-t0,'max/sim_latency':time.time()-t0}
                 if collect_trajectory:
                     # Append dict to list - fast and simple

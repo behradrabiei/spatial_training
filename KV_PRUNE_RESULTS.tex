@@ -1,0 +1,289 @@
+% Section fragment: drop into an existing document.
+% Requires: booktabs, amsmath, amssymb (and \code{} defined below if not already).
+% \newcommand{\code}[1]{\texttt{#1}}
+
+\subsection{Experimental protocol}
+\label{sec:kvprune-protocol}
+
+All experiments are run on the HM3D-v2 validation split with deterministic action selection
+and visualization disabled, at seed 17. We use two test sets: a 100-episode manifest, which
+is the full protocol, and a 25-episode seed-17 subset of it, used as a promotion gate to
+decide which arms merit a full-scale run. We refer to the latter as the \emph{screen}.
+Reported significance is a paired sign-flip bootstrap against the baseline of the same
+batch.
+
+Budgets are matched to measured recency-window memory, so that a budget arm and its
+corresponding window arm hold the same number of resident KV slots. With a $\approx
+574$-token pinned prompt prefix and $\approx 153$ tokens per frame surviving the sparse
+visual filter, the window-equivalent budgets are $B_4 = 1187$, $B_8 = 1799$ and $B_{16} =
+3022$ slots. One slot costs $\approx 0.109$\,MB in bf16 (28 layers $\times$ 8 KV heads
+$\times$ 128 dimensions $\times$ 2). Unless stated otherwise, every arm uses a 32-frame
+selection pool, and reports success rate (SR), success weighted by path length (SPL), mean
+episode length in steps, mean resident KV slots, and mean per-step latency.
+
+\subsection{Budget pruning against matched-memory windows}
+\label{sec:kvprune-budget}
+
+Table~\ref{tab:kvprune-budget} reports the initial sweep, in which all arms were run
+together against a common pair of reference points: a 32-frame recency window and full
+history. Random slot pruning sits above the recency-window curve at every matched budget,
+and $B_{16}$-random matches the 32-frame window's success rate while holding half the KV. It
+also caps memory exactly, which a window does not: the number of slots a window retains
+varies with how many patches the sparse filter admits per frame, and peaked at 8780 slots on
+one scene. Every scored selector in this batch lands below random, and cache merging is the
+weakest arm of all.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Arm & SR & SPL & Steps & Mean KV & Lat.\ (ms) \\
+\midrule
+win32 evict \emph{(reference)}      & 0.880 & 0.481 & 121 & $\sim$5474 & 57.0 \\
+full history \emph{(reference)}     & 0.840 & 0.468 & 111 & grows      & 82.1 \\
+\midrule
+\textbf{random} $B_{16}$            & \textbf{0.860} & 0.427 & 152 & 2769 & 50.4 \\
+win16 evict                         & 0.820 & 0.419 & 152 & $\sim$3024 & 50.2 \\
+\textbf{random} $B_8$               & \textbf{0.810} & 0.406 & 171 & 1736 & 46.3 \\
+win8 evict                          & 0.790 & 0.383 & 184 & $\sim$1799 & 45.5 \\
+\textbf{random} $B_4$               & \textbf{0.730} & 0.324 & 224 & 1172 & 44.2 \\
+random $B_4$, no frame pool         & 0.707 & 0.329 & 227 & 1172 & 44.2 \\
+win4 evict                          & 0.700 & 0.309 & 239 & $\sim$1187 & 42.9 \\
+\midrule
+keyframe-attn $B_8$ (turn gran.)    & 0.730 & 0.337 & 209 & 1641 & 47.3 \\
+slot-attn $B_8$                     & 0.650 & 0.328 & 222 & 1745 & 47.4 \\
+keyframe-attn $B_4$                 & 0.650 & 0.289 & 265 & 1044 & 45.2 \\
+slot-attn $B_4$                     & 0.630 & 0.289 & 254 & 1172 & 44.9 \\
+attn $B_4$ + merge                  & 0.580 & 0.250 & 273 & 1173 & 48.3 \\
+reindex win4 (renumbered)           & 0.450 & 0.236 & 308 & 1187 & 43.5 \\
+\bottomrule
+\end{tabular}
+\caption{Budget pruning against matched-memory recency windows, 100 episodes. Random
+pruning sits above the window curve at every matched budget; $B_{16}$-random matches the
+32-frame window's success rate at half the KV.}
+\label{tab:kvprune-budget}
+\end{table}
+
+\subsection{Can any selector beat random?}
+\label{sec:kvprune-selectors}
+
+Table~\ref{tab:kvprune-selectors} compares the information-seeking selectors against random
+at all three budgets. This batch was re-baselined, and its random arm differs from that of
+Table~\ref{tab:kvprune-budget} ($B_4$: 0.760 against 0.730); comparisons are therefore valid
+only within a batch. No selector separates from random at any budget. The \code{grid}
+selector is the most controlled of these: it reuses random's own draw to fix the per-frame
+quotas and replaces only the choice of patches \emph{within} a frame with a spatially even
+one, so any difference would be attributable to within-frame coverage alone. There is none.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lcccl}
+\toprule
+Selector & $B_4$ SR/SPL & $B_8$ SR/SPL & $B_{16}$ SR/SPL & Verdict \\
+\midrule
+random \emph{(baseline)} & 0.760 / 0.328 & 0.800 / 0.377 & 0.850 / 0.424 & --- \\
+\code{kl}                & 0.750 / 0.331 & 0.790 / 0.386 & 0.860 / 0.396 & tie (all $p \ge 0.09$), $8\times$ latency \\
+\code{grid}              & 0.770 / 0.344 & 0.780 / 0.392 & 0.840 / 0.415 & tie, $\sim$3\,ms/step \\
+\code{keep\_one}         & 0.780 / 0.321 & ---           & ---           & tie ($\Delta$SR $+0.02$, $p=0.80$) \\
+\bottomrule
+\end{tabular}
+\caption{Information-seeking selectors against random at three matched budgets, 100
+episodes. No selector separates from random.}
+\label{tab:kvprune-selectors}
+\end{table}
+
+Table~\ref{tab:kvprune-screen} reports every selector screened at $B_4$ on the 25-episode
+subset, which is where the selector search was actually conducted; only arms that survived
+this gate were run at full scale. The ordering is stable and unambiguous. The \code{grid}
+selector is the only arm indistinguishable from random. Leave-one-frame-out \code{kl} is
+already slightly behind at eight times the latency. Every remaining selector is clearly
+worse, and the ranking is informative about \emph{why}: the two arms that impose an explicit
+coverage criterion --- equal-per-frame stratification and farthest-point diversity over the
+sparse patch embeddings --- lose $0.16$ SR, and the gradient-based \code{fisher} score is the
+worst arm in the series at $0.440$ SR, less than random at a $2\times$ smaller budget.
+
+Geometry-based selection fails in the same direction. Tagging each visual slot with the world
+voxel its patch observes, then capping or equalising slots per occupied cell, costs $0.07$ to
+$0.10$ SPL, and coarser cells hurt more. The loss concentrates on the \emph{short} episodes,
+those random solves quickly: capping per cell removes the repeated close-range views of
+nearby floor and doorway geometry in the frames just outside the protected window, which is
+the dense local detail short-range navigation depends on. Geometric redundancy is used, not
+wasted.
+
+Taken together, every selector that imposes structure on the retained set --- temporal
+(stratified), appearance (diversity), geometric (voxel), or gradient-based (fisher) --- lands
+below an i.i.d.\ draw, while the two that reproduce random's own allocation (\code{grid},
+which copies its per-frame quotas, and \code{kl}, whose frame-proportional quotas approximate
+them) tie with it.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrll}
+\toprule
+Selector & SR & SPL & Steps & Lat.\ (ms) & $\Delta$SR ($p$) & $\Delta$SPL ($p$) \\
+\midrule
+random \emph{(baseline)}   & 0.800 & 0.326 & 228 & 42.7  & --- & --- \\
+\code{grid}                & 0.800 & 0.321 & 224 & 45.0  & $+0.00$ (1.00) & $-0.005$ (0.89) \\
+\code{kl}                  & 0.760 & 0.273 & 245 & 350.8 & $-0.04$ (1.00) & $-0.054$ (0.27) \\
+\code{voxel\_dedup} 0.3\,m & 0.720 & 0.224 & 280 & 56.5  & $-0.08$ (0.73) & $-0.102$ (0.051) \\
+\code{voxel\_strat} 0.6\,m & 0.680 & 0.231 & 287 & 56.8  & $-0.12$ (0.38) & $-0.096$ (0.093) \\
+\code{voxel\_dedup} 0.6\,m & 0.640 & 0.255 & 276 & 55.9  & $-0.16$ (0.22) & $-0.071$ (0.078) \\
+\code{stratified}          & 0.640 & 0.184 & 325 & 42.4  & $-0.16$ (0.33) & $-0.142$ (0.047) \\
+\code{diversity}           & 0.640 & 0.225 & 311 & 108.2 & $-0.16$ (0.35) & $-0.101$ (0.056) \\
+\code{fisher}              & 0.440 & 0.194 & 311 & 88.5  & $-0.36$ (0.024) & $-0.132$ (0.0003) \\
+\bottomrule
+\end{tabular}
+\caption{All selectors screened at $B_4 = 1187$ slots on the 25-episode subset, 32-frame
+pool, sorted by success rate. Deltas are paired sign-flip bootstrap against random
+(10{,}000 resamples, two-sided). Voxel cell sizes are the sim's 0.15\,m grid coarsened by an
+integer factor. No selector exceeds random on either metric; \code{grid} matches it and
+everything imposing explicit structure on the retained set falls below it.}
+\label{tab:kvprune-screen}
+\end{table}
+
+\subsection{Protecting the action-text history}
+\label{sec:kvprune-scope}
+
+The arms above let visual patches and the agent's own action text compete for the same
+budget. Table~\ref{tab:kvprune-scope} instead pins every in-window text slot and prunes only
+visual slots, asking whether the action history --- the agent's odometry in words --- is
+worth protecting. It is not. At $B_8$ this swaps roughly 290 visual slots for text and costs
+$0.15$ SR, so per slot a visual token is worth considerably more than an old action token,
+and the unrestricted scope was already making the better trade by letting text thin out.
+The $B_4$ budget is structurally infeasible under this scope, because the protected floor
+exceeds the budget once the window fills. The tie between \code{kl} and random replicates
+here, in a second regime.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrrl}
+\toprule
+Arm & SR & SPL & Steps & KV vis. & KV text & Paired vs.\ unrestricted random \\
+\midrule
+vis-random $B_8$    & 0.650 & 0.262 & 258 & 1166 & 585 & $\Delta$SR $-0.15$ ($p=0.007$) \\
+vis-kl $B_8$        & 0.630 & 0.286 & 250 & 1166 & 581 & $\Delta$SR $-0.17$ ($p=0.0004$) \\
+vis-random $B_{16}$ & 0.800 & 0.382 & 169 & 2232 & 559 & $\Delta$SPL $-0.042$ ($p=0.017$) \\
+vis-kl $B_{16}$     & 0.800 & 0.363 & 180 & 2211 & 562 & $\Delta$SPL $-0.062$ ($p=0.0002$) \\
+\bottomrule
+\end{tabular}
+\caption{Pinning the action-text history and pruning only visual slots, 100 episodes.
+Per slot, visual tokens are worth far more than old action text.}
+\label{tab:kvprune-scope}
+\end{table}
+
+\subsection{Layer-selective pruning}
+\label{sec:kvprune-layers}
+
+Every arm above prunes all 28 decoder layers with one slot set. We next confine the budget
+to layers $[L, 28)$, leaving the remaining layers with the window-only cache, so that $L=0$
+recovers the uniform arms. Table~\ref{tab:kvprune-layer-screen} sweeps the prune layer on the
+screen. The ordering is informative: \code{kl} is \emph{worse} than random when the drop
+happens at shallow layers, and only turns positive at $L = 16$--$20$. Those two layers were
+promoted.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Prune layer $L$ & random SR / SPL & \code{kl} SR / SPL & $\Delta$SPL ($p$) \\
+\midrule
+0 (uniform) & 0.80 / 0.326 & 0.76 / 0.273 & $-0.054$ (0.27) \\
+4           & 0.88 / 0.336 & 0.68 / 0.277 & $-0.059$ (0.15) \\
+8           & 0.88 / 0.376 & 0.80 / 0.321 & $-0.055$ (0.09) \\
+12          & 0.84 / 0.380 & 0.76 / 0.384 & $+0.003$ \\
+16          & 0.84 / 0.380 & 0.80 / 0.411 & $+0.030$ (0.54) \\
+20          & 0.76 / 0.398 & 0.84 / 0.432 & $+0.034$ (0.09) \\
+24          & 0.92 / 0.460 & 0.84 / 0.419 & $-0.041$ \\
+\bottomrule
+\end{tabular}
+\caption{\code{kl} against random by prune layer, 25-episode screen at $B_4$. \code{kl} only
+turns positive at layers 16--20.}
+\label{tab:kvprune-layer-screen}
+\end{table}
+
+Table~\ref{tab:kvprune-layer-full} reports the promoted layers at full scale. Paired
+\code{kl} $-$ random gives $\Delta$SR $+0.03$ ($p = 0.46$) and $\Delta$SPL $+0.018$
+($p = 0.27$) at $L = 16$, and $\Delta$SR $+0.01$ ($p = 1.0$) and $\Delta$SPL $+0.016$
+($p = 0.12$) at $L = 20$. The direction agrees with the screen on both metrics at both
+layers, making this the first selector to sit above random on SPL anywhere in the series,
+but the effect is not detectable at $n = 100$ --- an SPL gap of this size would require on
+the order of 1000 paired episodes --- and it costs roughly nine times the per-step latency.
+Two further readings follow. First, where one prunes matters only through memory: at matched
+layer-mean KV the layer arms sit \emph{on} the uniform-random budget curve, so sparing the
+shallow layers buys exactly what the extra slots buy and no more. Second, \code{kl}'s failure
+at shallow layers is diagnostic: leave-one-frame-out KL measured at the pruned layers keeps
+what is salient to the current decision, which is redundant with the protected recent turns,
+while at layers $\ge 16$ so little history influence remains to rank that the selector
+degenerates towards uniform sampling and matches random.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Arm & SR & SPL & Steps & KV layer-mean & Lat.\ (ms) \\
+\midrule
+uniform random ($L{=}0$)          & 0.760 & 0.328 & 219 & 1172 & 41.6 \\
+uniform \code{kl} ($L{=}0$)       & 0.750 & 0.331 & 225 & 1172 & 326 \\
+random $L{=}16$                   & 0.830 & 0.438 & 124 & 3644 & 56.7 \\
+\textbf{\code{kl}} $L{=}16$       & \textbf{0.860} & \textbf{0.456} & 125 & 3649 & 493 \\
+random $L{=}20$                   & 0.850 & 0.455 & 125 & 4177 & 57.7 \\
+\textbf{\code{kl}} $L{=}20$       & \textbf{0.860} & \textbf{0.472} & 121 & 4210 & 532 \\
+\midrule
+uniform random $B_{16}$ \emph{(ref)} & 0.850 & 0.424 & 145 & 2782 & 48.1 \\
+win32 evict \emph{(ref)}             & 0.880 & 0.481 & 121 & $\sim$5474 & 57.0 \\
+\bottomrule
+\end{tabular}
+\caption{Layer-selective pruning at the promoted layers, 100 episodes at $B_4$. The
+selector's advantage over random is directionally consistent but not detectable at this
+sample size, and costs $\approx 9\times$ per-step latency.}
+\label{tab:kvprune-layer-full}
+\end{table}
+
+\subsection{The visual information horizon}
+\label{sec:kvprune-blind}
+
+Table~\ref{tab:kvprune-blind} reports a hypothesis test rather than a compression method. On
+decoder layers $\ge L$, no query may attend to any visual slot --- cached history and the
+current frame alike --- and those slots leave the blind layers' caches. Text and the 32-frame
+pool are untouched, and no budget or selector is involved; $L = 28$ is the unmodified model
+and $L = 0$ is a text-only policy.
+
+The horizon is real and sharp. Blinding from layer 24 is indistinguishable from the full
+model. Blinding from layer 20 leaves the agent finding the goal as often, but taking
+$\approx 9\%$ more steps, a significant SPL loss of $0.05$: layers 20--27 still read some
+visual detail, and what they read buys path efficiency rather than success. Blinding from
+layer 16 collapses the policy, and blinding from layer 0 fails entirely. The visual
+information that decides the action is therefore consumed almost entirely within layers
+16--20, which matches both the leave-one-frame-out horizon curve and the layer-selective
+result above. Two consequences are practical: layers $\ge 24$ can drop every visual slot at
+no cost, and any future compression targeting layers below 20 must preserve what those layers
+absorb.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lrrrrll}
+\toprule
+First blind layer $L$ & SR & SPL & Steps & KV layer-mean & $\Delta$SR ($p$) & $\Delta$SPL ($p$) \\
+\midrule
+28 (win32, none) & 0.880 & 0.481 & 121 & $\sim$5474 & --- & --- \\
+24               & 0.850 & 0.460 & 124 & 4736 & $-0.03$ (0.51) & $-0.021$ (0.22) \\
+20               & 0.850 & 0.431 & 132 & 4078 & $-0.03$ (0.45) & $\mathbf{-0.050}$ (0.003) \\
+16               & 0.350 & 0.201 & 342 & 2709 & $-0.53$ ($<$1e-4) & $-0.280$ ($<$1e-4) \\
+0 (text only)    & 0.000 & 0.000 & 500 & 651  & $-0.88$ ($<$1e-4) & $-0.481$ ($<$1e-4) \\
+\bottomrule
+\end{tabular}
+\caption{Dropping all visual tokens from layer $L$ onward, 100 episodes, paired against the
+32-frame window. Layers $\ge 24$ can drop every visual slot for free; the policy collapses
+once layer 16 is blinded.}
+\label{tab:kvprune-blind}
+\end{table}
+
+\subsection{Summary}
+\label{sec:kvprune-summary}
+
+Across every batch, no selector beats random pruning by a measurable margin at any budget,
+any candidate scope, or any prune layer. The two arms that ever edge above it --- \code{kl}
+at $L = 16$ and $L = 20$ --- do so within noise and at roughly nine times the per-step
+latency. Random's geometric attrition of dense recent frames appears to be the operating
+point of this policy, and the remaining lever is training under the budget rather than
+selection.

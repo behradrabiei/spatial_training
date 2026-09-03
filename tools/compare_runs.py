@@ -25,8 +25,16 @@ METRIC_COLS = [
     ("steps", "n_steps", "mean"),
     ("kv_len", "sup/mean_kv_len", "mean"),
     ("kv_max", "sup/max_kv_len", "max"),
+    ("kv_lmax", "sup/max_kv_len_layer_max", "max"),
+    ("kv_master", "sup/mean_kv_len_master", "mean"),
     ("mem_GB", "sup/max_vlm_mem_GB", "max"),
     ("lat_ms", "sup/mean_vlm_latency", "mean"),
+    ("total_s", "sup/sum_vlm_latency", "mean"),
+    ("score_ms", "sup/mean_prune_score_latency", "mean"),
+    ("score_s", "sup/sum_prune_score_latency", "mean"),
+    ("replays", "sup/sum_prune_replay_count", "mean"),
+    ("kv_vis", "sup/mean_kv_visual_slots", "mean"),
+    ("kv_text", "sup/mean_kv_text_slots", "mean"),
 ]
 
 
@@ -91,7 +99,7 @@ def main() -> None:
                 cells.append(f" {'-':>8}")
                 continue
             x = v.max() if red == "max" else v.mean()
-            if key == "sup/mean_vlm_latency":
+            if key in ("sup/mean_vlm_latency", "sup/mean_prune_score_latency"):
                 x *= 1000.0
             fmt = ".0f" if key.endswith("kv_len") or key == "n_steps" else ".3f"
             cells.append(f" {x:>8{fmt}}")

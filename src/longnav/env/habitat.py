@@ -587,7 +587,7 @@ class HabitatWorker:
         self.fn_guard = fn_guard
         self.fp_guard = fp_guard
 
-        self.voxel_kwargs = voxel_kwargs
+        self.voxel_kwargs = dict(voxel_kwargs) if voxel_kwargs else None  # {} / None = off
         # --- Initialize Config & Env ---
         self.config_env = get_config(config_path)
 
@@ -963,9 +963,18 @@ class HabitatWorker:
                 float(rot.w)                                 # w
             ]
             if self.voxel_kwargs is not None:
-                from longnav.utils.bev_utils import get_patch_coords
-                H,W = step_dict['obs']['depth'].shape[:2] 
-                obs['+patch_coords'] = get_patch_coords(np.array([info['+pos_rots']]),step_dict['obs']['depth'].reshape((1,H,W)),**self.voxel_kwargs)[0] # 1 by H by W by 3 patch coords
+                from longnav.utils.voxel_utils import patch_voxels
+                depth = np.asarray(step_dict['obs']['depth'])
+                depth = depth[..., 0] if depth.ndim == 3 else depth
+                ds = self.config_env.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor
+                if ds.normalize_depth:
+                    # habitat returns (d - min) / (max - min) in [0, 1]; unprojection needs metres
+                    depth = depth * (ds.max_depth - ds.min_depth) + ds.min_depth
+                # (H/patch, W/patch, 3) int voxel ids in the world frame, VOXEL_NONE where the
+                # depth is clipped/missing; consumed by the KV-prune voxel selectors.
+                obs['+patch_coords'] = patch_voxels(info['+pos_rots'], depth,
+                                                    valid_max_m=ds.max_depth - 0.1,
+                                                    **self.voxel_kwargs)
         info['+scene_id']=get_scene_id(self.env.current_episode().scene_id)
         info['+episode_id']=self.env.current_episode().episode_id
         info['+episode_label']=f"{info['+scene_id']}_{info['+episode_id']}"

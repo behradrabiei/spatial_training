@@ -5,7 +5,7 @@ step the lowest-importance unprotected slots are sliced out of the cache, the pe
 position table, the slot metadata, and the sparse embed db together. Importance is an EMA
 of the decision token's attention row, captured inside pre_rope_attention_forward.
 
-Five things have to hold:
+Six things have to hold:
 
   1. Forced-schedule parity -- with an effectively infinite budget, prune's window drop
      (turn-id based, since budget drops break evict's contiguous-cut arithmetic) must
@@ -19,15 +19,20 @@ Five things have to hold:
      rows track the visual survivors across repeated prunes. CPU only, no model.
 
   3. Merge math -- merge_dropped_visual folds a dropped slot into its nearest kept slot
-     as an importance-weighted average and moves its importance mass. CPU only.
+     as an importance-weighted average, moves its importance mass, and updates the sparse
+     embedding centroid. CPU only.
 
-  4. Fidelity -- with a budget nothing ever exceeds, prune must reproduce the stock
+  4. Sparse-window alignment -- the current turn's dedup filter sees only visual history
+     that will survive this step's context-window eviction, without prematurely mutating
+     the canonical embedding DB. CPU only, no model.
+
+  5. Fidelity -- with a budget nothing ever exceeds, prune must reproduce the stock
      forward (capture armed but inert), same tolerance as the reindex smoke.
 
-  5. Non-vacuity -- with a budget that actually prunes, the cache must stay at the
+  6. Non-vacuity -- with a budget that actually prunes, the cache must stay at the
      budget and the decision must move well beyond the arithmetic floor.
 
-Checks 1-3 run anywhere; 4 and 5 need the GPU and the HF model. Run inside longnav_vlm:
+Checks 1-4 run anywhere; 5 and 6 need the GPU and the HF model. Run inside longnav_vlm:
     python tests/kv_prune_smoke.py
 """
 import gc
@@ -65,7 +70,7 @@ def make_images(n, h=240, w=320):
     return [Image.fromarray(rng.randint(0, 255, (h, w, 3), dtype=np.uint8)) for _ in range(n)]
 
 
-def build_prune(budget, window=None, merge=False):
+def build_prune(budget, window=None, merge=False, importance="attn"):
     return VLMWorker(
         model_id=MODEL_ID,
         attn_impl="sdpa",
@@ -75,6 +80,7 @@ def build_prune(budget, window=None, merge=False):
         context_window_mode="prune",
         kv_budget=budget,
         kv_prune_merge=merge,
+        kv_prune_importance=importance,
     )
 
 
@@ -111,18 +117,35 @@ class FakeLayer:
 
 
 class FakeCache:
-    def __init__(self, ids):
-        self.layers = [FakeLayer(ids)]
+    """One FakeLayer per decoder layer; `ids` is one tensor (shared by n_layers copies) or a
+    list with one tensor per layer (layer-selective pruning leaves layers ragged)."""
 
-    def get_seq_length(self):
-        return self.layers[0].keys.shape[-2]
+    def __init__(self, ids, n_layers=1):
+        per_layer = list(ids) if isinstance(ids, (list, tuple)) else [ids] * n_layers
+        self.layers = [FakeLayer(torch.as_tensor(x).clone()) for x in per_layer]
+
+    def get_seq_length(self, layer_idx=0):
+        return self.layers[layer_idx].keys.shape[-2]
 
 
 def bare_worker(mode, window, budget=WIDE_BUDGET, importance="random", recent_turns=2,
-                granularity="slot"):
-    """A VLMWorker with just enough state to drive the eviction/prune paths, no model."""
+                granularity="slot", n_layers=1, layer_range=None, score_layers=None):
+    """A VLMWorker with just enough state to drive the eviction/prune paths, no model.
+
+    `layer_range` / `score_layers` configure layer-selective pruning over `n_layers` fake
+    decoder layers (None = uniform, the default the other checks rely on)."""
     worker = VLMWorker.__new__(VLMWorker)
     worker.kv_prune_granularity = granularity
+    worker.kv_prune_layer_start = 0 if layer_range is None else layer_range.start
+    worker.kv_prune_layer_end = None if layer_range is None else layer_range.stop
+    worker.kv_prune_score_layers = "pruned"
+    worker.kv_prune_log_influence = False
+    worker.kv_prune_influence_stride = 1
+    worker.kv_prune_log_layer_influence = False
+    worker.kv_prune_layer_influence_starts = ()
+    worker.kv_prune_visual_blind = False
+    worker.kv_prune_log_keep_one = False
+    worker._n_fake_layers = n_layers
     worker.context_window = window
     worker.context_window_mode = mode
     worker.prefix_ids = list(range(PARITY_HEADER))
@@ -140,13 +163,23 @@ def bare_worker(mode, window, budget=WIDE_BUDGET, importance="random", recent_tu
     worker._prefix_rec = None
     worker._boundary_rec = None
     worker._inference_ctx = torch.no_grad
-    worker._reindex_state = ReindexState() if mode in ("reindex", "prune") else None
+    worker._reindex_state = None
+    if mode in ("reindex", "prune"):
+        worker._reindex_state = ReindexState()
+        worker._reindex_state.configure(pruned_layers=layer_range, score_layers=score_layers,
+                                        n_layers=n_layers)
     worker._kv_prune_state = KVPruneState() if mode == "prune" else None
     worker.kv_budget = budget
     worker.kv_prune_recent_turns = recent_turns
     worker.kv_prune_ema_beta = 0.0
     worker.kv_prune_merge = False
     worker.kv_prune_importance = importance
+    worker.kv_prune_candidate_scope = "all"
+    worker.kv_prune_seed = 17
+    worker.kv_prune_fisher_pool_factor = 2.0
+    worker.kv_prune_voxel_cap = 1
+    worker.kv_prune_voxel_scale = 1
+    worker.kv_prune_voxel_2d = True
     worker.offset = 0
     return worker
 
@@ -367,8 +400,40 @@ def check_turn_granularity():
     return failures
 
 
+def check_sparse_history_window():
+    """Pre-forward sparse history excludes turns due to leave the cache this step."""
+    failures = []
+
+    worker = VLMWorker.__new__(VLMWorker)
+    worker.context_window = 2
+    worker.context_window_mode = "evict"
+    worker.use_sparse = True
+    worker.past_image_embeds = [torch.tensor([[10.0], [20.0], [21.0]])]
+    worker._abs_bounds = [10, 20, 30]
+    worker._vis_counts = [[2], [1], [2]]
+    worker._n_evicted = 1
+    view = worker._windowed_sparse_history()
+    if not torch.equal(view[0], torch.tensor([[20.0], [21.0]])):
+        failures.append(f"evict sparse view kept out-of-window rows: {view[0].flatten().tolist()}")
+    if not torch.equal(worker.past_image_embeds[0], torch.tensor([[10.0], [20.0], [21.0]])):
+        failures.append("windowed sparse view mutated the canonical embedding DB")
+
+    ps = KVPruneState()
+    ps.n_turns = 3
+    ps.turn_id = torch.tensor([1, 1, 2, 2, 2])
+    ps.is_visual = torch.tensor([True, False, True, True, False])
+    worker.context_window_mode = "prune"
+    worker._kv_prune_state = ps
+    prune_view = worker._windowed_sparse_history()
+    if not torch.equal(prune_view[0], torch.tensor([[20.0], [21.0]])):
+        failures.append(f"prune sparse view kept out-of-window rows: {prune_view[0].flatten().tolist()}")
+    if not torch.equal(worker.past_image_embeds[0], torch.tensor([[10.0], [20.0], [21.0]])):
+        failures.append("prune sparse view mutated the canonical embedding DB")
+    return failures
+
+
 def check_merge_math():
-    """One dropped slot folds into its nearest kept slot as a weighted average."""
+    """One dropped slot folds into its nearest kept K/V and embedding as a weighted average."""
     failures = []
     state = KVPruneState()
     state.turn_id = torch.zeros(4, dtype=torch.long)
@@ -376,8 +441,8 @@ def check_merge_math():
     state.importance = torch.tensor([1.0, 3.0, 1.0, 1.0])
     keep = torch.tensor([True, False, True, True])
     budget_dropped = torch.tensor([False, True, False, False])
-    # db: slot 1 is nearest to slot 2 (identical embed), far from 0 and 3
-    db = [torch.tensor([[1.0, 0.0], [0.0, 1.0], [0.0, 1.0], [-1.0, 0.0]])]
+    # db: slot 1 is nearest to slot 2, but not identical, so the centroid must move.
+    db = [torch.tensor([[1.0, 0.0], [0.6, 0.8], [0.0, 1.0], [-1.0, 0.0]])]
     layer = FakeLayer(torch.tensor([10.0, 20.0, 30.0, 40.0]))
     merge_dropped_visual([layer], keep, budget_dropped, state, db, torch.device("cpu"))
 
@@ -391,6 +456,117 @@ def check_merge_math():
     if abs(float(state.importance[2]) - 4.0) > 1e-6:
         failures.append(f"target importance {float(state.importance[2])} != 4.0 "
                         "(should absorb the dropped mass)")
+    # DB row 2 <- normalize((1*[0, 1] + 3*[0.6, 0.8]) / 4).
+    expected_center = torch.nn.functional.normalize(torch.tensor([0.45, 0.85]), dim=0)
+    if not torch.allclose(db[0][2], expected_center, atol=1e-6):
+        failures.append(f"merged embedding {db[0][2].tolist()} != normalized centroid "
+                        f"{expected_center.tolist()}")
+    if not torch.equal(db[0][[0, 1, 3]],
+                       torch.tensor([[1.0, 0.0], [0.6, 0.8], [-1.0, 0.0]])):
+        failures.append("embedding merge changed non-target DB rows")
+    return failures
+
+
+# --- voxel tags: per-slot world voxel ids from the sim's patch grid ------------------
+
+VOX_GH, VOX_GW, VOX_TEXT = 3, 4, 2
+VOX_TURNS = 5
+VOX_BUDGET = 30
+
+
+def _rope_table(base, gh, gw, keep):
+    """get_rope_index-style (3, 1, n) positions for one image's kept tokens."""
+    idx = torch.nonzero(keep).flatten()
+    r, c = idx // gw, idx % gw
+    return torch.stack([torch.full_like(r, base), base + r, base + c]).reshape(3, 1, -1)
+
+
+def feed_image_turn(worker, next_id, keep, patch_coords):
+    """Append text + image(keep) + text with a real mRoPE table and a voxel grid."""
+    n_vis = int(keep.sum())
+    n_new = VOX_TEXT + n_vis + VOX_TEXT
+    ids = torch.arange(next_id, next_id + n_new)
+    vis_row = torch.zeros(n_new, dtype=torch.bool)
+    vis_row[VOX_TEXT:VOX_TEXT + n_vis] = True
+    worker.language_model.visual_pos_masks = vis_row.reshape(1, -1)
+    worker.language_model.vis_keep_mask = keep
+    worker.cumulative_inputs = {"image_grid_thw": torch.tensor([[1, 2 * VOX_GH, 2 * VOX_GW]])}
+    worker._turn_patch_coords = patch_coords
+    db_new = ids[vis_row].float().reshape(-1, 1)
+    if worker.past_image_embeds is None:
+        worker.past_image_embeds = [db_new]
+    else:
+        worker.past_image_embeds[0] = torch.cat([worker.past_image_embeds[0], db_new])
+    live = worker.past_key_values.layers[0].ids() if worker.past_key_values is not None else []
+    worker.past_key_values = FakeCache(torch.tensor(live + ids.tolist()))
+    off = worker.offset
+    text_a = torch.arange(off, off + VOX_TEXT)
+    base = off + VOX_TEXT
+    text_b = torch.arange(base + max(VOX_GH, VOX_GW), base + max(VOX_GH, VOX_GW) + VOX_TEXT)
+    table = torch.cat([text_a.reshape(1, 1, -1).expand(3, 1, -1),
+                       _rope_table(base, VOX_GH, VOX_GW, keep),
+                       text_b.reshape(1, 1, -1).expand(3, 1, -1)], dim=-1)
+    worker._reindex_state.append(table.clone())
+    worker.offset = int(text_b[-1]) + 1
+    worker._apply_kv_prune()
+    return ids, vis_row
+
+
+def check_voxel_bookkeeping():
+    """Voxel tags stay 1:1 with the cache through real prunes, and misuse fails loudly."""
+    from longnav.utils.voxel_utils import VOXEL_NONE
+    torch.manual_seed(0)
+    worker = bare_worker("prune", window=None, budget=VOX_BUDGET, importance="voxel_dedup",
+                         recent_turns=RECENT)
+    worker.use_sparse = True
+    worker.language_model = SimpleNamespace(visual_pos_masks=None, vis_keep_mask=None)
+    worker.past_image_embeds = None
+    failures = []
+    rng = np.random.RandomState(0)
+    vox_by_id = {}
+    next_id = 0
+    for step in range(VOX_TURNS):
+        keep = torch.rand(VOX_GH * VOX_GW) < 0.7
+        keep[-1] = True
+        # A random walk so cells repeat across frames; one patch without depth per frame.
+        pc = rng.randint(step, step + 3, size=(VOX_GH, VOX_GW, 3)).astype(np.int32)
+        pc[0, 0] = VOXEL_NONE
+        ids, vis_row = feed_image_turn(worker, next_id, keep, pc)
+        flat = pc.reshape(-1, 3)[torch.nonzero(keep).flatten().numpy()]
+        for tok, v in zip(ids[vis_row].tolist(), flat.tolist()):
+            vox_by_id[tok] = v
+        for tok in ids[~vis_row].tolist():
+            vox_by_id[tok] = [VOXEL_NONE] * 3
+        next_id += len(ids)
+
+        ps, st = worker._kv_prune_state, worker._reindex_state
+        kept = worker.past_key_values.layers[0].ids()
+        if not (len(kept) == st.pos_table.shape[-1] == ps.turn_id.numel() == ps.voxel.shape[0]):
+            failures.append(f"step {step}: cache/table/metadata/voxel lengths desynced")
+        expected = torch.tensor([vox_by_id[i] for i in kept], dtype=torch.long)
+        if not torch.equal(ps.voxel, expected):
+            failures.append(f"step {step}: voxel tags drifted from the survivors")
+        if len(kept) > max(VOX_BUDGET, PARITY_PREFIX):
+            failures.append(f"step {step}: {len(kept)} slots over budget {VOX_BUDGET}")
+        print(f"  step {step}: {len(kept)} slots kept, budget_dropped so far {ps.n_budget_dropped}")
+    if not worker._kv_prune_state.n_budget_dropped:
+        failures.append("the budget never dropped anything, so nothing was tested")
+
+    # misuse: wrong grid shape, and no coords at all under a voxel selector
+    for bad, what in ((np.zeros((VOX_GH + 1, VOX_GW, 3), dtype=np.int32), "wrong-shaped"),
+                      (None, "missing")):
+        probe = bare_worker("prune", window=None, budget=VOX_BUDGET, importance="voxel_dedup",
+                            recent_turns=RECENT)
+        probe.use_sparse = True
+        probe.language_model = SimpleNamespace(visual_pos_masks=None, vis_keep_mask=None)
+        probe.past_image_embeds = None
+        try:
+            feed_image_turn(probe, 0, torch.ones(VOX_GH * VOX_GW, dtype=torch.bool), bad)
+        except RuntimeError as exc:
+            if what == "missing" and "needs per-turn patch coords" not in str(exc):
+                failures.append(f"missing coords raised an unhelpful error: {exc}")
+        else:
+            failures.append(f"{what} patch coords did not raise")
     return failures
 
 
@@ -460,6 +636,71 @@ def check_divergence(images, floor, baseline, merge):
     return failures
 
 
+def run_probs_voxel(worker, images):
+    """run_probs with a synthetic world-voxel grid attached to every turn (random walk)."""
+    from longnav.utils.voxel_utils import VOXEL_NONE
+    rng = np.random.RandomState(1)
+    out = []
+    for idx, image in enumerate(images):
+        thw = worker.processor.image_processor(images=[image], return_tensors="pt")["image_grid_thw"][0]
+        merge = worker.processor.image_processor.merge_size
+        gh, gw = int(thw[1]) // merge, int(thw[2]) // merge
+        pc = rng.randint(idx, idx + 3, size=(gh, gw, 3)).astype(np.int32)
+        pc[0, :2] = VOXEL_NONE
+        probs, _, _ = worker.infer_probs(START if idx == 0 else TURN, [image],
+                                         pos_id_kwargs={"mode": "standard", "patch_coords": pc})
+        out.append(np.asarray(probs))
+    return out
+
+
+def check_voxel_gpu(images, floor, baseline):
+    """voxel_dedup on the real model: inert under a wide budget, active under a narrow one."""
+    failures = []
+    worker = build_prune(WIDE_BUDGET, importance="voxel_dedup")
+    probs = run_probs_voxel(worker, images)
+    ps = worker._kv_prune_state
+    kv_len = worker.past_key_values.get_seq_length()
+    table_len = worker._reindex_state.pos_table.shape[-1]
+    vox_len = ps.voxel.shape[0]
+    n_tagged = int((ps.voxel[:, 0] != -(2 ** 31))[ps.is_visual].sum())
+    n_dropped = ps.n_budget_dropped
+    release(worker)
+    if n_dropped:
+        failures.append(f"[voxel wide] an infinite budget dropped {n_dropped} slots")
+    if not (kv_len == table_len == vox_len):
+        failures.append(f"[voxel wide] cache {kv_len} / table {table_len} / voxel {vox_len} desynced")
+    if n_tagged == 0:
+        failures.append("[voxel wide] no visual slot received a voxel tag")
+    deltas = [float(np.abs(a - b).max()) for a, b in zip(baseline, probs)]
+    print(f"  [voxel wide] max |p_stock - p_voxel| = {max(deltas):.5f}, "
+          f"{n_tagged}/{int(ps.is_visual.sum())} visual slots tagged")
+    if max(deltas) > FIDELITY_TOL:
+        failures.append(f"[voxel wide] tagging moved the decision by {max(deltas):.5f}")
+
+    worker = build_prune(NARROW_BUDGET, importance="voxel_dedup")
+    probs = run_probs_voxel(worker, images)
+    ps = worker._kv_prune_state
+    kv_len = worker.past_key_values.get_seq_length()
+    table_len = worker._reindex_state.pos_table.shape[-1]
+    vox_len = ps.voxel.shape[0]
+    db_rows = worker.past_image_embeds[0].shape[0]
+    n_vis = int(ps.is_visual.sum())
+    release(worker)
+    if not ps.n_budget_dropped:
+        failures.append(f"[voxel narrow] budget {NARROW_BUDGET} never pruned")
+    if kv_len > NARROW_BUDGET:
+        failures.append(f"[voxel narrow] {kv_len} slots over budget {NARROW_BUDGET}")
+    if not (kv_len == table_len == vox_len) or db_rows != n_vis:
+        failures.append(f"[voxel narrow] cache {kv_len} / table {table_len} / voxel {vox_len} "
+                        f"/ db {db_rows} vs visual {n_vis} desynced")
+    signal = max(float(np.abs(a - b).max()) for a, b in zip(baseline, probs))
+    print(f"  [voxel narrow] signal={signal:.5f} vs floor={floor:.5f}, final kv_len={kv_len}, "
+          f"budget_dropped={ps.n_budget_dropped}")
+    if signal < DIVERGENCE_MARGIN * max(floor, 1e-6):
+        failures.append(f"[voxel narrow] differs from stock by only {signal:.5f} -- inert")
+    return failures
+
+
 def main():
     failures = []
 
@@ -472,8 +713,14 @@ def main():
     print(f"=== turn granularity: budget={BUDGET}, recent={RECENT} (no model) ===")
     failures += check_turn_granularity()
 
+    print("=== sparse history window alignment (no model) ===")
+    failures += check_sparse_history_window()
+
     print("=== merge math (no model) ===")
     failures += check_merge_math()
+
+    print(f"=== voxel bookkeeping: budget={VOX_BUDGET}, {VOX_TURNS} image turns (no model) ===")
+    failures += check_voxel_bookkeeping()
 
     if failures:
         print("\nFAILED:")
@@ -491,6 +738,9 @@ def main():
 
     print(f"=== divergence (merge arm): budget={NARROW_BUDGET}, {N_STEPS} steps ===")
     failures += check_divergence(images, floor, baseline, merge=True)
+
+    print(f"=== voxel_dedup on the model: budgets {WIDE_BUDGET} / {NARROW_BUDGET} ===")
+    failures += check_voxel_gpu(images, floor, baseline)
 
     if failures:
         print("\nFAILED:")

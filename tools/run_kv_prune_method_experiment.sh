@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Staged visual-only KV-pruning experiment from the implementation plan.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"
+FULL_JSON="${FULL_JSON:-$ROOT/dump/hm3d_v2_100_labels.json}"
+SCREEN_JSON="${SCREEN_JSON:-$ROOT/dump/hm3d_v2_25_seed17_labels.json}"
+RESOURCES="${RESOURCES:-single}"
+SHARD_SIZE="${SHARD_SIZE:-5}"
+
+if [[ ! -f "$SCREEN_JSON" ]]; then
+  "$PYTHON" tools/sample_episode_manifest.py "$FULL_JSON" "$SCREEN_JSON" --count 25 --seed 17
+fi
+
+run_method() {
+  local method="$1" manifest="$2" prefix="$3" budgets="$4"
+  PYTHON="$PYTHON" EPISODE_JSON="$manifest" RESOURCES="$RESOURCES" SHARD_SIZE="$SHARD_SIZE" \
+    WINDOW=32 BUDGETS="$budgets" IMPORTANCE="$method" SCOPE=all SEED=17 \
+    FISHER_POOL_FACTOR=2.0 RECENT=2 GRANULARITY=slot MERGE=false PREFIX="$prefix" \
+    bash tools/run_kv_prune_ablation.sh
+}
+
+screen_methods=(random stratified diversity kl fisher)
+for method in "${screen_methods[@]}"; do
+  screen_prefix="kvprune_all_screen_${method}"
+  if [[ "$method" == "fisher" ]]; then
+    screen_prefix="kvprune_all_screen_fisher_eager_v2"
+  fi
+  run_method "$method" "$SCREEN_JSON" "$screen_prefix" "1187"
+done
+
+screen_base="kvprune_all_screen_random_w32_b1187"
+"$PYTHON" tools/compare_runs.py \
+  kvprune_all_screen_random_w32_b1187 kvprune_all_screen_stratified_w32_b1187 \
+  kvprune_all_screen_diversity_w32_b1187 kvprune_all_screen_kl_w32_b1187 \
+  kvprune_all_screen_fisher_eager_v2_w32_b1187 --baseline "$screen_base" --seed 17
+
+fisher_ok=$("$PYTHON" tools/kv_prune_promotions.py --print-methods --stage screen \
+  --baseline "$screen_base" --candidate fisher=kvprune_all_screen_fisher_eager_v2_w32_b1187)
+if [[ "$fisher_ok" == "fisher" ]]; then
+  run_method fisher_diversity "$SCREEN_JSON" kvprune_all_screen_fisher_diversity "1187"
+fi
+
+candidate_args=(
+  --candidate stratified=kvprune_all_screen_stratified_w32_b1187
+  --candidate diversity=kvprune_all_screen_diversity_w32_b1187
+  --candidate kl=kvprune_all_screen_kl_w32_b1187
+  --candidate fisher=kvprune_all_screen_fisher_eager_v2_w32_b1187
+)
+if [[ "$fisher_ok" == "fisher" ]]; then
+  candidate_args+=(--candidate fisher_diversity=kvprune_all_screen_fisher_diversity_w32_b1187)
+fi
+promoted=$("$PYTHON" tools/kv_prune_promotions.py --print-methods --stage screen \
+  --baseline "$screen_base" "${candidate_args[@]}")
+echo "Promoted methods: ${promoted:-none}"
+
+run_method random "$FULL_JSON" kvprune_all_full_random "1187 1799"
+for method in $promoted; do
+  run_method "$method" "$FULL_JSON" "kvprune_all_full_${method}" "1187 1799"
+done
+
+for budget in 1187 1799; do
+  runs=("kvprune_all_full_random_w32_b${budget}")
+  for method in $promoted; do
+    runs+=("kvprune_all_full_${method}_w32_b${budget}")
+  done
+  "$PYTHON" tools/compare_runs.py "${runs[@]}" \
+    --baseline "kvprune_all_full_random_w32_b${budget}" --seed 17
+  full_args=()
+  for method in $promoted; do
+    full_args+=(--candidate "${method}=kvprune_all_full_${method}_w32_b${budget}")
+  done
+  if (( ${#full_args[@]} )); then
+    "$PYTHON" tools/kv_prune_promotions.py --stage full \
+      --baseline "kvprune_all_full_random_w32_b${budget}" "${full_args[@]}"
+  fi
+done
