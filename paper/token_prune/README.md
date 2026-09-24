@@ -132,7 +132,10 @@ Both run scripts skip complete arms and resume partial ones (LongNav-R1 through 
 - `results/table.tex` — booktabs, stars vs the same-`k` recency arm, † = partial arm.
 - `results/n_tokens.csv` — `n`, mean tokens kept and kept fraction of the 31-frame window per arm.
 - `results/masks.parquet` — one row per (arm, episode, step, history frame): tokens, kept, packed
-  keep bits. `results/retention.csv` — kept fraction vs frame age per arm with CIs.
+  keep bits. **Not in git** (149 MB, over GitHub's 100 MB limit; ignored in
+  `paper_results/.gitignore`): on a fresh clone run `python paper/token_prune/aggregate.py` once to
+  rebuild it from the tracked per-step records in `runs/*/prune/` before plotting
+  `retention_by_age`. `results/retention.csv` — kept fraction vs frame age per arm with CIs.
 - `figures/budget_curves.{pdf,png}` — SR and SPL vs frames' worth, one column per model, the
   recency curve in black, the reference dashed; hollow markers = partial arms.
   `figures/retention_by_age.{pdf,png}` — kept fraction vs age at `k=8`, one panel per model.
