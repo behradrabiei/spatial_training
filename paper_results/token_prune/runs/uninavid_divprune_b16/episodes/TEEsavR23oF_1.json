@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 11.639898180001182,
+  "episode_id": "1",
+  "episode_label": "TEEsavR23oF_1",
+  "fallback_stops": 0,
+  "goal": "bed",
+  "inference_calls": 101,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the bed.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.22754977643489838,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.39690819972621,
+    "spl": 0.40543443741566804,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15903584768,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b16/prune/TEEsavR23oF_1.jsonl",
+  "prune_records": 101,
+  "prune_seconds": 0.7315262139818515,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00800-TEEsavR23oF/TEEsavR23oF.basis.glb",
+  "steps": 201,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b16/traces/TEEsavR23oF_1.jsonl",
+  "video": null
+}

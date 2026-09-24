@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 5.077131938996899,
+  "episode_id": "0",
+  "episode_label": "BAbdmeyTvMZ_0",
+  "fallback_stops": 0,
+  "goal": "chair",
+  "inference_calls": 46,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the chair.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.15590642392635345,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.3635956767505355,
+    "spl": 0.37654583937020775,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15870518784,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b8/prune/BAbdmeyTvMZ_0.jsonl",
+  "prune_records": 46,
+  "prune_seconds": 0.295542754996859,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00827-BAbdmeyTvMZ/BAbdmeyTvMZ.basis.glb",
+  "steps": 91,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b8/traces/BAbdmeyTvMZ_0.jsonl",
+  "video": null
+}

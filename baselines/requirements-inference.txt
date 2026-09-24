@@ -1,0 +1,15 @@
+# Runtime-only dependencies. torch/torchvision are installed separately from
+# the CUDA 12.8 PyTorch index by setup.sh.
+transformers==4.31.0
+tokenizers==0.13.3
+accelerate==0.21.0
+peft==0.4.0
+sentencepiece==0.1.99
+einops==0.6.1
+einops-exts==0.0.4
+timm==0.6.13
+decord==0.6.0
+shortuuid==1.0.13
+imageio==2.37.0
+safetensors==0.8.0
+huggingface-hub==0.36.2

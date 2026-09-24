@@ -1,0 +1,451 @@
+Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+2026-09-09 11:42:48,987 Initializing dataset ObjectNav-v1
+You are using a model of type llama to instantiate a model of type llava. This is not supported for all configurations of models and can yield errors.
+Validated 100 unique episodes across 36 scenes
+Setting WANDB_MODE to offline
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:06<00:06,  6.76s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:12<00:00,  6.16s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:12<00:00,  6.25s/it]
+Some weights of the model checkpoint at /home/brabiei/Projects/World-Modelling/spatial_training/baselines/Uni-NaVid/model_zoo/uninavid-7b-full-224-video-fps-1-grid-2 were not used when initializing LlavaLlamaAttForCausalLM: ['model.vision_tower.vision_tower.blocks.27.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.19.norm1.weight', 'model.vision_tower.vision_tower.blocks.26.attn.q_bias', 'model.vision_tower.vision_tower.blocks.15.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.22.norm1.bias', 'model.vision_tower.vision_tower.blocks.20.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.0.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.21.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.22.norm1.weight', 'model.vision_tower.vision_tower.blocks.21.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.36.norm2.bias', 'model.vision_tower.vision_tower.blocks.38.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.15.norm1.weight', 'model.vision_tower.vision_tower.blocks.9.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.24.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.2.attn.v_bias', 'model.vision_tower.vision_tower.blocks.23.attn.v_bias', 'model.vision_tower.vision_tower.blocks.17.attn.q_bias', 'model.vision_tower.vision_tower.blocks.31.norm2.weight', 'model.vision_tower.vision_tower.blocks.11.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.13.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.3.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.10.norm1.weight', 'model.vision_tower.vision_tower.blocks.28.attn.q_bias', 'model.vision_tower.vision_tower.blocks.21.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.8.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.34.norm1.weight', 'model.vision_tower.vision_tower.blocks.32.norm2.bias', 'model.vision_tower.vision_tower.blocks.0.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.7.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.34.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.33.norm1.bias', 'model.vision_tower.vision_tower.blocks.14.norm1.weight', 'model.vision_tower.vision_tower.blocks.11.attn.q_bias', 'model.vision_tower.vision_tower.blocks.18.norm2.weight', 'model.vision_tower.vision_tower.blocks.5.norm2.bias', 'model.vision_tower.vision_tower.blocks.20.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.23.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.35.attn.v_bias', 'model.vision_tower.vision_tower.blocks.34.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.12.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.35.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.28.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.23.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.25.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.33.attn.v_bias', 'model.vision_tower.vision_tower.blocks.23.norm1.bias', 'model.vision_tower.vision_tower.blocks.25.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.38.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.24.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.30.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.11.attn.v_bias', 'model.vision_tower.vision_tower.blocks.28.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.36.norm1.bias', 'model.vision_tower.vision_tower.blocks.34.attn.q_bias', 'model.vision_tower.vision_tower.blocks.33.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.6.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.0.norm2.bias', 'model.vision_tower.vision_tower.blocks.12.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.22.attn.q_bias', 'model.vision_tower.vision_tower.blocks.17.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.5.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.29.norm2.weight', 'model.vision_tower.vision_tower.blocks.36.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.34.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.0.attn.q_bias', 'model.vision_tower.vision_tower.blocks.35.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.18.attn.v_bias', 'model.vision_tower.vision_tower.blocks.29.attn.q_bias', 'model.vision_tower.vision_tower.blocks.24.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.12.norm2.weight', 'model.vision_tower.vision_tower.blocks.30.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.18.attn.q_bias', 'model.vision_tower.vision_tower.blocks.1.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.9.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.1.norm2.weight', 'model.vision_tower.vision_tower.blocks.1.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.30.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.30.norm1.bias', 'model.vision_tower.vision_tower.blocks.11.norm1.weight', 'model.vision_tower.vision_tower.blocks.6.norm1.bias', 'model.vision_tower.vision_tower.blocks.27.norm2.weight', 'model.vision_tower.vision_tower.blocks.36.attn.q_bias', 'model.vision_tower.vision_tower.blocks.29.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.6.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.9.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.24.norm2.bias', 'model.vision_tower.vision_tower.blocks.7.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.35.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.38.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.33.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.26.norm2.weight', 'model.vision_tower.vision_tower.blocks.36.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.11.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.30.norm2.bias', 'model.vision_tower.vision_tower.blocks.36.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.38.norm1.bias', 'model.vision_tower.vision_tower.blocks.24.norm1.bias', 'model.vision_tower.vision_tower.blocks.21.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.22.norm2.weight', 'model.vision_tower.vision_tower.blocks.16.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.28.norm1.bias', 'model.vision_tower.vision_tower.blocks.24.norm2.weight', 'model.vision_tower.vision_tower.blocks.19.norm2.weight', 'model.vision_tower.vision_tower.blocks.15.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.4.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.2.norm1.bias', 'model.vision_tower.vision_tower.blocks.36.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.33.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.30.norm2.weight', 'model.vision_tower.vision_tower.blocks.16.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.16.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.3.norm2.bias', 'model.vision_tower.vision_tower.blocks.20.attn.q_bias', 'model.vision_tower.vision_tower.blocks.16.attn.q_bias', 'model.vision_tower.vision_tower.blocks.31.norm1.weight', 'model.vision_tower.vision_tower.blocks.29.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.0.norm2.weight', 'model.vision_tower.vision_tower.blocks.11.norm2.weight', 'model.vision_tower.vision_tower.blocks.23.attn.q_bias', 'model.vision_tower.vision_tower.blocks.8.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.29.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.18.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.2.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.35.norm2.weight', 'model.vision_tower.vision_tower.blocks.17.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.4.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.13.norm2.bias', 'model.vision_tower.vision_tower.blocks.6.norm2.weight', 'model.vision_tower.vision_tower.blocks.18.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.13.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.37.attn.v_bias', 'model.vision_tower.vision_tower.blocks.22.attn.v_bias', 'model.vision_tower.vision_tower.blocks.15.norm2.bias', 'model.vision_tower.vision_tower.blocks.38.norm2.weight', 'model.vision_tower.vision_tower.blocks.4.norm1.weight', 'model.vision_tower.vision_tower.blocks.19.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.28.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.11.norm2.bias', 'model.vision_tower.vision_tower.blocks.15.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.23.norm2.bias', 'model.vision_tower.vision_tower.blocks.23.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.19.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.1.norm1.weight', 'model.vision_tower.vision_tower.blocks.33.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.16.norm1.bias', 'model.vision_tower.vision_tower.blocks.8.norm1.weight', 'model.vision_tower.vision_tower.blocks.2.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.25.norm2.bias', 'model.vision_tower.vision_tower.blocks.34.norm2.bias', 'model.vision_tower.vision_tower.blocks.5.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.1.attn.q_bias', 'model.vision_tower.vision_tower.blocks.31.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.9.norm1.bias', 'model.vision_tower.vision_tower.blocks.23.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.2.norm2.bias', 'model.vision_tower.vision_tower.blocks.37.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.25.norm1.bias', 'model.vision_tower.vision_tower.blocks.20.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.20.norm2.bias', 'model.vision_tower.vision_tower.blocks.32.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.3.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.15.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.5.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.31.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.32.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.16.norm1.weight', 'model.vision_tower.vision_tower.blocks.5.norm1.bias', 'model.vision_tower.vision_tower.blocks.8.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.21.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.28.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.28.norm1.weight', 'model.vision_tower.vision_tower.blocks.27.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.24.norm1.weight', 'model.vision_tower.vision_tower.blocks.18.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.32.attn.v_bias', 'model.vision_tower.vision_tower.blocks.14.attn.q_bias', 'model.vision_tower.vision_tower.blocks.14.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.35.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.3.norm1.bias', 'model.vision_tower.vision_tower.blocks.5.norm2.weight', 'model.vision_tower.vision_tower.blocks.12.norm2.bias', 'model.vision_tower.vision_tower.blocks.34.norm2.weight', 'model.vision_tower.vision_tower.blocks.7.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.33.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.1.attn.v_bias', 'model.vision_tower.vision_tower.blocks.14.norm2.weight', 'model.vision_tower.vision_tower.blocks.19.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.0.norm1.bias', 'model.vision_tower.vision_tower.blocks.1.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.3.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.33.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.10.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.27.norm2.bias', 'model.vision_tower.vision_tower.blocks.5.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.15.norm1.bias', 'model.vision_tower.vision_tower.blocks.17.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.23.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.8.norm2.weight', 'model.vision_tower.vision_tower.blocks.32.norm1.bias', 'model.vision_tower.vision_tower.blocks.13.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.10.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.6.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.36.norm1.weight', 'model.vision_tower.vision_tower.blocks.12.norm1.weight', 'model.vision_tower.vision_tower.blocks.7.attn.v_bias', 'model.vision_tower.vision_tower.blocks.11.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.23.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.20.norm1.bias', 'model.vision_tower.vision_tower.blocks.4.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.31.norm2.bias', 'model.vision_tower.vision_tower.blocks.24.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.14.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.18.norm2.bias', 'model.vision_tower.vision_tower.blocks.27.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.35.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.4.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.33.attn.q_bias', 'model.vision_tower.vision_tower.blocks.21.norm2.weight', 'model.vision_tower.vision_tower.blocks.35.attn.q_bias', 'model.vision_tower.vision_tower.blocks.24.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.26.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.16.norm2.weight', 'model.vision_tower.vision_tower.blocks.8.attn.v_bias', 'model.vision_tower.vision_tower.blocks.14.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.6.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.29.norm1.weight', 'model.vision_tower.vision_tower.blocks.9.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.30.attn.v_bias', 'model.vision_tower.vision_tower.blocks.29.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.26.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.1.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.14.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.4.norm2.weight', 'model.vision_tower.vision_tower.blocks.37.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.21.norm1.bias', 'model.vision_tower.vision_tower.blocks.3.norm1.weight', 'model.vision_tower.vision_tower.blocks.36.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.8.norm1.bias', 'model.vision_tower.vision_tower.blocks.13.attn.q_bias', 'model.vision_tower.vision_tower.blocks.7.norm1.bias', 'model.vision_tower.vision_tower.blocks.33.norm2.weight', 'model.vision_tower.vision_tower.blocks.4.norm1.bias', 'model.vision_tower.vision_tower.blocks.12.norm1.bias', 'model.vision_tower.vision_tower.blocks.18.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.5.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.36.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.25.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.15.attn.q_bias', 'model.vision_tower.vision_tower.blocks.31.norm1.bias', 'model.vision_tower.vision_tower.blocks.6.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.19.attn.q_bias', 'model.vision_tower.vision_tower.blocks.35.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.7.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.10.attn.v_bias', 'model.vision_tower.vision_tower.blocks.12.attn.q_bias', 'model.vision_tower.vision_tower.blocks.11.norm1.bias', 'model.vision_tower.vision_tower.blocks.33.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.25.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.30.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.22.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.26.attn.v_bias', 'model.vision_tower.vision_tower.blocks.19.norm1.bias', 'model.vision_tower.vision_tower.blocks.31.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.19.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.10.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.37.norm2.weight', 'model.vision_tower.vision_tower.blocks.5.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.32.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.17.attn.v_bias', 'model.vision_tower.vision_tower.blocks.5.attn.q_bias', 'model.vision_tower.vision_tower.blocks.25.norm2.weight', 'model.vision_tower.vision_tower.blocks.6.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.38.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.14.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.13.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.31.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.16.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.9.norm1.weight', 'model.vision_tower.vision_tower.blocks.37.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.22.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.6.norm1.weight', 'model.vision_tower.vision_tower.blocks.1.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.8.norm2.bias', 'model.vision_tower.vision_tower.blocks.19.norm2.bias', 'model.vision_tower.vision_tower.blocks.7.attn.q_bias', 'model.vision_tower.vision_tower.blocks.0.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.3.attn.q_bias', 'model.vision_tower.vision_tower.blocks.37.norm2.bias', 'model.vision_tower.vision_tower.blocks.29.norm1.bias', 'model.vision_tower.vision_tower.blocks.30.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.28.norm2.weight', 'model.vision_tower.vision_tower.blocks.34.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.17.norm2.weight', 'model.vision_tower.vision_tower.blocks.5.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.29.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.8.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.2.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.21.attn.v_bias', 'model.vision_tower.vision_tower.blocks.12.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.18.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.37.norm1.bias', 'model.vision_tower.vision_tower.blocks.6.attn.q_bias', 'model.vision_tower.vision_tower.blocks.19.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.27.attn.v_bias', 'model.vision_tower.vision_tower.blocks.33.norm2.bias', 'model.vision_tower.vision_tower.blocks.9.attn.q_bias', 'model.vision_tower.vision_tower.blocks.14.norm2.bias', 'model.vision_tower.vision_tower.blocks.23.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.9.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.11.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.32.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.22.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.14.attn.v_bias', 'model.vision_tower.vision_tower.blocks.27.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.9.attn.v_bias', 'model.vision_tower.vision_tower.blocks.0.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.15.attn.v_bias', 'model.vision_tower.vision_tower.blocks.36.norm2.weight', 'model.vision_tower.vision_tower.blocks.3.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.13.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.26.norm1.bias', 'model.vision_tower.vision_tower.blocks.6.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.10.norm2.weight', 'model.vision_tower.vision_tower.blocks.38.norm1.weight', 'model.vision_tower.vision_tower.blocks.30.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.21.norm1.weight', 'model.vision_tower.vision_tower.blocks.32.norm1.weight', 'model.vision_tower.vision_tower.blocks.0.norm1.weight', 'model.vision_tower.vision_tower.blocks.26.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.4.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.29.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.20.attn.qkv.weight', 'model.vision_tower.vision_tower.patch_embed.proj.bias', 'model.vision_tower.vision_tower.blocks.25.attn.v_bias', 'model.vision_tower.vision_tower.blocks.12.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.0.attn.v_bias', 'model.vision_tower.vision_tower.blocks.2.norm2.weight', 'model.vision_tower.vision_tower.blocks.16.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.27.norm1.bias', 'model.vision_tower.vision_tower.blocks.25.norm1.weight', 'model.vision_tower.vision_tower.blocks.38.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.2.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.12.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.16.attn.v_bias', 'model.vision_tower.vision_tower.blocks.37.attn.q_bias', 'model.vision_tower.vision_tower.blocks.15.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.15.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.32.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.21.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.14.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.35.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.9.norm2.weight', 'model.vision_tower.vision_tower.blocks.35.norm2.bias', 'model.vision_tower.vision_tower.blocks.34.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.32.attn.q_bias', 'model.vision_tower.vision_tower.blocks.1.norm2.bias', 'model.vision_tower.vision_tower.blocks.13.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.7.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.10.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.5.norm1.weight', 'model.vision_tower.vision_tower.blocks.17.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.13.norm1.weight', 'model.vision_tower.vision_tower.blocks.28.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.38.attn.v_bias', 'model.vision_tower.vision_tower.blocks.37.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.7.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.17.norm1.weight', 'model.vision_tower.vision_tower.blocks.1.norm1.bias', 'model.vision_tower.vision_tower.blocks.25.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.26.norm1.weight', 'model.vision_tower.vision_tower.blocks.38.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.32.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.18.norm1.bias', 'model.vision_tower.vision_tower.blocks.10.norm1.bias', 'model.vision_tower.vision_tower.blocks.34.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.12.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.0.mlp.fc2.weight', 'model.vision_tower.vision_tower.patch_embed.proj.weight', 'model.vision_tower.vision_tower.blocks.28.attn.v_bias', 'model.vision_tower.vision_tower.blocks.3.norm2.weight', 'model.vision_tower.vision_tower.blocks.2.norm1.weight', 'model.vision_tower.vision_tower.blocks.29.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.24.attn.q_bias', 'model.vision_tower.vision_tower.blocks.0.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.20.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.35.norm1.bias', 'model.vision_tower.vision_tower.blocks.22.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.12.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.5.attn.v_bias', 'model.vision_tower.vision_tower.blocks.10.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.31.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.7.norm2.bias', 'model.vision_tower.vision_tower.blocks.31.attn.q_bias', 'model.vision_tower.vision_tower.blocks.3.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.33.norm1.weight', 'model.vision_tower.vision_tower.blocks.8.attn.q_bias', 'model.vision_tower.vision_tower.blocks.10.norm2.bias', 'model.vision_tower.vision_tower.blocks.7.norm1.weight', 'model.vision_tower.vision_tower.blocks.7.norm2.weight', 'model.vision_tower.vision_tower.blocks.18.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.13.norm1.bias', 'model.vision_tower.vision_tower.blocks.17.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.4.attn.v_bias', 'model.vision_tower.vision_tower.blocks.27.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.11.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.16.norm2.bias', 'model.vision_tower.vision_tower.blocks.26.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.23.norm1.weight', 'model.vision_tower.vision_tower.blocks.13.attn.v_bias', 'model.vision_tower.vision_tower.blocks.18.norm1.weight', 'model.vision_tower.vision_tower.blocks.21.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.38.attn.q_bias', 'model.vision_tower.vision_tower.blocks.28.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.37.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.14.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.16.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.34.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.36.attn.v_bias', 'model.vision_tower.vision_tower.blocks.25.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.11.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.20.norm2.weight', 'model.vision_tower.vision_tower.blocks.3.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.31.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.1.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.16.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.17.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.17.norm2.bias', 'model.vision_tower.vision_tower.blocks.21.norm2.bias', 'model.vision_tower.vision_tower.blocks.8.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.20.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.27.attn.q_bias', 'model.vision_tower.vision_tower.blocks.1.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.19.attn.v_bias', 'model.vision_tower.vision_tower.blocks.14.norm1.bias', 'model.vision_tower.vision_tower.blocks.30.attn.q_bias', 'model.vision_tower.vision_tower.blocks.32.norm2.weight', 'model.vision_tower.vision_tower.blocks.26.norm2.bias', 'model.vision_tower.vision_tower.blocks.28.norm2.bias', 'model.vision_tower.vision_tower.blocks.4.norm2.bias', 'model.vision_tower.vision_tower.blocks.17.norm1.bias', 'model.vision_tower.vision_tower.blocks.6.attn.v_bias', 'model.vision_tower.vision_tower.cls_token', 'model.vision_tower.vision_tower.blocks.31.attn.v_bias', 'model.vision_tower.vision_tower.blocks.24.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.25.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.11.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.22.mlp.fc1.bias', 'model.vision_tower.vision_tower.pos_embed', 'model.vision_tower.vision_tower.blocks.13.norm2.weight', 'model.vision_tower.vision_tower.blocks.27.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.2.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.2.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.34.norm1.bias', 'model.vision_tower.vision_tower.blocks.3.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.20.norm1.weight', 'model.vision_tower.vision_tower.blocks.2.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.30.norm1.weight', 'model.vision_tower.vision_tower.blocks.26.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.20.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.3.attn.v_bias', 'model.vision_tower.vision_tower.blocks.26.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.18.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.22.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.10.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.38.norm2.bias', 'model.vision_tower.vision_tower.blocks.24.attn.v_bias', 'model.vision_tower.vision_tower.blocks.32.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.0.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.19.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.10.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.23.norm2.weight', 'model.vision_tower.vision_tower.blocks.8.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.30.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.7.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.37.norm1.weight', 'model.vision_tower.vision_tower.blocks.29.norm2.bias', 'model.vision_tower.vision_tower.blocks.22.norm2.bias', 'model.vision_tower.vision_tower.blocks.2.attn.q_bias', 'model.vision_tower.vision_tower.blocks.9.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.10.attn.q_bias', 'model.vision_tower.vision_tower.blocks.15.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.28.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.26.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.6.norm2.bias', 'model.vision_tower.vision_tower.blocks.4.attn.q_bias', 'model.vision_tower.vision_tower.blocks.38.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.29.attn.v_bias', 'model.vision_tower.vision_tower.blocks.36.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.25.attn.q_bias', 'model.vision_tower.vision_tower.blocks.12.attn.v_bias', 'model.vision_tower.vision_tower.blocks.4.mlp.fc1.bias', 'model.vision_tower.vision_tower.blocks.15.norm2.weight', 'model.vision_tower.vision_tower.blocks.9.norm2.bias', 'model.vision_tower.vision_tower.blocks.27.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.35.norm1.weight', 'model.vision_tower.vision_tower.blocks.9.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.20.attn.v_bias', 'model.vision_tower.vision_tower.blocks.22.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.37.attn.proj.weight', 'model.vision_tower.vision_tower.blocks.31.attn.qkv.weight', 'model.vision_tower.vision_tower.blocks.34.attn.v_bias', 'model.vision_tower.vision_tower.blocks.4.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.8.mlp.fc1.weight', 'model.vision_tower.vision_tower.blocks.13.mlp.fc2.bias', 'model.vision_tower.vision_tower.blocks.37.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.17.attn.proj.bias', 'model.vision_tower.vision_tower.blocks.21.attn.q_bias', 'model.vision_tower.vision_tower.blocks.27.norm1.weight', 'model.vision_tower.vision_tower.blocks.19.mlp.fc2.weight', 'model.vision_tower.vision_tower.blocks.24.mlp.fc1.bias']
+- This IS expected if you are initializing LlavaLlamaAttForCausalLM from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing LlavaLlamaAttForCausalLM from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+2026-09-09 11:43:10,174 initializing sim Sim-v0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+2026-09-09 11:43:11,350 Initializing task ObjectNav-v1
+_IncompatibleKeys(missing_keys=[], unexpected_keys=['norm.weight', 'norm.bias', 'head.weight', 'head.bias', 'blocks.39.norm1.weight', 'blocks.39.norm1.bias', 'blocks.39.attn.q_bias', 'blocks.39.attn.v_bias', 'blocks.39.attn.qkv.weight', 'blocks.39.attn.proj.weight', 'blocks.39.attn.proj.bias', 'blocks.39.norm2.weight', 'blocks.39.norm2.bias', 'blocks.39.mlp.fc1.weight', 'blocks.39.mlp.fc1.bias', 'blocks.39.mlp.fc2.weight', 'blocks.39.mlp.fc2.bias'])
+Loaded Uni-NaVid on NVIDIA GeForce RTX 5090; compute capability (12, 0)
+[1/100] 4ok3usBNeis_0
+  success=1.0 spl=0.3217654763450404 steps=125 seconds=7.6
+[2/100] 4ok3usBNeis_1
+  success=1.0 spl=0.43134684169048537 steps=37 seconds=2.1
+[3/100] 4ok3usBNeis_2
+  success=1.0 spl=0.6067443991090334 steps=127 seconds=7.0
+[4/100] 5cdEh9F2hJL_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=251 seconds=13.8
+[5/100] 5cdEh9F2hJL_1
+  success=0.0 spl=0.0 steps=147 seconds=8.0
+[6/100] 5cdEh9F2hJL_2
+  success=1.0 spl=0.6451225717463321 steps=39 seconds=2.2
+[7/100] 6s7QHgap2fW_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=83 seconds=4.7
+[8/100] 6s7QHgap2fW_1
+  success=1.0 spl=0.8412637206008698 steps=49 seconds=2.7
+[9/100] 6s7QHgap2fW_2
+  success=1.0 spl=0.4656983826489244 steps=109 seconds=6.0
+[10/100] 7MXmsvcQjpJ_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=500 seconds=27.6
+[11/100] 7MXmsvcQjpJ_1
+  success=1.0 spl=0.2983376803496031 steps=191 seconds=10.5
+[12/100] 7MXmsvcQjpJ_2
+  success=1.0 spl=1.0 steps=31 seconds=1.8
+[13/100] BAbdmeyTvMZ_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.8561503863099899 steps=39 seconds=2.3
+[14/100] BAbdmeyTvMZ_1
+  success=1.0 spl=0.21939969423950662 steps=281 seconds=15.5
+[15/100] BAbdmeyTvMZ_2
+  success=0.0 spl=0.0 steps=1 seconds=0.1
+[16/100] CrMo8WxCyVb_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.2924325465182644 steps=211 seconds=11.8
+[17/100] CrMo8WxCyVb_1
+  success=1.0 spl=0.21264881750052497 steps=211 seconds=11.7
+[18/100] CrMo8WxCyVb_2
+  success=0.0 spl=0.0 steps=1 seconds=0.1
+[19/100] DYehNKdT76V_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.10546184165220605 steps=261 seconds=14.5
+[20/100] DYehNKdT76V_1
+  success=0.0 spl=0.0 steps=500 seconds=27.8
+[21/100] DYehNKdT76V_2
+  success=1.0 spl=1.0 steps=41 seconds=2.3
+[22/100] Dd4bFSTQ8gi_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=31 seconds=1.7
+[23/100] Dd4bFSTQ8gi_1
+  success=0.0 spl=0.0 steps=15 seconds=0.9
+[24/100] Dd4bFSTQ8gi_2
+  success=1.0 spl=0.49867251454414957 steps=85 seconds=4.7
+[25/100] GLAQ4DNUx5U_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.6531769761587192 steps=87 seconds=4.9
+[26/100] GLAQ4DNUx5U_1
+  success=1.0 spl=0.7302494606251363 steps=79 seconds=4.4
+[27/100] GLAQ4DNUx5U_2
+  success=1.0 spl=0.42276467068700374 steps=49 seconds=2.7
+[28/100] HY1NcmCgn3n_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=500 seconds=27.7
+[29/100] HY1NcmCgn3n_1
+  success=1.0 spl=0.7436349411134131 steps=47 seconds=2.6
+[30/100] HY1NcmCgn3n_2
+  success=1.0 spl=0.05477139024388295 steps=437 seconds=24.1
+[31/100] LT9Jq6dN3Ea_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.4002810047901559 steps=119 seconds=6.6
+[32/100] LT9Jq6dN3Ea_1
+  success=1.0 spl=0.8409500315194296 steps=25 seconds=1.4
+[33/100] LT9Jq6dN3Ea_2
+  success=1.0 spl=0.5939764742539128 steps=69 seconds=3.9
+[34/100] MHPLjHsuG27_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=500 seconds=27.7
+[35/100] MHPLjHsuG27_1
+  success=1.0 spl=0.5703940758811221 steps=71 seconds=4.0
+[36/100] MHPLjHsuG27_2
+  success=0.0 spl=0.0 steps=27 seconds=1.6
+[37/100] Nfvxx8J5NCo_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=1 seconds=0.1
+[38/100] Nfvxx8J5NCo_1
+  success=1.0 spl=0.5486481540870743 steps=29 seconds=1.6
+[39/100] Nfvxx8J5NCo_2
+  success=0.0 spl=0.0 steps=500 seconds=27.6
+[40/100] QaLdnwvtxbs_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.5652449761890366 steps=69 seconds=3.9
+[41/100] QaLdnwvtxbs_1
+  success=1.0 spl=0.9451856219463226 steps=43 seconds=2.4
+[42/100] QaLdnwvtxbs_2
+  success=1.0 spl=0.8403705540999133 steps=33 seconds=1.9
+[43/100] TEEsavR23oF_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.1590208599406302 steps=301 seconds=16.6
+[44/100] TEEsavR23oF_1
+  success=1.0 spl=0.27770349744988737 steps=337 seconds=19.0
+[45/100] TEEsavR23oF_2
+  success=1.0 spl=0.9586298214069916 steps=43 seconds=2.4
+[46/100] VBzV5z6i1WS_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=443 seconds=24.4
+[47/100] VBzV5z6i1WS_1
+  success=1.0 spl=0.8545054204897691 steps=41 seconds=2.3
+[48/100] VBzV5z6i1WS_2
+  success=1.0 spl=0.3251558321051457 steps=99 seconds=5.5
+[49/100] XB4GS9ShBRE_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.8499788282191695 steps=25 seconds=1.4
+[50/100] XB4GS9ShBRE_1
+  success=1.0 spl=1.0 steps=23 seconds=1.3
+[51/100] XB4GS9ShBRE_2
+  success=0.0 spl=0.0 steps=7 seconds=0.4
+[52/100] a8BtkwhxdRV_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.39907787793088045 steps=79 seconds=4.4
+[53/100] a8BtkwhxdRV_1
+  success=0.0 spl=0.0 steps=5 seconds=0.3
+[54/100] a8BtkwhxdRV_2
+  success=1.0 spl=0.937595074670501 steps=19 seconds=1.1
+[55/100] bCPU9suPUw9_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.5464367757401433 steps=25 seconds=1.4
+[56/100] bCPU9suPUw9_1
+  success=1.0 spl=0.24341476214868293 steps=169 seconds=9.8
+[57/100] bCPU9suPUw9_2
+  success=1.0 spl=0.8894025479785602 steps=55 seconds=3.3
+[58/100] bxsVRursffK_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.4267952494285238 steps=59 seconds=3.6
+[59/100] bxsVRursffK_1
+  success=1.0 spl=0.6804769571952687 steps=31 seconds=1.7
+[60/100] bxsVRursffK_2
+  success=1.0 spl=0.7884890311277739 steps=33 seconds=1.9
+[61/100] cvZr5TUy5C5_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.26223189011398285 steps=117 seconds=6.4
+[62/100] cvZr5TUy5C5_1
+  success=0.0 spl=0.0 steps=1 seconds=0.1
+[63/100] cvZr5TUy5C5_2
+  success=1.0 spl=0.5529979548991942 steps=51 seconds=2.9
+[64/100] eF36g7L6Z9M_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=379 seconds=21.0
+[65/100] eF36g7L6Z9M_1
+  success=0.0 spl=0.0 steps=1 seconds=0.1
+[66/100] eF36g7L6Z9M_2
+  success=0.0 spl=0.0 steps=500 seconds=27.4
+[67/100] h1zeeAwLh9Z_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.5443298458421312 steps=43 seconds=2.4
+[68/100] h1zeeAwLh9Z_1
+  success=1.0 spl=0.22952615948020666 steps=251 seconds=13.8
+[69/100] h1zeeAwLh9Z_2
+  success=1.0 spl=0.32547010526568065 steps=243 seconds=13.5
+[70/100] k1cupFYWXJ6_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.7189202318694335 steps=31 seconds=1.7
+[71/100] k1cupFYWXJ6_1
+  success=0.0 spl=0.0 steps=39 seconds=2.2
+[72/100] k1cupFYWXJ6_2
+  success=0.0 spl=0.0 steps=61 seconds=3.4
+[73/100] mL8ThkuaVTM_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.05382963298788394 steps=447 seconds=24.7
+[74/100] mL8ThkuaVTM_1
+  success=1.0 spl=0.7310410214217176 steps=43 seconds=2.4
+[75/100] mL8ThkuaVTM_2
+  success=1.0 spl=0.6922153139072781 steps=89 seconds=5.0
+[76/100] mv2HUxq3B53_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.698389128257437 steps=91 seconds=5.0
+[77/100] mv2HUxq3B53_1
+  success=1.0 spl=0.36656086233080504 steps=63 seconds=3.5
+[78/100] mv2HUxq3B53_2
+  success=1.0 spl=0.21788623633750145 steps=293 seconds=16.2
+[79/100] p53SfW6mjZe_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.3766347033028744 steps=55 seconds=2.9
+[80/100] p53SfW6mjZe_1
+  success=0.0 spl=0.0 steps=3 seconds=0.2
+[81/100] p53SfW6mjZe_2
+  success=1.0 spl=0.5020116643246567 steps=125 seconds=6.6
+[82/100] q3zU7Yy5E5s_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.9750211243899837 steps=27 seconds=1.5
+[83/100] q3zU7Yy5E5s_1
+  success=1.0 spl=0.12374873029488116 steps=149 seconds=7.9
+[84/100] q3zU7Yy5E5s_2
+  success=1.0 spl=0.4626181643509557 steps=51 seconds=2.7
+[85/100] q5QZSEeHe5g_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.3075824401426882 steps=55 seconds=2.9
+[86/100] q5QZSEeHe5g_1
+  success=1.0 spl=0.30582457279141106 steps=151 seconds=8.2
+[87/100] qyAac8rV8Zk_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.3719455756002945 steps=85 seconds=4.5
+[88/100] qyAac8rV8Zk_1
+  success=1.0 spl=0.5173611312131821 steps=39 seconds=2.1
+[89/100] svBbv1Pavdk_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.9308383241627606 steps=19 seconds=1.0
+[90/100] svBbv1Pavdk_1
+  success=1.0 spl=0.16098984108295505 steps=211 seconds=11.2
+[91/100] wcojb4TFT35_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.8639302386031552 steps=81 seconds=4.3
+[92/100] wcojb4TFT35_1
+  success=1.0 spl=0.16831870007413804 steps=107 seconds=5.6
+[93/100] y9hTuugGdiq_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.9446841598521999 steps=45 seconds=2.4
+[94/100] y9hTuugGdiq_1
+  success=0.0 spl=0.0 steps=500 seconds=26.8
+[95/100] yr17PDCnDDW_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=0.0 spl=0.0 steps=1 seconds=0.1
+[96/100] yr17PDCnDDW_1
+  success=0.0 spl=0.0 steps=1 seconds=0.1
+[97/100] ziup5kvtCCR_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.6982082604040899 steps=59 seconds=3.4
+[98/100] ziup5kvtCCR_1
+  success=1.0 spl=0.08663652624978457 steps=139 seconds=7.7
+[99/100] zt1RVoi7PcG_0
+PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+  success=1.0 spl=0.46833434597668705 steps=71 seconds=4.0
+[100/100] zt1RVoi7PcG_1
+  success=1.0 spl=0.806089647680946 steps=31 seconds=1.8
+{
+  "average_final_distance": 1.9073246481688693,
+  "average_steps": 125.93,
+  "completed_episodes": 100,
+  "elapsed_episode_seconds": 696.7020874910377,
+  "expected_episodes": 100,
+  "fallback_stops": 0,
+  "invalid_output_events": 0,
+  "missing_episodes": [],
+  "soft_spl": 0.38808599188813686,
+  "spl": 0.3950555227389286,
+  "success_rate": 0.73,
+  "total_inference_calls": 6343
+}

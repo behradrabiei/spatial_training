@@ -1,0 +1,14 @@
+{
+  "average_final_distance": 5.783353696831036,
+  "average_steps": 216.44,
+  "completed_episodes": 100,
+  "elapsed_episode_seconds": 1457.5551794499916,
+  "expected_episodes": 100,
+  "fallback_stops": 0,
+  "invalid_output_events": 0,
+  "missing_episodes": [],
+  "soft_spl": 0.1882363162653641,
+  "spl": 0.14044990751919037,
+  "success_rate": 0.38,
+  "total_inference_calls": 10859
+}

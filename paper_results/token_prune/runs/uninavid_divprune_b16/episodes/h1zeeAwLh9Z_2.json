@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 20.442315897002118,
+  "episode_id": "2",
+  "episode_label": "h1zeeAwLh9Z_2",
+  "fallback_stops": 0,
+  "goal": "toilet",
+  "inference_calls": 179,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the toilet.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.1900317668914795,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.190140253933231,
+    "spl": 0.19316909542831284,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15904650240,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b16/prune/h1zeeAwLh9Z_2.jsonl",
+  "prune_records": 179,
+  "prune_seconds": 1.3065446730615804,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00815-h1zeeAwLh9Z/h1zeeAwLh9Z.basis.glb",
+  "steps": 357,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b16/traces/h1zeeAwLh9Z_2.jsonl",
+  "video": null
+}

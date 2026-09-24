@@ -1,0 +1,47 @@
+# @package _global_
+# Leak-free arm of the leave-one-frame-out influence experiment (paper/frame_influence/README.md).
+#
+# Same trajectory as the evict-style arm (full context, deterministic argmax) but every probe
+# rebuilds the context from scratch: prefix + every turn's stored post-filter embeddings, with the
+# removed frame's visual tokens deleted, forwarded against an empty cache. Survivors keep their
+# absolute mRoPE positions. The decision is then a strict function of what remains, so the gap to
+# the evict-style probe (which only hides key columns of a cache computed with the frame present)
+# is the information the frame had already written into later tokens' K/V.
+#
+# Cost grows with T^3 per episode (T+8 full re-prefills per step), so this preset is run on the
+# nine episodes shorter than 150 steps (hm3d_v2_9_seed17_short.json).
+#
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_influence_recompute +resources=single task.run_name=r1_influence_recompute
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/frame_influence/runs
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_9_seed17_short.json  # the 10-episode set minus wcojb4TFT35_0 (500 steps)
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true
+  sparse_threshold: 0.95
+  context_cut: header
+  context_frames: null
+  context_window: null  # full episode in context, stock incremental cache
+  context_window_mode: evict
+  influence_recompute: true  # leak-free leave-one-frame-out probes (full re-prefill per probe)
+  kv_prune_influence_stride: 1
+  kv_prune_influence_horizons: [4, 8, 16, 32]

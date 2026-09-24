@@ -1,0 +1,13 @@
+# Raw run output is tracked (configs, launch logs, per-episode JSONL/JSON summaries) so the
+# paper's numbers are reproducible from the repo; the bulky per-step artifacts are not.
+**/rollout/*/
+**/traces/
+**/*.mp4
+**/*.jpg
+**/wandb/
+**/frames/
+# Chained launch logs (Ray/progress noise, several MB each; each arm's launch.log is kept) and
+# derived files over GitHub's 100 MB limit (aggregate.py rebuilds masks.parquet from the runs).
+**/driver.log
+**/driver.log.partial
+token_prune/results/masks.parquet

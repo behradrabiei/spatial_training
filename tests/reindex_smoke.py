@@ -135,6 +135,9 @@ def parity_worker(mode):
     worker._vis_counts = []
     worker._dropped = 0
     worker._n_evicted = 0
+    worker.context_cut = "header"
+    worker._turn_leads = []
+    worker._strip_next_lead = False
     worker._window_recs = []
     worker._prefix_rec = None
     worker._boundary_rec = None

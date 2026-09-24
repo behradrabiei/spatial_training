@@ -1,0 +1,99 @@
+{
+  "arms": {
+    "r1_blind_l12": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_blind_l14": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_blind_l16": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_blind_l18": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_blind_l20": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_blind_l24": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_blind_l8": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_full": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "r1_probe": "not run (optional)",
+    "r1_probe_leaky": {
+      "episodes": 10,
+      "missing": [],
+      "steps": 1099
+    },
+    "uninavid_blind_l12": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "uninavid_blind_l16": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "uninavid_blind_l18": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "uninavid_blind_l20": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "uninavid_blind_l24": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "uninavid_blind_l28": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "uninavid_blind_l8": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    },
+    "uninavid_probe": {
+      "episodes": 10,
+      "missing": [],
+      "steps": 650
+    },
+    "uninavid_ref": {
+      "episodes": 100,
+      "extra": [],
+      "missing": []
+    }
+  },
+  "checks": [
+    "r1_probe_leaky: trajectories match the reference"
+  ],
+  "incomplete": []
+}

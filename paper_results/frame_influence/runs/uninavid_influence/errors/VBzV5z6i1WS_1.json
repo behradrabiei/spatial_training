@@ -1,0 +1,6 @@
+{
+  "episode_label": "VBzV5z6i1WS_1",
+  "error": "RuntimeError('Expected episode VBzV5z6i1WS_1, Habitat reset to Nfvxx8J5NCo_1')",
+  "time": 1788802907.397463,
+  "traceback": "Traceback (most recent call last):\n  File \"/home/brabiei/Projects/World-Modelling/spatial_training/baselines/uninavid_hm3d/eval.py\", line 1039, in main\n    result = run_episode(env, policy, args, label)\n  File \"/home/brabiei/Projects/World-Modelling/spatial_training/baselines/uninavid_hm3d/eval.py\", line 702, in run_episode\n    raise RuntimeError(f\"Expected episode {label}, Habitat reset to {current_label}\")\nRuntimeError: Expected episode VBzV5z6i1WS_1, Habitat reset to Nfvxx8J5NCo_1\n"
+}

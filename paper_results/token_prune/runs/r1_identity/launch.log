@@ -1,0 +1,1147 @@
+2026-09-09 02:11:36,780	INFO worker.py:1998 -- Started a local Ray instance. View the dashboard at [1m[32m127.0.0.1:8265 [39m[22m
+/home/brabiei/miniconda3/envs/longnav_vlm/lib/python3.10/site-packages/ray/_private/worker.py:2046: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+  warnings.warn(
+Model ID: Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800
+🔍 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' not found locally. Attempting HF Hub download...
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 4445.94it/s]
+wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+✅ Downloaded 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' to: /home/brabiei/.cache/huggingface/hub/models--Aasdfip--hm3d_rpp_ke_standard-checkpoint_231/snapshots/de338927c8c96d1629ded0d042581776a960a465
+⚠️ Skipping training setup for RL workers.
+loading checkpoint for eval
+[36m(RLActor pid=26254)[0m [prune] no kv_budget / kv_prune_budget_frames: identity arm, only the window prunes.
+[36m(RLActor pid=26254)[0m Loading Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800 with sparsifying patch...
+📄 Config saved to: ./paper_results/token_prune/runs/r1_identity/config.yaml
+[36m(RLActor pid=26254)[0m  -> Adapters and (maybe) Value Head loaded.
+Found 0 existing runs with name 'r1_identity' in project 'longnav_paper'.
+[2026-09-09 02:11:44,226][DriverMain][INFO] - Loaded 100 episodes from JSON: src/longnav/conf/episode_jsons/hm3d_v2_100.json
+[2026-09-09 02:11:44,226][DriverMain][INFO] - After exclusion, 100 episodes remain for sharding.
+[2026-09-09 02:11:44,226][DriverMain][INFO] - Starting rollout collection!
+[36m(WandbLoggerActor pid=26786)[0m wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+[36m(WandbLoggerActor pid=26786)[0m wandb: Currently logged in as: brabiei (brabiei-university-of-michigan) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+[36m(HabitatEnvActor pid=27255)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=27255)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=27255)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(WandbLoggerActor pid=26786)[0m wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+[36m(WandbLoggerActor pid=26786)[0m wandb: setting up run v1bzejc9
+[36m(HabitatEnvActor pid=27255)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=27255)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=27255)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=27255)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=27255)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=27255)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:11:45,973 Initializing dataset ObjectNav-v1
+[36m(WandbLoggerActor pid=26786)[0m wandb: Tracking run with wandb version 0.28.0
+[36m(WandbLoggerActor pid=26786)[0m wandb: Run data is saved locally in /home/brabiei/Projects/World-Modelling/spatial_training/wandb/run-20260909_021145-v1bzejc9
+[36m(WandbLoggerActor pid=26786)[0m wandb: Run `wandb offline` to turn off syncing.
+[36m(WandbLoggerActor pid=26786)[0m wandb: Syncing run r1_identity
+[36m(WandbLoggerActor pid=26786)[0m wandb: ⭐️ View project at https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=26786)[0m wandb: 🚀 View run at https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/v1bzejc9
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:11:55,710 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/4ok3usBNeis/4ok3usBNeis_2.27255@1788934315.507118/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=27256)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=27256)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(HabitatEnvActor pid=27256)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=27256)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=27256)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=27256)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=27256)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=27256)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:11:46,031 Initializing dataset ObjectNav-v1
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:12:07,987 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/5cdEh9F2hJL/5cdEh9F2hJL_0.27255@1788934327.693365/video.mp4[32m [repeated 2x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:12:13,394 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/6s7QHgap2fW/6s7QHgap2fW_2.27256@1788934333.1832855/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:12:16,568 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/5cdEh9F2hJL/5cdEh9F2hJL_1.27255@1788934336.426438/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:12:46,682 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/7MXmsvcQjpJ/7MXmsvcQjpJ_0.27256@1788934365.4962795/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:12:49,058 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/4ok3usBNeis/4ok3usBNeis_0.27255@1788934368.8979924/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m skipping sim initialization since no shards provided, please call assign_shard
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=26254)[0m Merging LoRA adapters for inference...
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m skipping sim initialization since no shards provided, please call assign_shard
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+Collected episode 1
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 2
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 3
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 4
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 5
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 89x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 100x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 97x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 95x across cluster][0m
+Collected episode 6
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 7
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 8
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 14x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:13:08,146 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/6s7QHgap2fW/6s7QHgap2fW_0.27256@1788934387.7162871/video.mp4[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:13:41,617 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/BAbdmeyTvMZ/BAbdmeyTvMZ_1.27255@1788934420.653801/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:13:57,261 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/BAbdmeyTvMZ/BAbdmeyTvMZ_2.27255@1788934436.845433/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 9
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+Collected episode 10
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 11
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 12
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 13
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 14
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 8x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 15
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:14:27,134 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/DYehNKdT76V/DYehNKdT76V_0.27256@1788934466.3134723/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:14:35,794 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/7MXmsvcQjpJ/7MXmsvcQjpJ_1.27255@1788934475.4796696/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:14:41,279 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/DYehNKdT76V/DYehNKdT76V_1.27256@1788934481.0740001/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:14:43,769 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/7MXmsvcQjpJ/7MXmsvcQjpJ_2.27255@1788934483.653331/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:14:59,032 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/CrMo8WxCyVb/CrMo8WxCyVb_0.27256@1788934498.594613/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:15:01,682 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/Dd4bFSTQ8gi/Dd4bFSTQ8gi_1.27255@1788934501.5892763/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:15:08,465 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/Dd4bFSTQ8gi/Dd4bFSTQ8gi_2.27255@1788934508.3329165/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 16
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 8x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 17
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 18
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+Collected episode 19
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m FALSE POSITIVE STOP! penalizing.
+Collected episode 20
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 21
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+Collected episode 22
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 23
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:15:27,855 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/HY1NcmCgn3n/HY1NcmCgn3n_0.27256@1788934527.1816733/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:15:40,322 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/GLAQ4DNUx5U/GLAQ4DNUx5U_0.27255@1788934539.9156687/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:15:47,344 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/DYehNKdT76V/DYehNKdT76V_2.27255@1788934547.2320266/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:16:04,271 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/HY1NcmCgn3n/HY1NcmCgn3n_2.27256@1788934563.7458727/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:16:06,260 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/Dd4bFSTQ8gi/Dd4bFSTQ8gi_0.27255@1788934566.1477983/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:16:11,815 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/GLAQ4DNUx5U/GLAQ4DNUx5U_1.27256@1788934571.6586287/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+Collected episode 24
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 25
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+Collected episode 26
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 34x across cluster][0m
+Collected episode 27
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 28
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 29
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 30
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:16:17,008 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/LT9Jq6dN3Ea/LT9Jq6dN3Ea_2.27255@1788934576.8133745/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 31
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 32
+[2026-09-09 02:16:23,771][DriverMain][INFO] - Starting rollout collection!
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:16:23,910 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/MHPLjHsuG27/MHPLjHsuG27_0.27255@1788934583.769801/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:16:47,527 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/MHPLjHsuG27/MHPLjHsuG27_1.27255@1788934606.9038804/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:16:57,199 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/Nfvxx8J5NCo/Nfvxx8J5NCo_2.27256@1788934616.8942356/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:17:01,913 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/LT9Jq6dN3Ea/LT9Jq6dN3Ea_0.27255@1788934621.7337136/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:17:13,975 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/QaLdnwvtxbs/QaLdnwvtxbs_0.27256@1788934633.5897527/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:17:14,514 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/LT9Jq6dN3Ea/LT9Jq6dN3Ea_1.27255@1788934634.475869/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:17:25,903 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/TEEsavR23oF/TEEsavR23oF_0.27255@1788934645.6528027/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 1
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 2
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 3
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 4
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 5
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 6
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+Collected episode 7
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 8
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 4x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+Collected episode 9
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:17:32,316 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/Nfvxx8J5NCo/Nfvxx8J5NCo_0.27256@1788934652.0738566/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:17:43,827 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/TEEsavR23oF/TEEsavR23oF_1.27255@1788934663.4931028/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:17:50,955 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/VBzV5z6i1WS/VBzV5z6i1WS_2.27256@1788934670.7274323/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:17:54,655 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/TEEsavR23oF/TEEsavR23oF_2.27255@1788934674.5018427/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:18:16,474 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/XB4GS9ShBRE/XB4GS9ShBRE_0.27256@1788934695.8078046/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:18:18,841 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/QaLdnwvtxbs/QaLdnwvtxbs_1.27255@1788934698.7395725/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+Collected episode 10
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 11
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 12
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+Collected episode 13
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 14
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 15
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 16
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+Collected episode 17
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:18:31,033 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/VBzV5z6i1WS/VBzV5z6i1WS_0.27256@1788934710.772891/video.mp4[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:18:38,971 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/a8BtkwhxdRV/a8BtkwhxdRV_1.27255@1788934718.6808908/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:18:41,720 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/VBzV5z6i1WS/VBzV5z6i1WS_1.27256@1788934721.6173682/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:18:47,505 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/a8BtkwhxdRV/a8BtkwhxdRV_2.27255@1788934727.2751315/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:18:50,114 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/bxsVRursffK/bxsVRursffK_0.27256@1788934730.0250742/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:18:57,097 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/bxsVRursffK/bxsVRursffK_2.27256@1788934737.012452/video.mp4[32m [repeated 4x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:19:03,929 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/a8BtkwhxdRV/a8BtkwhxdRV_0.27255@1788934743.7205443/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:19:06,369 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/bCPU9suPUw9/bCPU9suPUw9_1.27256@1788934746.2800274/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 18
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 16x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 19
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+Collected episode 20
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 21
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 22
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 23
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+Collected episode 24
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 25
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+Collected episode 26
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 4x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 27
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:19:09,476 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/bCPU9suPUw9/bCPU9suPUw9_2.27256@1788934749.349546/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:19:13,348 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/cvZr5TUy5C5/cvZr5TUy5C5_2.27255@1788934753.1918325/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:19:28,160 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/h1zeeAwLh9Z/h1zeeAwLh9Z_1.27256@1788934767.756474/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:20:06,431 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/eF36g7L6Z9M/eF36g7L6Z9M_0.27255@1788934805.268747/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 28
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 29
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 30
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 31
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 32
+[2026-09-09 02:20:12,923][DriverMain][INFO] - Starting rollout collection!
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:20:13,191 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/h1zeeAwLh9Z/h1zeeAwLh9Z_2.27256@1788934812.9210284/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:20:28,201 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/k1cupFYWXJ6/k1cupFYWXJ6_0.27256@1788934827.8873982/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:20:41,494 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/cvZr5TUy5C5/cvZr5TUy5C5_0.27255@1788934841.056156/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:20:47,234 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/eF36g7L6Z9M/eF36g7L6Z9M_2.27256@1788934847.00614/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:20:55,320 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/h1zeeAwLh9Z/h1zeeAwLh9Z_0.27256@1788934855.1696842/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 1
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 2
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+Collected episode 3
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 32x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 4
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 5
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 6
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 7
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 8
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:21:01,462 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/mL8ThkuaVTM/mL8ThkuaVTM_1.27255@1788934861.3417304/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:21:13,573 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/mv2HUxq3B53/mv2HUxq3B53_2.27256@1788934873.17266/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:21:23,031 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/mL8ThkuaVTM/mL8ThkuaVTM_2.27255@1788934882.7496088/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:21:58,632 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/p53SfW6mjZe/p53SfW6mjZe_0.27256@1788934917.5834208/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:22:34,486 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/k1cupFYWXJ6/k1cupFYWXJ6_1.27255@1788934953.413526/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:22:48,501 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/p53SfW6mjZe/p53SfW6mjZe_1.27256@1788934968.038591/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 9
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 10
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+Collected episode 11
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 12x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 12
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+Collected episode 13
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+Collected episode 14
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:23:12,850 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/k1cupFYWXJ6/k1cupFYWXJ6_2.27255@1788934992.1238837/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:23:21,063 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/mv2HUxq3B53/mv2HUxq3B53_0.27256@1788935000.7977853/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:23:22,207 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/q3zU7Yy5E5s/q3zU7Yy5E5s_1.27255@1788935002.1292331/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:23:29,963 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/q3zU7Yy5E5s/q3zU7Yy5E5s_2.27255@1788935009.8635964/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:23:35,493 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/q5QZSEeHe5g/q5QZSEeHe5g_0.27255@1788935015.4121437/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:23:53,127 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/p53SfW6mjZe/p53SfW6mjZe_2.27255@1788935032.7139482/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+Collected episode 15
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+Collected episode 16
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 17
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 18
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 19
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 20
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 21
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m having issue with logging ack! Get timed out: some object(s) not ready.
+Collected episode 22
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 23
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:24:02,388 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/q3zU7Yy5E5s/q3zU7Yy5E5s_0.27255@1788935042.222104/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:24:10,827 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/q5QZSEeHe5g/q5QZSEeHe5g_1.27256@1788935050.5537145/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:24:20,480 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/y9hTuugGdiq/y9hTuugGdiq_0.27255@1788935060.1504261/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:24:39,521 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/y9hTuugGdiq/y9hTuugGdiq_1.27255@1788935079.0519693/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:24:46,152 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/yr17PDCnDDW/yr17PDCnDDW_0.27255@1788935086.0139449/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 24
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Actor assigned with shard of 5 episodes.
+Collected episode 25
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 26
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 27
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 28
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 29
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 30
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 31
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:24:51,657 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/zt1RVoi7PcG/zt1RVoi7PcG_0.27256@1788935091.4578056/video.mp4
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+Collected episode 32
+[2026-09-09 02:25:09,065][DriverMain][INFO] - Starting rollout collection!
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:25:09,634 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/wcojb4TFT35/wcojb4TFT35_0.27255@1788935109.0635335/video.mp4
+[36m(HabitatEnvActor pid=27255)[0m 2026-09-09 02:25:16,403 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/wcojb4TFT35/wcojb4TFT35_1.27255@1788935116.2644362/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m 2026-09-09 02:25:24,395 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/r1_identity/rollout/ziup5kvtCCR/ziup5kvtCCR_0.27256@1788935124.227773/video.mp4[32m [repeated 2x across cluster][0m
+[36m(WandbLoggerActor pid=26786)[0m wandb: uploading artifact run-v1bzejc9-episode_details; updating run metadata
+[36m(WandbLoggerActor pid=26786)[0m wandb: uploading artifact run-v1bzejc9-episode_details
+[36m(WandbLoggerActor pid=26786)[0m wandb: uploading history steps 99-99, summary
+[36m(WandbLoggerActor pid=26786)[0m wandb: 
+[36m(WandbLoggerActor pid=26786)[0m wandb: Run history:
+[36m(WandbLoggerActor pid=26786)[0m wandb:          collision_rate ▁█▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▁▁▁▁▃▁▁▁▂▁▁▁▁▁▁▁
+[36m(WandbLoggerActor pid=26786)[0m wandb:        distance_to_goal ▁▁▁▁▁▁█▁▅▁▁▁▃▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁█▁▁
+[36m(WandbLoggerActor pid=26786)[0m wandb: distance_to_goal_reward ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+[36m(WandbLoggerActor pid=26786)[0m wandb:                duration ▆▁▁▆█▃▂▃▄▃▁▅▆▃▁▄▄▂▅▁▂▁▁▁▂▂▃▂▂▁▂▁▁▃▄▃▂▄▁▄
+[36m(WandbLoggerActor pid=26786)[0m wandb:       fng_trigger_count █▇█▆█▃▇███▆█▇▇█▆▇▆█▇██▇███▇▇▆▇▁▄█▆█▇▆▇██
+[36m(WandbLoggerActor pid=26786)[0m wandb:       fpg_trigger_count ▇▇▇█▆▆▃▆███▅▇▇▇▄▆▇█▇██▇██▆▆▇█▆▁▅▇▇█▆▇███
+[36m(WandbLoggerActor pid=26786)[0m wandb:        last_action_prob ▅▃▄▃▂▄▁▃▃▃▄▃▂▁▂▄▄▃▄▅▅▄▅▄▃▆▄▁▄▃▃█▃▄▃▄▂▄▂▄
+[36m(WandbLoggerActor pid=26786)[0m wandb:    mean_distance_reward ▆▅▆▃▃█▅▃▃▄▄▇▃▆▆▄▃▇▅▆▆▅▇▆▃▆▇▃▅▄▂▁▃▅▅▅▄▃▅▆
+[36m(WandbLoggerActor pid=26786)[0m wandb:                 n_steps ▂▁█▁▁▇▁▃▃▂▁▅▃▁▂▁▅▃▁▂▂▂▁▁▁▃▃▂▃█▅▂▁▂▁▁▁▂▄▅
+[36m(WandbLoggerActor pid=26786)[0m wandb:                soft_spl ▇▆▅█▄▁▂█▇▇▆▄▇▄▄▂▇▆▆▂▇▇█▃▂▂▄▅▆▁▃▅▇▆▃▆▃▃▁█
+[36m(WandbLoggerActor pid=26786)[0m wandb:                     +26 ...
+[36m(WandbLoggerActor pid=26786)[0m wandb: 
+[36m(WandbLoggerActor pid=26786)[0m wandb: Run summary:
+[36m(WandbLoggerActor pid=26786)[0m wandb:    episode_id 0
+[36m(WandbLoggerActor pid=26786)[0m wandb: episode_label ziup5kvtCCR_0
+[36m(WandbLoggerActor pid=26786)[0m wandb:          goal plant
+[36m(WandbLoggerActor pid=26786)[0m wandb:          node ROB-TIAN-03U
+[36m(WandbLoggerActor pid=26786)[0m wandb:      scene_id ziup5kvtCCR
+[36m(WandbLoggerActor pid=26786)[0m wandb: 
+[36m(WandbLoggerActor pid=26786)[0m wandb: 🚀 View run r1_identity at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/v1bzejc9
+[36m(WandbLoggerActor pid=26786)[0m wandb: ⭐️ View project at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=26786)[0m wandb: Synced 4 W&B file(s), 20 media file(s), 240 artifact file(s) and 0 other file(s)
+[36m(WandbLoggerActor pid=26786)[0m wandb: Find logs at: ./wandb/run-20260909_021145-v1bzejc9/logs
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty
+[36m(HabitatEnvActor pid=27255)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 1
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 2
+[36m(HabitatEnvActor pid=27255)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27255)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(RLActor pid=26254)[0m using normal mode
+Collected episode 3
+[36m(RLActor pid=26254)[0m using normal mode
+[36m(HabitatEnvActor pid=27256)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 4
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_frames: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_ntok: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_kept: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_bits: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vtp_raster: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=27256)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)

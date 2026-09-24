@@ -1,0 +1,3 @@
+{"bits": "", "budget": 128, "episode_label": "a8BtkwhxdRV_1", "frames": [], "n_kept": [], "n_pool": 0, "n_tokens": [], "prompt_tokens": 189, "seconds": 2.1900050342082977e-06, "stage_budgets": null, "stage_kept": null, "step": 0}
+{"bits": "/w==", "budget": 128, "episode_label": "a8BtkwhxdRV_1", "frames": [0, 1], "n_kept": [4, 4], "n_pool": 8, "n_tokens": [4, 4], "prompt_tokens": 199, "seconds": 4.503992386162281e-06, "stage_budgets": null, "stage_kept": null, "step": 2}
+{"bits": "//8=", "budget": 128, "episode_label": "a8BtkwhxdRV_1", "frames": [0, 1, 2, 3], "n_kept": [4, 4, 4, 4], "n_pool": 16, "n_tokens": [4, 4, 4, 4], "prompt_tokens": 209, "seconds": 5.882990080863237e-06, "stage_budgets": null, "stage_kept": null, "step": 4}

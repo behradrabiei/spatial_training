@@ -1,0 +1,889 @@
+2026-09-04 13:53:41,199	INFO worker.py:1998 -- Started a local Ray instance. View the dashboard at [1m[32m127.0.0.1:8265 [39m[22m
+/home/brabiei/miniconda3/envs/longnav_vlm/lib/python3.10/site-packages/ray/_private/worker.py:2046: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+  warnings.warn(
+Model ID: Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800
+🔍 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' not found locally. Attempting HF Hub download...
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 30437.62it/s]
+wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+✅ Downloaded 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' to: /home/brabiei/.cache/huggingface/hub/models--Aasdfip--hm3d_rpp_ke_standard-checkpoint_231/snapshots/de338927c8c96d1629ded0d042581776a960a465
+⚠️ Skipping training setup for RL workers.
+loading checkpoint for eval
+[36m(RLActor pid=200671)[0m Loading Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800 with sparsifying patch...
+📄 Config saved to: ./paper_results/ctx_ablation/runs/r1_evict_k16/config.yaml
+[36m(RLActor pid=200671)[0m  -> Adapters and (maybe) Value Head loaded.
+Found 0 existing runs with name 'r1_evict_k16' in project 'longnav_paper'.
+[2026-09-04 13:53:48,635][DriverMain][INFO] - Loaded 100 episodes from JSON: src/longnav/conf/episode_jsons/hm3d_v2_100.json
+[2026-09-04 13:53:48,635][DriverMain][INFO] - After exclusion, 100 episodes remain for sharding.
+[2026-09-04 13:53:48,635][DriverMain][INFO] - Starting rollout collection!
+[36m(WandbLoggerActor pid=201220)[0m wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+[36m(WandbLoggerActor pid=201220)[0m wandb: Currently logged in as: brabiei (brabiei-university-of-michigan) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+[36m(HabitatEnvActor pid=201672)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=201672)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=201672)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(WandbLoggerActor pid=201220)[0m wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+[36m(WandbLoggerActor pid=201220)[0m wandb: setting up run hd2ypet4
+[36m(HabitatEnvActor pid=201672)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=201672)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=201672)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=201672)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=201672)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=201672)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:53:50,398 Initializing dataset ObjectNav-v1
+[36m(WandbLoggerActor pid=201220)[0m wandb: Tracking run with wandb version 0.28.0
+[36m(WandbLoggerActor pid=201220)[0m wandb: Run data is saved locally in /home/brabiei/Projects/World-Modelling/spatial_training/wandb/run-20260904_135349-hd2ypet4
+[36m(WandbLoggerActor pid=201220)[0m wandb: Run `wandb offline` to turn off syncing.
+[36m(WandbLoggerActor pid=201220)[0m wandb: Syncing run r1_evict_k16
+[36m(WandbLoggerActor pid=201220)[0m wandb: ⭐️ View project at https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=201220)[0m wandb: 🚀 View run at https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/hd2ypet4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:53:58,630 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/4ok3usBNeis/4ok3usBNeis_2.201672@1788544438.4279265/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=201671)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=201671)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(HabitatEnvActor pid=201671)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=201671)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=201671)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=201671)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=201671)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=201671)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:53:50,397 Initializing dataset ObjectNav-v1
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:54:04,535 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/6s7QHgap2fW/6s7QHgap2fW_1.201671@1788544444.2868118/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:54:23,714 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/5cdEh9F2hJL/5cdEh9F2hJL_0.201672@1788544462.9457703/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:54:29,966 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/5cdEh9F2hJL/5cdEh9F2hJL_1.201672@1788544469.8333156/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:54:56,699 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/7MXmsvcQjpJ/7MXmsvcQjpJ_0.201671@1788544495.5004098/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:54:58,352 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/4ok3usBNeis/4ok3usBNeis_0.201672@1788544498.2477412/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:55:00,220 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/4ok3usBNeis/4ok3usBNeis_1.201672@1788544500.1299791/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:55:12,691 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/6s7QHgap2fW/6s7QHgap2fW_0.201671@1788544512.336517/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:55:45,164 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/BAbdmeyTvMZ/BAbdmeyTvMZ_1.201672@1788544544.049091/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:55:52,748 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/BAbdmeyTvMZ/BAbdmeyTvMZ_2.201672@1788544552.4565008/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:56:22,732 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/DYehNKdT76V/DYehNKdT76V_0.201671@1788544581.6729684/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:56:28,633 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/7MXmsvcQjpJ/7MXmsvcQjpJ_1.201672@1788544588.3827646/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:56:35,407 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/7MXmsvcQjpJ/7MXmsvcQjpJ_2.201672@1788544595.289832/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m skipping sim initialization since no shards provided, please call assign_shard
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(RLActor pid=200671)[0m Merging LoRA adapters for inference...
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+Collected episode 1
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m skipping sim initialization since no shards provided, please call assign_shard
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 2
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 3
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 4
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 5
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 2x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 105x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 107x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 109x across cluster][0m
+Collected episode 6
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 7
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 62x across cluster][0m
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 8
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 9
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 10
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 11
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 12
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 13
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 14
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 15
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 16
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 17
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 18
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:57:03,722 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/CrMo8WxCyVb/CrMo8WxCyVb_0.201671@1788544622.647985/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:57:06,727 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/Dd4bFSTQ8gi/Dd4bFSTQ8gi_1.201672@1788544626.5753083/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:57:12,521 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/Dd4bFSTQ8gi/Dd4bFSTQ8gi_2.201672@1788544632.3882682/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:57:29,543 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/HY1NcmCgn3n/HY1NcmCgn3n_0.201671@1788544648.8413494/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:57:59,409 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/GLAQ4DNUx5U/GLAQ4DNUx5U_0.201672@1788544678.3302407/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:58:15,020 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/HY1NcmCgn3n/HY1NcmCgn3n_1.201671@1788544694.4131072/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:58:17,458 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/DYehNKdT76V/DYehNKdT76V_2.201672@1788544697.317697/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+Collected episode 19
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 20
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+Collected episode 21
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+Collected episode 22
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 23
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 24
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 25
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 26
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 27
+[36m(HabitatEnvActor pid=201671)[0m FALSE POSITIVE STOP! penalizing.
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 28
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:58:25,219 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/GLAQ4DNUx5U/GLAQ4DNUx5U_1.201671@1788544705.063825/video.mp4[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:58:32,541 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/GLAQ4DNUx5U/GLAQ4DNUx5U_2.201671@1788544712.3840263/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+Collected episode 29
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 30
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 31
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+Collected episode 32
+[2026-09-04 13:58:35,011][DriverMain][INFO] - Starting rollout collection!
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:58:50,598 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/Nfvxx8J5NCo/Nfvxx8J5NCo_1.201671@1788544729.9723725/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:59:19,261 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/MHPLjHsuG27/MHPLjHsuG27_1.201672@1788544758.1790304/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:59:24,425 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/Nfvxx8J5NCo/Nfvxx8J5NCo_2.201671@1788544764.1966703/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 13:59:38,125 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/LT9Jq6dN3Ea/LT9Jq6dN3Ea_0.201672@1788544777.5849068/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 13:59:46,840 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/QaLdnwvtxbs/QaLdnwvtxbs_0.201671@1788544786.4631698/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:00:12,901 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/MHPLjHsuG27/MHPLjHsuG27_2.201671@1788544811.8391113/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:00:24,124 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/Nfvxx8J5NCo/Nfvxx8J5NCo_0.201671@1788544823.8608456/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:00:29,866 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/TEEsavR23oF/TEEsavR23oF_1.201672@1788544829.621412/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:00:35,494 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/VBzV5z6i1WS/VBzV5z6i1WS_2.201671@1788544835.2722554/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:00:52,414 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/XB4GS9ShBRE/XB4GS9ShBRE_0.201671@1788544851.8449497/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:00:58,277 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/QaLdnwvtxbs/QaLdnwvtxbs_2.201672@1788544858.1736052/video.mp4[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:01:04,511 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/VBzV5z6i1WS/VBzV5z6i1WS_0.201671@1788544864.272859/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:01:09,338 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/a8BtkwhxdRV/a8BtkwhxdRV_1.201672@1788544869.1177385/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 4x across cluster][0m
+Collected episode 1
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 2
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+Collected episode 3
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 4
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 5
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 6
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 110x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 109x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 114x across cluster][0m
+Collected episode 7
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 8
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 101x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 9
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+Collected episode 10
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 11
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 12
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 13
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 14
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 15
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 16
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+Collected episode 17
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 18
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 19
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 4x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:01:16,307 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/a8BtkwhxdRV/a8BtkwhxdRV_2.201672@1788544876.1297839/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:01:22,656 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/XB4GS9ShBRE/XB4GS9ShBRE_2.201672@1788544882.603942/video.mp4[32m [repeated 4x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:01:30,189 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/a8BtkwhxdRV/a8BtkwhxdRV_0.201672@1788544889.9585588/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:01:38,407 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/cvZr5TUy5C5/cvZr5TUy5C5_2.201672@1788544898.246902/video.mp4[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:01:51,788 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/h1zeeAwLh9Z/h1zeeAwLh9Z_1.201671@1788544911.3688853/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:02:03,905 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/eF36g7L6Z9M/eF36g7L6Z9M_0.201672@1788544923.3901272/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+Collected episode 20
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 21
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 22
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 23
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 24
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 25
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 4x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 3x across cluster][0m
+Collected episode 26
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 27
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 28
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 29
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 30
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 31
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 32
+[2026-09-04 14:02:13,475][DriverMain][INFO] - Starting rollout collection!
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:02:13,881 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/h1zeeAwLh9Z/h1zeeAwLh9Z_2.201671@1788544933.4734821/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:02:37,761 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/eF36g7L6Z9M/eF36g7L6Z9M_1.201672@1788544956.8483617/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:02:47,246 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/k1cupFYWXJ6/k1cupFYWXJ6_0.201671@1788544966.8503292/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:02:54,761 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/cvZr5TUy5C5/cvZr5TUy5C5_0.201672@1788544974.428515/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:03:18,432 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/eF36g7L6Z9M/eF36g7L6Z9M_2.201671@1788544997.3928564/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:03:30,802 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/cvZr5TUy5C5/cvZr5TUy5C5_1.201672@1788545010.2722895/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:03:36,869 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/mL8ThkuaVTM/mL8ThkuaVTM_0.201672@1788545016.7812517/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:04:02,509 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/mv2HUxq3B53/mv2HUxq3B53_2.201671@1788545041.5365632/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:04:04,764 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/mL8ThkuaVTM/mL8ThkuaVTM_1.201672@1788545044.6437433/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:04:17,800 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/mL8ThkuaVTM/mL8ThkuaVTM_2.201672@1788545057.3196423/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:04:37,884 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/p53SfW6mjZe/p53SfW6mjZe_0.201671@1788545077.1168437/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:04:50,408 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/k1cupFYWXJ6/k1cupFYWXJ6_1.201672@1788545089.93625/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:05:20,707 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/p53SfW6mjZe/p53SfW6mjZe_1.201671@1788545119.6176782/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:05:36,215 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/k1cupFYWXJ6/k1cupFYWXJ6_2.201672@1788545135.6186502/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:05:43,406 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/mv2HUxq3B53/mv2HUxq3B53_0.201671@1788545143.1288512/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+Collected episode 1
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 2
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 3
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 81x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 108x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 115x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 111x across cluster][0m
+Collected episode 4
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 63x across cluster][0m
+Collected episode 5
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 6
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 16x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 7
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 8
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 9
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 10
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 11
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 12
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 15x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 26x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 25x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 26x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 27x across cluster][0m
+Collected episode 13
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 21x across cluster][0m
+Collected episode 14
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+Collected episode 15
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 16
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 17
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:05:48,662 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/mv2HUxq3B53/mv2HUxq3B53_1.201671@1788545148.478514/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:05:55,369 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/qyAac8rV8Zk/qyAac8rV8Zk_1.201671@1788545155.2520857/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:06:06,710 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/svBbv1Pavdk/svBbv1Pavdk_1.201671@1788545166.4228046/video.mp4[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:06:26,639 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/p53SfW6mjZe/p53SfW6mjZe_2.201672@1788545185.91433/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:06:29,202 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/q5QZSEeHe5g/q5QZSEeHe5g_1.201671@1788545189.0862541/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:06:34,471 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/q3zU7Yy5E5s/q3zU7Yy5E5s_0.201672@1788545194.2567794/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:06:37,212 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/qyAac8rV8Zk/qyAac8rV8Zk_0.201671@1788545197.07686/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:06:51,835 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/y9hTuugGdiq/y9hTuugGdiq_0.201672@1788545211.3761115/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:06:54,018 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/ziup5kvtCCR/ziup5kvtCCR_1.201671@1788545213.8954775/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:07:19,905 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/y9hTuugGdiq/y9hTuugGdiq_1.201672@1788545238.8657694/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:07:23,763 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/zt1RVoi7PcG/zt1RVoi7PcG_0.201671@1788545243.5678694/video.mp4
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 18
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 19
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 20
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 21
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 22
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+Collected episode 23
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 24
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 25
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 26
+[36m(HabitatEnvActor pid=201672)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 27
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Actor assigned with shard of 5 episodes.
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 28
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 104x across cluster][0m
+Collected episode 29
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 30
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty[32m [repeated 79x across cluster][0m
+Collected episode 31
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 32
+[2026-09-04 14:07:28,906][DriverMain][INFO] - Starting rollout collection!
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:07:29,027 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/zt1RVoi7PcG/zt1RVoi7PcG_1.201671@1788545248.9033823/video.mp4[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m 2026-09-04 14:07:47,207 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/wcojb4TFT35/wcojb4TFT35_0.201672@1788545266.5567603/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:07:48,836 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/yr17PDCnDDW/yr17PDCnDDW_1.201671@1788545268.7219124/video.mp4
+[36m(HabitatEnvActor pid=201671)[0m 2026-09-04 14:07:59,631 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/r1_evict_k16/rollout/ziup5kvtCCR/ziup5kvtCCR_0.201671@1788545279.3068926/video.mp4[32m [repeated 2x across cluster][0m
+[36m(WandbLoggerActor pid=201220)[0m wandb: uploading artifact run-hd2ypet4-episode_details; updating run metadata
+[36m(WandbLoggerActor pid=201220)[0m wandb: uploading artifact run-hd2ypet4-episode_details
+[36m(WandbLoggerActor pid=201220)[0m wandb: uploading media/table/episode_details_99_832bdb60760f4fe9e3c5.table.json
+[36m(WandbLoggerActor pid=201220)[0m wandb: 
+[36m(WandbLoggerActor pid=201220)[0m wandb: Run history:
+[36m(WandbLoggerActor pid=201220)[0m wandb:          collision_rate ▇▁▁▁▁▁▁▁▁▁▁▁▁▂█▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▄▁▂▁
+[36m(WandbLoggerActor pid=201220)[0m wandb:        distance_to_goal ▁▁▁▁▁▁▁▁▁▁▁▆▁▁▁▁▁▁▁▁▁▁▁▁▁▁█▁▁▂▁▁▁▁▁▁▁▁▁▁
+[36m(WandbLoggerActor pid=201220)[0m wandb: distance_to_goal_reward ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+[36m(WandbLoggerActor pid=201220)[0m wandb:                duration ▂▂▄▄▂▁▂▆▂▁█▆▃▄▂▃▁▂▂▁▂▂▂▄▆▃▅▆▁▅█▂▁▂▂▅▂▄▃▂
+[36m(WandbLoggerActor pid=201220)[0m wandb:       fng_trigger_count ▇▇▄▇██▆█▁▇██▄▆█▇▆▁▇▇██▇█▇█▇█▇▆█▂█▅▄██▇█▆
+[36m(WandbLoggerActor pid=201220)[0m wandb:       fpg_trigger_count ▇▇▄▁██▁█▁█▁██▇▇▁▅▆▇▇▇▇███▅▆▆▆▁▂███▆█▅█▂█
+[36m(WandbLoggerActor pid=201220)[0m wandb:        last_action_prob ▃▅▄▄▃▃▃▆▄▂█▂▃▃█▂▃▂▄▄▄▂▂▃▄▄▁▅▃▃▄▂█▂▄▄▄▃▄▃
+[36m(WandbLoggerActor pid=201220)[0m wandb:    mean_distance_reward █▂▆▆▅▃▆▇▃▃▄▆▅▃▃▄▄▆▃▇▃▇▄▆▄▅▄▁▄▄▃▂▅▆▆█▄▄▇▄
+[36m(WandbLoggerActor pid=201220)[0m wandb:                 n_steps ▂▂▁▃▁▁█▂▂▁▁▂▅▁▁▂▂▅▂▄▂▂▂▁▁▁▁▂▃▃▁▁▆▂▁▇▂▁▅▁
+[36m(WandbLoggerActor pid=201220)[0m wandb:                soft_spl ▁▇▄▁▇▂█▆▄▇▂▁▃▄▄▄▇▆▆▂▆▇▇▇█▄▁▃▃▂▂▁▅▅▅▃▂▃▂▃
+[36m(WandbLoggerActor pid=201220)[0m wandb:                     +20 ...
+[36m(WandbLoggerActor pid=201220)[0m wandb: 
+[36m(WandbLoggerActor pid=201220)[0m wandb: Run summary:
+[36m(WandbLoggerActor pid=201220)[0m wandb:    episode_id 0
+[36m(WandbLoggerActor pid=201220)[0m wandb: episode_label ziup5kvtCCR_0
+[36m(WandbLoggerActor pid=201220)[0m wandb:          goal plant
+[36m(WandbLoggerActor pid=201220)[0m wandb:          node ROB-TIAN-03U
+[36m(WandbLoggerActor pid=201220)[0m wandb:      scene_id ziup5kvtCCR
+[36m(WandbLoggerActor pid=201220)[0m wandb: 
+[36m(WandbLoggerActor pid=201220)[0m wandb: 🚀 View run r1_evict_k16 at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/hd2ypet4
+[36m(WandbLoggerActor pid=201220)[0m wandb: ⭐️ View project at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=201220)[0m wandb: Synced 4 W&B file(s), 20 media file(s), 240 artifact file(s) and 0 other file(s)
+[36m(WandbLoggerActor pid=201220)[0m wandb: Find logs at: ./wandb/run-20260904_135349-hd2ypet4/logs
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+Bootstrapping: Initializing 2 environments...
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+Collected episode 1
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201672)[0m applying collision penalty
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 2
+[36m(RLActor pid=200671)[0m using normal mode
+Collected episode 3
+[36m(RLActor pid=200671)[0m using normal mode
+[36m(HabitatEnvActor pid=201671)[0m applying collision penalty[32m [repeated 3x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+[36m(HabitatEnvActor pid=201672)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)[32m [repeated 2x across cluster][0m
+Collected episode 4
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=201671)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)

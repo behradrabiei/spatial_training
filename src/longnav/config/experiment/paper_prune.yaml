@@ -1,0 +1,54 @@
+# @package _global_
+# Paper protocol for the visual-token pruning experiment (paper/token_prune/README.md).
+#
+# Window = the ctx-ablation K=32 arm (31 history frames + the current one, frame cut), run on
+# the prune substrate so history visual slots can be deleted permanently. One arm = this preset
+# + the method overrides (see paper/token_prune/run_r1.sh):
+#   random      vlm.kv_prune_importance=random
+#   divprune    vlm.kv_prune_importance=divprune
+#   fastv       vlm.kv_prune_importance=attn vlm.kv_prune_layer_start=2 vlm.kv_prune_score_layers=boundary
+#   dart        vlm.kv_prune_importance=dart vlm.kv_prune_layer_start=2
+#   pyramiddrop vlm.kv_prune_importance=attn 'vlm.kv_prune_stages=[7,14,21]'
+# plus vlm.kv_prune_budget_frames=<k> (k in {16,8,4,1} frames' worth of history tokens);
+# r1_identity adds nothing (unlimited budget) and must reproduce r1_evict_k32 bit for bit.
+#
+# Launch from the repo root:
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_prune +resources=single task.run_name=r1_random_b8 \
+#     vlm.kv_prune_importance=random vlm.kv_prune_budget_frames=8
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/token_prune/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_100.json  # the 100-episode HM3D-v2 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # the model's native regime; stated so the saved config shows it
+  sparse_threshold: 0.95
+  context_frames: 32  # 31 history frames + the current one, as in the ctx ablation's K=32 arm
+  context_cut: frame
+  context_window_mode: prune
+  kv_prune_importance: random  # overridden per arm
+  kv_prune_candidate_scope: visual  # prefix and every text/action token are never candidates
+  kv_prune_recent_turns: 0  # the just-decided turn's frame is history once its action is read
+  kv_prune_ema_beta: 0.0  # rank by the current step's score only (no EMA)
+  kv_prune_granularity: slot
+  kv_prune_seed: 17
+  kv_prune_seed_per_step: true  # random draws depend on (seed, episode label, step) only
+  kv_prune_log_masks: true  # per-step keep masks into sequence.json (sup/vtp_*)

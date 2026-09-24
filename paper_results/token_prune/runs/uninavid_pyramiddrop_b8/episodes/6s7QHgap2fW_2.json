@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 5.410482965002302,
+  "episode_id": "2",
+  "episode_label": "6s7QHgap2fW_2",
+  "fallback_stops": 0,
+  "goal": "plant",
+  "inference_calls": 43,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the plant.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.37842124700546265,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.534230659988579,
+    "spl": 0.5662401983631877,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15971636736,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_pyramiddrop_b8/prune/6s7QHgap2fW_2.jsonl",
+  "prune_records": 43,
+  "prune_seconds": 0.32756596600665944,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00890-6s7QHgap2fW/6s7QHgap2fW.basis.glb",
+  "steps": 85,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_pyramiddrop_b8/traces/6s7QHgap2fW_2.jsonl",
+  "video": null
+}

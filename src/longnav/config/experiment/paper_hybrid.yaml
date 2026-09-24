@@ -1,0 +1,56 @@
+# @package _global_
+# Paper protocol for the hybrid-pruning comparison (paper/hybrid_prune/README.md).
+#
+# Two protocols on the prune substrate (permanent deletion, visual-only candidates), same budget
+# k = vlm.kv_prune_budget_frames in {16,8,4,1} frames' worth of history tokens:
+#   hybrid       K=32 frame-cut window (this preset's default); attention-ranked stages at layers
+#                7/14 whose geometric schedule ends at B', then a RANDOM stage from layer 20 on
+#                keeping 1 frame's worth:
+#                  'vlm.kv_prune_stages=[7,14,20]' 'vlm.kv_prune_stage_importance=[attn,attn,random]'
+#                  vlm.kv_prune_tail_budget_frames=1
+#   pyramiddrop  PyramidDrop with NO window (full episode context):
+#                  vlm.context_frames=null vlm.context_cut=header 'vlm.kv_prune_stages=[7,14,21]'
+#
+# Launch from the repo root (see paper/hybrid_prune/run_r1.sh):
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_hybrid +resources=single task.run_name=r1_hybrid_b8 \
+#     'vlm.kv_prune_stages=[7,14,20]' 'vlm.kv_prune_stage_importance=[attn,attn,random]' \
+#     vlm.kv_prune_tail_budget_frames=1 vlm.kv_prune_budget_frames=8
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper_hybrid"  # own project: wandb resume keys on (project, run name)
+                                         # and r1_pyramiddrop_b<k> repeats an Exp 4 arm name
+  output_dir: ./paper_results/hybrid_prune/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_100.json  # the 100-episode HM3D-v2 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # the model's native regime; stated so the saved config shows it
+  sparse_threshold: 0.95
+  context_frames: 32  # 31 history frames + the current one, as in the ctx ablation's K=32 arm
+  context_cut: frame
+  context_window_mode: prune
+  kv_prune_importance: attn  # both protocols are staged; a stage's own rule is kv_prune_stage_importance
+  kv_prune_candidate_scope: visual  # prefix and every text/action token are never candidates
+  kv_prune_recent_turns: 0  # the just-decided turn's frame is history once its action is read
+  kv_prune_ema_beta: 0.0  # rank by the current step's score only (no EMA)
+  kv_prune_granularity: slot
+  kv_prune_seed: 17
+  kv_prune_seed_per_step: true  # random draws depend on (seed, episode label, step) only
+  kv_prune_log_masks: false  # the no-window arm would re-pack the whole episode each step; both arms
+                             # report sup/mean_kv_stage_visual_<s> (visual slots per stage) instead

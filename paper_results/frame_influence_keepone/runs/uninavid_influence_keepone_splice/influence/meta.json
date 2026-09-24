@@ -1,0 +1,35 @@
+{
+  "action_token_ids": [
+    5040,
+    6375,
+    2175,
+    1492
+  ],
+  "action_token_ids_word_internal": [
+    9847,
+    11333,
+    1563,
+    1266
+  ],
+  "action_words": [
+    "stop",
+    "forward",
+    "left",
+    "right"
+  ],
+  "horizons": [
+    4,
+    8,
+    16,
+    32
+  ],
+  "keep_one_kl_direction": "KL(only frame || no visual)",
+  "kl_direction": "KL(full || ablated)",
+  "length_threshold": 64,
+  "measures": [
+    "keep_one"
+  ],
+  "probe_batch": 8,
+  "similarity_threshold": 0.985,
+  "temperature": 1.0
+}

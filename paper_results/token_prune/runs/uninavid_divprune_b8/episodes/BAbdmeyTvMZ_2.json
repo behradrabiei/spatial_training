@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 0.09244044499791926,
+  "episode_id": "2",
+  "episode_label": "BAbdmeyTvMZ_2",
+  "fallback_stops": 0,
+  "goal": "bed",
+  "inference_calls": 1,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the bed.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 4.698544502258301,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.0,
+    "spl": 0.0,
+    "success": 0.0
+  },
+  "peak_cuda_bytes": 15801340928,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b8/prune/BAbdmeyTvMZ_2.jsonl",
+  "prune_records": 1,
+  "prune_seconds": 1.868000254034996e-06,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00827-BAbdmeyTvMZ/BAbdmeyTvMZ.basis.glb",
+  "steps": 1,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b8/traces/BAbdmeyTvMZ_2.jsonl",
+  "video": null
+}

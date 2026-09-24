@@ -1,0 +1,57 @@
+# @package _global_
+# Paper protocol for the layer-wise visual-token information figure (paper/layer_token_info/README.md).
+#
+# One episode driven for 10 steps by LongNav-R1 with the full episode in context; after the 10th
+# decision every visual token of the current frame is ablated at every decoder layer (keep-one-in
+# and leave-one-out KL over the action distribution). Nothing is ever pruned: context_window_mode
+# =prune is the substrate of the LEAKY arm (decision-token replay with key columns hidden);
+# the driver flips it to 'evict' for the LEAK-FREE arm (full re-prefill from stored embeds with
+# the hidden columns invisible to every query). No per-step probe runs; the driver
+# (paper/layer_token_info/probe_episode.py) calls longnav.utils.token_info after the last step.
+#
+# The sparse filter is disabled for this figure (sparse_threshold=2.0 keeps every patch, so the
+# heatmaps cover the full 15x20 token grid of a 640x480 frame). This is off the checkpoint's
+# training regime (a sparse_03drop SFT base), so the trajectory differs from the paper's r1_full
+# runs; the figure is qualitative.
+#
+# Not launched through longnav.scripts.eval -- see paper/layer_token_info/run.sh.
+task:
+  run_name: "name me"
+  wandb_project: null  # no wandb: nothing to resume, nothing to skip
+  output_dir: ./paper_results/layer_token_info/runs  # tracked; frames/ are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json  # the survey pool
+  shard_size: 1
+rollout:
+  max_steps: 10
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # required by both substrates (visual slot bookkeeping, stored embeds)
+  sparse_threshold: 2.0  # cosine similarity never exceeds 1: no patch is ever dropped
+  context_cut: header
+  context_frames: null
+  context_window: null  # full episode in context
+  context_window_mode: prune  # leaky arm substrate; the driver overrides to 'evict' for the leak-free arm
+  kv_budget: 1000000000  # unreachable: nothing is pruned
+  kv_prune_importance: random  # no decision-row capture on the live forwards
+  kv_prune_granularity: slot
+  kv_prune_candidate_scope: all
+  kv_prune_recent_turns: 2
+  kv_prune_seed: 17
+  kv_prune_log_influence: false
+  kv_prune_log_layer_influence: false
+  kv_prune_log_keep_one: false
+  influence_recompute: false
+  token_info_probe: true  # keep decision inputs (prune) / turn records (evict) for the probes

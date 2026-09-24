@@ -1,0 +1,11 @@
+episode_label,steps,reached_probe_step,score_leakfree_kl,actions,r1_full_success,r1_full_spl,r1_full_steps
+h1zeeAwLh9Z_0,10,1,0.018312955275177956,left left left left left left left left left left,1.0,0.48638484274808746,51
+a8BtkwhxdRV_2,10,1,0.2406710684299469,left left left left left left left left left left,1.0,0.1693256670327098,81
+Nfvxx8J5NCo_2,10,1,0.004048308357596397,right right right right right right right right right right,1.0,0.3350118738341834,137
+VBzV5z6i1WS_1,10,1,0.021584168076515198,right right right right right right right right right right,1.0,0.707384963371081,46
+Nfvxx8J5NCo_1,10,1,0.00359510350972414,right right forward forward forward forward forward forward forward forward,1.0,0.47632751141077867,30
+Dd4bFSTQ8gi_1,10,1,0.0002479412651155144,right right right right right right right right forward forward,0.0,0.0,45
+zt1RVoi7PcG_0,10,1,0.07849681377410889,right right right right right right right right right forward,1.0,0.3230962080360937,74
+wcojb4TFT35_0,10,1,0.0052530039101839066,right right right right right right forward forward forward forward,0.0,0.0,500
+k1cupFYWXJ6_0,10,1,0.1014307513833046,left forward forward forward forward forward forward forward forward forward,1.0,0.15754586456828445,113
+q5QZSEeHe5g_0,10,1,0.17703640460968018,right right left left forward forward forward right right forward,1.0,0.569893433425431,22

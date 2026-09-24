@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 13.512356136001472,
+  "episode_id": "0",
+  "episode_label": "TEEsavR23oF_0",
+  "fallback_stops": 0,
+  "goal": "toilet",
+  "inference_calls": 121,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the toilet.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.10592596232891083,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.1839131750702707,
+    "spl": 0.18688299861011515,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15905690624,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_random_b16/prune/TEEsavR23oF_0.jsonl",
+  "prune_records": 121,
+  "prune_seconds": 0.006349197996314615,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00800-TEEsavR23oF/TEEsavR23oF.basis.glb",
+  "steps": 241,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_random_b16/traces/TEEsavR23oF_0.jsonl",
+  "video": null
+}

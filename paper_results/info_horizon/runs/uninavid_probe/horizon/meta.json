@@ -1,0 +1,33 @@
+{
+  "action_token_ids": [
+    5040,
+    6375,
+    2175,
+    1492
+  ],
+  "action_words": [
+    "stop",
+    "forward",
+    "left",
+    "right"
+  ],
+  "columns_hidden": "history groups (long-term slots and 4-token frames) + the current frame's 64 fine tokens; separators and special tokens visible",
+  "hiding": "additive finfo.min on the key columns for every query on layers >= L",
+  "keep_one": "KL(P_only_current_frame || P_no_visual)",
+  "kl_direction": "KL(a || b), expectation under a",
+  "layers": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    18,
+    20,
+    22,
+    24,
+    28
+  ],
+  "leave_one": "KL(P_full || P_current_frame_hidden)",
+  "n_layers": 32,
+  "temperature": 1.0
+}

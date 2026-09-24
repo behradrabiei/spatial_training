@@ -33,7 +33,24 @@ class VLMConfig:
     use_sparse: bool = True
     sparse_threshold: float = 0.95  # cosine sim cutoff for visual token filtering (keep if sim < threshold)
     save_outputs: bool = False # only need this for RL
-    context_window: Optional[int] = None # None = full episode context; N = keep only the last N frames
+    # Sliding context window. Two ways to size it; set at most one:
+    #   context_frames=K  -- K observation frames are visible when the action is read (the
+    #                        current frame plus the K-1 before it). K=1 is the current frame
+    #                        alone. This is the paper-facing knob.
+    #   context_window=N  -- legacy: N past turns survive each step's eviction, so N+1 frames
+    #                        are visible at decision time (context_frames = N + 1).
+    # None on both = full episode context.
+    context_frames: Optional[int] = None
+    context_window: Optional[int] = None
+    # Where the cut lands inside the boundary turn. Turn chunks begin one token inside the
+    # previous reply (the action token), so a cut at the raw chunk boundary would open the
+    # window on a bare action with no assistant header. "header" (legacy) holds back the
+    # previous turn's '<|im_start|>assistant\n**' so the window opens on `header + action`
+    # of the oldest evicted turn. "frame" instead drops that action and its postfix too, so
+    # the window opens on the oldest retained '<|im_start|>user' turn: exactly K frames and
+    # the K-1 actions between them, nothing from before. mode='prune' supports it at slot
+    # granularity only.
+    context_cut: str = "header"
     # How the retained window is produced. "evict" slices the older turns' K/V out of the
     # cache: cheap, but the surviving keys and values were computed while attending over the
     # whole episode, so evicted frames still reach the decision through them. "recompute"
@@ -69,11 +86,48 @@ class VLMConfig:
     kv_prune_voxel_cap: int = 1  # voxel_dedup: max visual slots kept per world cell (newest first)
     kv_prune_voxel_scale: int = 2  # integer coarsening of the sim's voxel ids (0.15 m * scale per cell)
     kv_prune_voxel_2d: bool = True  # bucket on (x, z) only -- habitat y is up
-    # --- influence diagnostic (tools/kl_influence.py): every step, KL(P_t || P_t^{-f}) for EVERY
-    # cached frame f (one decision replay per frame), logged as sup/kl_influence. Needs prune mode;
-    # run it with an unreachable kv_budget and context_window=null to keep the full cache.
+    # --- leave-one-frame-out influence (paper/frame_influence): every
+    # scored step, KL(P_t || P_t^{-f}) for EVERY cached frame f (one decision replay per frame,
+    # only f's visual slots hidden), logged raw in sequence.json as sup/kl_influence together with
+    # the hidden-frame action log-probs (sup/kl_influence_logp), the replayed base log-probs
+    # (sup/kl_influence_base_logp) and the joint probes: every history frame hidden
+    # (sup/kl_influence_history_all), every visual slot hidden (sup/kl_influence_visual_all) and
+    # the age bands (sup/kl_influence_horizon: frames of age >= K hidden, one [K, kl, logp] per K
+    # in kv_prune_influence_horizons; K counts surviving frames incl. the current one, so K=1 is
+    # history_all and every K must be >= 2). Needs prune mode; run it with an unreachable
+    # kv_budget and context_window=null so the full cache is probed (+experiment=paper_influence).
     kv_prune_log_influence: bool = False
     kv_prune_influence_stride: int = 1  # score every k-th step; skipped steps log []
+    kv_prune_influence_horizons: List[int] = field(default_factory=lambda: [4, 8, 16, 32])
+    # Which per-frame measures the influence probes log (subset of leave_one, keep_one; applies to
+    # kv_prune_log_influence and influence_recompute alike). leave_one: the rows above.
+    # keep_one (leave-one-IN): for EVERY cached frame f, KL(P with only f's visual slots visible ||
+    # P with no visual slot visible) -- the text (prefix, goal, action history) stays, every other
+    # frame's visual slots incl. the current frame's are hidden, and the reference is the
+    # visual_all probe; expectation under the only-f distribution, as in the other keep-one
+    # diagnostics (kv_prune_log_keep_one, horizon_probe_layers). Logged as sup/kl_influence_keep_one
+    # (t+1 KLs) and sup/kl_influence_keep_one_logp (the only-f action log-probs). One replay per
+    # frame per measure; the joint probes are logged whatever the measures.
+    kv_prune_influence_measures: List[str] = field(default_factory=lambda: ["leave_one"])
+    # Leak-free variant of the same probes (+experiment=paper_influence_recompute): instead of
+    # hiding a frame's key columns from the replayed decision, every probe re-prefills prefix +
+    # all turns from their stored post-filter embeddings with that frame's visual tokens deleted
+    # (survivors keep their absolute mRoPE positions), so the decision is a strict function of
+    # what remains. Same log keys, same stride/horizons. Full context only (context_window=None,
+    # context_window_mode='evict'), requires use_sparse; one full prefill per probe, so the cost
+    # per episode grows with T^3.
+    influence_recompute: bool = False
+    # paper/layer_token_info: retain the decision-token inputs (prune mode) / the stored turn
+    # records (evict mode) so longnav.utils.token_info can run per-visual-token, per-layer
+    # keep-one-in / leave-one-out probes on the current frame after a step. No per-step probe
+    # runs. Full context only, requires use_sparse and attn_impl='sdpa'.
+    token_info_probe: bool = False
+    # paper/info_horizon: after every decision, the current frame's frame-level keep-one-in /
+    # leave-one-out KL with its visual tokens hidden from each listed decoder layer on (a value
+    # equal to the layer count is the "none" point, 0 by construction). Leak-free re-prefill in
+    # evict mode, leaky decision replay in prune mode; 1 + 3 * len(layers) forwards per step.
+    # Requires token_info_probe. Rows land raw in sequence.json as sup/horizon_*.
+    horizon_probe_layers: List[int] = field(default_factory=list)
     # --- layer-selective pruning ("When Token Pruning is Worse than Random", CVPR'26, arXiv
     # 2512.07580): the budget applies only to decoder layers [layer_start, layer_end); the other
     # layers keep the window-only cache, so memory savings scale with the fraction of layers
@@ -84,6 +138,10 @@ class VLMConfig:
     # 'attn' selector under layer-selective pruning: whose decision rows are averaged. 'pruned' =
     # the pruned range, 'all' = every layer, 'boundary' = layer_start-1 only (FastV-style).
     kv_prune_score_layers: str = "pruned"
+    # 'attn' selector: rank by the decision row of this ONE decoder layer, whatever is pruned
+    # (overrides kv_prune_score_layers). kv_prune_score_layer=0 with layer_start=0 is FastV scored
+    # and applied at layer 0 (paper/token_prune flat variant).
+    kv_prune_score_layer: Optional[int] = None
     # Visual-blind arm (hypothesis test for the information horizon): on decoder layers
     # [layer_start, layer_end) no query may attend to ANY visual slot -- cached history and the
     # current frame alike -- and visual slots are dropped from those layers' caches after each
@@ -100,6 +158,43 @@ class VLMConfig:
     # on layers >= i (sup/keep_one_influence, sup/leave_one_influence). 1 + 2 * n_frames replays per
     # probe layer per scored step -- use a window and kv_prune_influence_stride.
     kv_prune_log_keep_one: bool = False
+    # --- paper/token_prune: visual-token pruning under a recency window (permanent deletion).
+    # kv_prune_budget_frames=k keeps exactly k x (mean original post-filter visual count of the
+    # window's frames) history visual slots each step -- "what k frames cost this model" -- in
+    # place of the total-cache kv_budget; nothing is pruned while the window holds <= k frames.
+    # Use with context_frames=32, context_cut='frame', kv_prune_candidate_scope='visual' and
+    # kv_prune_recent_turns=0 (the just-decided frame joins the candidates). Methods:
+    # random / divprune (DivPrune, input-level) / attn with layer_start=2 + score_layers='boundary'
+    # (FastV) / dart with layer_start=2 (DART) / attn with kv_prune_stages=[7,14,21] (PyramidDrop:
+    # nested budgets V0*lambda^s, each stage ranked at the layer below it).
+    # Flat variant (+experiment=paper_prune_flat): no window at all -- the budget is then k x the
+    # running mean over every history frame of the episode -- and every method at layer 0:
+    # attn with kv_prune_score_layer=0, dart with layer_start=0.
+    kv_prune_budget_frames: Optional[float] = None
+    kv_prune_stages: Optional[List[int]] = None  # first layer of each PyramidDrop stage (ascending; 0 = every layer pruned)
+    # --- paper/hybrid_prune: per-stage rule on top of kv_prune_stages. kv_prune_stage_importance
+    # names each stage's selector ('attn' = ranked at the layer below the stage, 'random' = uniform
+    # draw among the previous stage's survivors; None = every stage 'attn'). With
+    # kv_prune_tail_budget_frames=j the LAST stage keeps j frames' worth on its own (from the
+    # second frame on, whatever k is) and the geometric schedule spans the stages before it, ending
+    # at kv_prune_budget_frames. Hybrid arm: stages=[7,14,20], [attn,attn,random], tail 1.
+    kv_prune_stage_importance: Optional[List[str]] = None
+    # What kv_prune_budget_frames bounds under kv_prune_stages: 'last_stage' (PyramidDrop's own
+    # reading, Exp 4: the deepest scheduled stage holds k frames' worth) or 'model' (the history
+    # visual slots AVERAGED OVER ALL DECODER LAYERS are k frames' worth -- lambda is solved each step,
+    # model_budgets; the tail stage counts). 'model' normally needs a stage at layer 0
+    # (kv_prune_stages=[0,...], ranked by the layer-0 row), or the unpruned layers alone exceed it.
+    kv_prune_budget_scope: str = "last_stage"
+    # What the geometric schedule shrinks FROM. 'original' (Exp 4): the original token count of every
+    # frame in scope -- bounded under a window, but without one it grows all episode and the ratio
+    # collapses (deep stages starve). 'pool': the slots the first stage can draw from NOW (its
+    # survivors + the entering frame) -- "keep a fraction lambda of what the previous stage holds",
+    # stationary and independent of episode length. paper/hybrid_prune uses 'pool' for both protocols.
+    kv_prune_schedule_anchor: str = "original"
+    kv_prune_tail_budget_frames: Optional[float] = None
+    kv_prune_dart_pivots: int = 8  # DART: pivots by key L1 norm at layer_start-1 (layer 0 when layer_start=0)
+    kv_prune_seed_per_step: bool = False  # 'random': reseed from (seed, episode label, step) each step
+    kv_prune_log_masks: bool = False  # log sup/vtp_{frames,ntok,kept,bits,raster} per step (sequence.json)
     # What the attention visualizations measure. "raw" = attention weight alpha (max over
     # heads). "value_norm" = alpha*||v||, "wo_norm" = alpha*||W_O v|| (both summed over
     # heads): alpha only routes, so a key with high alpha and a small value vector

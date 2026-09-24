@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 26.864524271004484,
+  "episode_id": "0",
+  "episode_label": "TEEsavR23oF_0",
+  "fallback_stops": 0,
+  "goal": "toilet",
+  "inference_calls": 244,
+  "instruction": "Find the toilet.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.1209244653582573,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.0853532847061207,
+    "spl": 0.08693032915158828,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15824042496,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00800-TEEsavR23oF/TEEsavR23oF.basis.glb",
+  "steps": 487,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/uninavid_k4/traces/TEEsavR23oF_0.jsonl",
+  "video": null
+}

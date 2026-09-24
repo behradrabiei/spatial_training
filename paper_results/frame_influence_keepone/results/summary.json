@@ -1,0 +1,86 @@
+{
+  "LongNav-R1": {
+    "trajectory_matches_r1_full": true,
+    "n_episodes": 10,
+    "n_decisions": 1099,
+    "n_pairs": 150301,
+    "n_pairs_scored": 150301,
+    "success_rate": 0.8,
+    "mean_steps": 109.9,
+    "infl_mean": 0.0006045713880424198,
+    "infl_median": 0.00010027652024291456,
+    "age0_mean": 0.03810021760218817,
+    "history_all_mean": 0.008953540386241863,
+    "sum_loo_mean": 0.08344139962733126,
+    "visual_all_mean": 0.033595777525458885,
+    "flip_rate": 0.001803048549244516,
+    "revival": {
+      "ever_dormant": 927,
+      "revived": 5,
+      "events": 5,
+      "rate": 0.005393743257820928
+    },
+    "ols": {
+      "n": 150301,
+      "r2": 0.05084099453649915,
+      "r2_age_only": 0.03973061402732403,
+      "partial_r2": {
+        "age_bin": 0.023854243120015273,
+        "log_age": 9.217062709088175e-05,
+        "action_at_frame": 0.00027997252538980444,
+        "chosen_action": 0.0006951745145776789,
+        "entropy_t": 0.0074555447633823935,
+        "dtg_t": 4.895213414624067e-07,
+        "n_slots": 6.063326017080595e-05
+      },
+      "log_age_slope": 0.018833658872724812
+    },
+    "replay_floor_kl_mean": 0.0003039325113629445,
+    "replay_floor_kl_median": 1.3398543489918918e-05,
+    "replay_floor_kl_p90": 0.0011815859258177209
+  },
+  "Uni-NaVid": {
+    "n_episodes": 10,
+    "n_decisions": 650,
+    "n_pairs": 123044,
+    "n_pairs_scored": 123044,
+    "success_rate": 0.6,
+    "mean_steps": 129.1,
+    "infl_mean": 0.04355133384023428,
+    "infl_median": 0.024143286049365997,
+    "age0_mean": 0.4224399017657225,
+    "history_all_mean": 0.2321309475425551,
+    "sum_loo_mean": 8.373016126621541,
+    "visual_all_mean": 0.629283330515027,
+    "flip_rate": 0.5347111602353629,
+    "revival": {
+      "ever_dormant": 21,
+      "revived": 1,
+      "events": 72,
+      "rate": 0.047619047619047616
+    },
+    "ols": {
+      "n": 123044,
+      "r2": 0.2445648166583373,
+      "r2_age_only": 0.19780649342099632,
+      "partial_r2": {
+        "age_bin": 0.03680752458601322,
+        "log_age": 0.0022892027203310628,
+        "action_at_frame": 0.00929825954984953,
+        "chosen_action": 0.011730398712910817,
+        "entropy_t": 0.015978330115254957,
+        "dtg_t": 0.014455653462277174,
+        "n_slots": 1.1102230246251565e-16
+      },
+      "log_age_slope": 0.03808106620564862
+    },
+    "sampled_first_token_in_set_rate": 1.0,
+    "argmax_vs_sampled_agreement": 0.8876923076923077,
+    "p_mass_mean": 0.9999158922525553,
+    "merged_control_kl_mean": 1.0664973026242458e-05,
+    "merged_control_n": 3046,
+    "probe_seconds_total": 5697.267341101891
+  },
+  "representative_episode": "Nfvxx8J5NCo_2",
+  "measure": "keep_one"
+}

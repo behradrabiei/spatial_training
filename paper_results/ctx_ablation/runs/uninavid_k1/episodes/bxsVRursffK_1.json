@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 3.0206128520076163,
+  "episode_id": "1",
+  "episode_label": "bxsVRursffK_1",
+  "fallback_stops": 0,
+  "goal": "sofa",
+  "inference_calls": 31,
+  "instruction": "Find the sofa.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.3098943829536438,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.3447571779776481,
+    "spl": 0.3741336284468292,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15802433024,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00873-bxsVRursffK/bxsVRursffK.basis.glb",
+  "steps": 61,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/uninavid_k1/traces/bxsVRursffK_1.jsonl",
+  "video": null
+}

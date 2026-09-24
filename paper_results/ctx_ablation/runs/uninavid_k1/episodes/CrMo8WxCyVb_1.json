@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 2.0488947500125505,
+  "episode_id": "1",
+  "episode_label": "CrMo8WxCyVb_1",
+  "fallback_stops": 0,
+  "goal": "toilet",
+  "inference_calls": 21,
+  "instruction": "Find the toilet.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.44649967551231384,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.860171193687083,
+    "spl": 0.9280760206270269,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15802433024,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00810-CrMo8WxCyVb/CrMo8WxCyVb.basis.glb",
+  "steps": 41,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/uninavid_k1/traces/CrMo8WxCyVb_1.jsonl",
+  "video": null
+}

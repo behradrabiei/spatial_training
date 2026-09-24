@@ -1,0 +1,6 @@
+{
+  "blind_layer": 8,
+  "columns_hidden": "history groups + the current frame's 64 fine tokens; separators and special tokens visible",
+  "hiding": "additive finfo.min on the key columns for every query on layers >= L, prefill and decode",
+  "n_layers": 32
+}

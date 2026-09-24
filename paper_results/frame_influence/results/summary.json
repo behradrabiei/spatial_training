@@ -1,0 +1,125 @@
+{
+  "LongNav-R1": {
+    "trajectory_matches_r1_full": true,
+    "n_episodes": 10,
+    "n_decisions": 1099,
+    "n_pairs": 150301,
+    "n_pairs_scored": 150301,
+    "success_rate": 0.8,
+    "mean_steps": 109.9,
+    "infl_mean": 0.00023038926791400726,
+    "infl_median": 6.0981372371315956e-05,
+    "age0_mean": 0.023077750725855876,
+    "history_all_mean": 0.008953540386241863,
+    "sum_loo_mean": 0.03179773861959889,
+    "visual_all_mean": 0.033595777525458885,
+    "flip_rate": 0.0016899421826867419,
+    "revival": {
+      "ever_dormant": 1006,
+      "revived": 0,
+      "events": 0,
+      "rate": 0.0
+    },
+    "ols": {
+      "n": 150301,
+      "r2": 0.023955811573054375,
+      "r2_age_only": 0.0034611425797779205,
+      "partial_r2": {
+        "age_bin": 0.004333122343579521,
+        "log_age": 0.0009287458860375297,
+        "action_at_frame": 0.00014116468043190444,
+        "chosen_action": 0.00040702343502840854,
+        "entropy_t": 0.01911348715786565,
+        "dtg_t": 1.5298192193369253e-05,
+        "n_slots": 7.918600890000072e-05
+      },
+      "log_age_slope": 0.05817346384829475
+    },
+    "replay_floor_kl_mean": 0.0003039325113629445,
+    "replay_floor_kl_median": 1.3398543489918918e-05,
+    "replay_floor_kl_p90": 0.0011815859258177209
+  },
+  "LongNav-R1 (leak-free)": {
+    "trajectory_matches_r1_full": true,
+    "n_episodes": 9,
+    "n_decisions": 599,
+    "n_pairs": 25551,
+    "n_pairs_scored": 25551,
+    "success_rate": 0.8888888888888888,
+    "mean_steps": 66.55555555555556,
+    "infl_mean": 0.0031032379300261594,
+    "infl_median": 0.00021096761338412762,
+    "age0_mean": 0.08809960278897798,
+    "history_all_mean": 0.40276083305154503,
+    "sum_loo_mean": 0.13439124127135318,
+    "visual_all_mean": 0.46847838169789385,
+    "flip_rate": 0.020860240303706312,
+    "revival": {
+      "ever_dormant": 434,
+      "revived": 3,
+      "events": 4,
+      "rate": 0.0069124423963133645
+    },
+    "ols": {
+      "n": 25551,
+      "r2": 0.30034250765431025,
+      "r2_age_only": 0.1928525934988473,
+      "partial_r2": {
+        "age_bin": 0.019249017075602337,
+        "log_age": 0.003897307795550309,
+        "action_at_frame": 0.0015332164414542104,
+        "chosen_action": 0.0014065855552247708,
+        "entropy_t": 0.09037573027145263,
+        "dtg_t": 0.000589475575378251,
+        "n_slots": 0.0034834962073930775
+      },
+      "log_age_slope": -0.30283911580437617
+    },
+    "replay_floor_kl_mean": 0.0004411697510497844,
+    "replay_floor_kl_median": 1.7367780852197746e-05,
+    "replay_floor_kl_p90": 0.0016527289955009718
+  },
+  "Uni-NaVid": {
+    "n_episodes": 10,
+    "n_decisions": 650,
+    "n_pairs": 123044,
+    "n_pairs_scored": 123044,
+    "success_rate": 0.6,
+    "mean_steps": 129.1,
+    "infl_mean": 0.0014910709821849741,
+    "infl_median": 1.4511286281049252e-05,
+    "age0_mean": 0.3553133009474438,
+    "history_all_mean": 0.23209760904510404,
+    "sum_loo_mean": 0.28666771551869996,
+    "visual_all_mean": 0.6292947526906545,
+    "flip_rate": 0.007558271837716589,
+    "revival": {
+      "ever_dormant": 1132,
+      "revived": 1,
+      "events": 1,
+      "rate": 0.0008833922261484099
+    },
+    "ols": {
+      "n": 123044,
+      "r2": 0.5624191736901547,
+      "r2_age_only": 0.5482098409479268,
+      "partial_r2": {
+        "age_bin": 0.03579273911328196,
+        "log_age": 0.00015983937330299458,
+        "action_at_frame": 0.0003149693583852642,
+        "chosen_action": 0.00036517433894567297,
+        "entropy_t": 0.01136982695287958,
+        "dtg_t": 0.00041230795293456524,
+        "n_slots": 0.0
+      },
+      "log_age_slope": -0.01919062445216213
+    },
+    "sampled_first_token_in_set_rate": 1.0,
+    "argmax_vs_sampled_agreement": 0.8876923076923077,
+    "p_mass_mean": 0.9999158728122711,
+    "merged_control_kl_mean": 1.0747095017160912e-05,
+    "merged_control_n": 3046,
+    "probe_seconds_total": 5630.943989556011
+  },
+  "representative_episode": "Nfvxx8J5NCo_2"
+}

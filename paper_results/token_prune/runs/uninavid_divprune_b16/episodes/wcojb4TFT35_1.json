@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 27.014871748993755,
+  "episode_id": "1",
+  "episode_label": "wcojb4TFT35_1",
+  "fallback_stops": 0,
+  "goal": "chair",
+  "inference_calls": 245,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the chair.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.2250652313232422,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.018554497616270423,
+    "spl": 0.02199740534943837,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15903839232,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b16/prune/wcojb4TFT35_1.jsonl",
+  "prune_records": 245,
+  "prune_seconds": 1.6609244190112804,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00802-wcojb4TFT35/wcojb4TFT35.basis.glb",
+  "steps": 489,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_divprune_b16/traces/wcojb4TFT35_1.jsonl",
+  "video": null
+}

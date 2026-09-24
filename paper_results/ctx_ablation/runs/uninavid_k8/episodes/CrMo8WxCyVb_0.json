@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 0.8685882010031492,
+  "episode_id": "0",
+  "episode_label": "CrMo8WxCyVb_0",
+  "fallback_stops": 0,
+  "goal": "plant",
+  "inference_calls": 8,
+  "instruction": "Find the plant.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 7.684256553649902,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.20493182368737717,
+    "spl": 0.0,
+    "success": 0.0
+  },
+  "peak_cuda_bytes": 15845147648,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00810-CrMo8WxCyVb/CrMo8WxCyVb.basis.glb",
+  "steps": 15,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/uninavid_k8/traces/CrMo8WxCyVb_0.jsonl",
+  "video": null
+}

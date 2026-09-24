@@ -1,0 +1,20 @@
+{
+  "budget_tokens": 32,
+  "first_hidden_layer": 0,
+  "k": 8,
+  "method": "fastv",
+  "n_per_frame": 4,
+  "pivots": null,
+  "placement": "layer0-prepass",
+  "protocol": "permanent deletion",
+  "prune_layer": 0,
+  "query": "last prompt token, mean over heads",
+  "removal": "rows",
+  "seed": null,
+  "stages": [
+    [
+      0,
+      0
+    ]
+  ]
+}

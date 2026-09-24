@@ -159,6 +159,9 @@ def bare_worker(mode, window, budget=WIDE_BUDGET, importance="random", recent_tu
     worker._vis_counts = []
     worker._dropped = 0
     worker._n_evicted = 0
+    worker.context_cut = "header"
+    worker._turn_leads = []
+    worker._strip_next_lead = False
     worker._window_recs = []
     worker._prefix_rec = None
     worker._boundary_rec = None
@@ -180,6 +183,18 @@ def bare_worker(mode, window, budget=WIDE_BUDGET, importance="random", recent_tu
     worker.kv_prune_voxel_cap = 1
     worker.kv_prune_voxel_scale = 1
     worker.kv_prune_voxel_2d = True
+    worker.kv_prune_budget_frames = None
+    worker.kv_prune_stages = None
+    worker.kv_prune_stage_importance = None
+    worker.kv_prune_tail_budget_frames = None
+    worker.kv_prune_budget_scope = "last_stage"
+    worker.kv_prune_schedule_anchor = "original"
+    worker.kv_prune_dart_pivots = 8
+    worker.kv_prune_seed_per_step = False
+    worker.kv_prune_log_masks = False
+    worker._hidden_db = None
+    worker._episode_label = ""
+    worker._vtp_log = {}
     worker.offset = 0
     return worker
 

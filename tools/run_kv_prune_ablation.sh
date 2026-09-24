@@ -11,7 +11,7 @@
 #     (tools/run_kv_prune_layer_sweep.sh loops methods x layers x budgets)
 #
 # WINDOW="" (default 32) drops the frame pool entirely: budget-only over the whole episode.
-# Baselines with the same kv_len logging come from run_context_window_ablation.sh
+# Baselines with the same kv_len logging: the context-window arms in paper/ctx_ablation/run_r1.sh
 # (MODE=reindex). Compare with tools/compare_runs.py.
 set -euo pipefail
 

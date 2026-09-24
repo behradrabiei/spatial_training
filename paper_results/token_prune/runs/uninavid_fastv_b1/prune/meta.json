@@ -1,0 +1,18 @@
+{
+  "budget_tokens": 4,
+  "first_hidden_layer": 2,
+  "k": 1,
+  "method": "fastv",
+  "n_per_frame": 4,
+  "pivots": null,
+  "placement": "layer",
+  "protocol": "permanent deletion",
+  "query": "last prompt token, mean over heads",
+  "seed": null,
+  "stages": [
+    [
+      1,
+      2
+    ]
+  ]
+}

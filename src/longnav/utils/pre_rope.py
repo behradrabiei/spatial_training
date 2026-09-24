@@ -49,6 +49,9 @@ class ReindexState:
 
     def __init__(self):
         self.pruned_layers = None  # range of layers the KV budget applies to; None = every layer
+        self._stages = None  # nested budget stages (list of ranges); None = one stage / uniform
+        self.row_layers = ()  # layers whose decision row is kept whole (staged pruning scores
+        # each stage from the layer below it)
         self.score_layer_set = None  # range of layers folded into the attn score; None = every layer
         self.blind_layers = None  # layers on which no query may attend to a visual slot; None = off
         self.n_layers = None
@@ -56,36 +59,76 @@ class ReindexState:
 
     # --- configuration (once per model) ------------------------------------------------
 
-    def configure(self, pruned_layers=None, score_layers=None, n_layers=None, blind_layers=None):
+    def configure(self, pruned_layers=None, score_layers=None, n_layers=None, blind_layers=None,
+                  stages=None):
         """Fix which layers are budget-pruned / scored / visual-blind. A pruned range covering
         every layer is the uniform mode and is stored as None so the fast paths stay
-        byte-identical; `blind_layers` is kept as given (it is a mask, not a slot axis)."""
+        byte-identical; `blind_layers` is kept as given (it is a mask, not a slot axis).
+
+        `stages` (PyramidDrop-style staged pruning) is a list of disjoint, ascending, adjacent
+        step-1 ranges; each stage holds a subset of the previous one's slots and gets its own
+        budget. `pruned_layers` is then their union. A plain `pruned_layers` is one stage.
+        `score_layers` may be a range or any container of layer indices (staged pruning scores
+        each stage at the layer just below it)."""
         if n_layers is not None:
             self.n_layers = int(n_layers)
-        for name, rng in (("pruned_layers", pruned_layers), ("score_layers", score_layers),
-                          ("blind_layers", blind_layers)):
-            if rng is None:
-                continue
-            if not isinstance(rng, range) or rng.step != 1:
-                raise ValueError(f"{name} must be a step-1 range, got {rng!r}")
-            if rng.start < 0 or (self.n_layers is not None and rng.stop > self.n_layers):
-                raise ValueError(f"{name}={rng!r} is outside the {self.n_layers} decoder layers")
+        if stages is not None:
+            stages = [self._check_range("stages", r) for r in stages]
+            if not stages:
+                raise ValueError("stages must hold at least one layer range")
+            for a, b in zip(stages, stages[1:]):
+                if b.start != a.stop:
+                    raise ValueError(f"stages must be adjacent and ascending, got {a!r} then {b!r}")
+            if pruned_layers is not None and pruned_layers != range(stages[0].start, stages[-1].stop):
+                raise ValueError("pruned_layers must be the union of stages when both are given")
+            pruned_layers = range(stages[0].start, stages[-1].stop)
+        elif pruned_layers is not None:
+            self._check_range("pruned_layers", pruned_layers)
+        if blind_layers is not None:
+            self._check_range("blind_layers", blind_layers)
+        if isinstance(score_layers, range):
+            self._check_range("score_layers", score_layers)
+        elif score_layers is not None:
+            score_layers = tuple(sorted(int(l) for l in score_layers))
+            if score_layers and (score_layers[0] < 0 or (self.n_layers is not None
+                                                          and score_layers[-1] >= self.n_layers)):
+                raise ValueError(f"score_layers={score_layers!r} is outside the {self.n_layers} decoder layers")
         if pruned_layers is not None and self.n_layers is not None \
-                and pruned_layers == range(0, self.n_layers):
+                and pruned_layers == range(0, self.n_layers) and stages is None:
             pruned_layers = None
         self.pruned_layers = pruned_layers
-        if pruned_layers is None:
-            score_layers = None
-        elif score_layers is not None and self.n_layers is not None \
+        self._stages = stages
+        # Every layer holds the master table when nothing is layer-selective, so an explicit
+        # score_layers (kv_prune_score_layer) is still meaningful there.
+        if score_layers is not None and self.n_layers is not None \
                 and score_layers == range(0, self.n_layers):
             score_layers = None
         self.score_layer_set = score_layers
+        self.row_layers = tuple(score_layers) if (stages is not None and score_layers) else ()
         self.blind_layers = blind_layers
         self.reset()
+
+    def _check_range(self, name, rng):
+        if not isinstance(rng, range) or rng.step != 1:
+            raise ValueError(f"{name} must be a step-1 range, got {rng!r}")
+        if rng.start < 0 or (self.n_layers is not None and rng.stop > self.n_layers):
+            raise ValueError(f"{name}={rng!r} is outside the {self.n_layers} decoder layers")
+        return rng
 
     @property
     def layer_selective(self):
         return self.pruned_layers is not None
+
+    @property
+    def stages(self):
+        """Budget stages as layer ranges: the explicit list, else the single pruned range."""
+        if self._stages is not None:
+            return self._stages
+        return None if self.pruned_layers is None else [self.pruned_layers]
+
+    @property
+    def staged(self):
+        return self._stages is not None and len(self._stages) > 1
 
     @property
     def no_pruned_layers(self):
@@ -112,8 +155,10 @@ class ReindexState:
         self.score_sum = None  # (kv_len,) fp32 on device, summed over layers
         self.score_layers = 0
         self.score_count = None  # (kv_len,) long on device, layer-selective only
-        self.alive = None
-        self.alive_index = None
+        self.layer_rows = {}  # per-layer decision rows (master coordinates) for `row_layers`
+        # One (alive, alive_index) pair per stage, nested: stage s holds a subset of stage s-1.
+        self._alive = None
+        self._alive_index = None
         self.visual = None  # (kv_len,) device bool per master slot; tracked only for blind_layers
         self.replay_extra = None
         self.replay_extra_layers = None
@@ -136,24 +181,44 @@ class ReindexState:
                     raise ValueError(f"visual row covers {row.numel()} slots for a {n_new}-token turn")
             self.visual = row if self.visual is None else torch.cat([self.visual, row])
         if self.layer_selective:
-            # New slots enter every layer, so they are alive by construction.
+            # New slots enter every layer, so they are alive in every stage by construction.
             n_new = p.shape[-1]
             ones = torch.ones(n_new, dtype=torch.bool)
             new_idx = torch.arange(n_old, n_old + n_new, device=p.device)
-            if self.alive is None:
-                self.alive, self.alive_index = ones, new_idx
+            if self._alive is None:
+                self._alive = [ones.clone() for _ in self.stages]
+                self._alive_index = [new_idx.clone() for _ in self.stages]
             else:
-                self.alive = torch.cat([self.alive, ones])
-                self.alive_index = torch.cat([self.alive_index, new_idx])
+                self._alive = [torch.cat([a, ones]) for a in self._alive]
+                self._alive_index = [torch.cat([i, new_idx]) for i in self._alive_index]
+
+    @property
+    def alive(self):
+        """Master slots the DEEPEST stage still holds (the only stage in single-range mode)."""
+        return None if self._alive is None else self._alive[-1]
+
+    @property
+    def alive_index(self):
+        return None if self._alive_index is None else self._alive_index[-1]
+
+    def stage_alive(self, stage):
+        return None if self._alive is None else self._alive[stage]
 
     def set_alive(self, alive):
-        """Replace the pruned layers' membership mask (over the current master slots)."""
+        """Replace the (single / deepest) stage's membership mask over the current master slots."""
+        self.set_stage_alive(len(self.stages) - 1, alive)
+
+    def set_stage_alive(self, stage, alive):
         alive = alive.bool().cpu()
         if alive.numel() != self.master_len():
             raise ValueError(f"alive mask covers {alive.numel()} slots but the master table "
                              f"holds {self.master_len()}")
-        self.alive = alive
-        self.alive_index = torch.nonzero(alive).flatten().to(self.pos_table.device)
+        if stage > 0 and bool((alive & ~self._alive[stage - 1]).any()):
+            raise ValueError(f"stage {stage} would hold a slot stage {stage - 1} dropped")
+        if stage + 1 < len(self._alive) and bool((self._alive[stage + 1] & ~alive).any()):
+            raise ValueError(f"stage {stage} would drop a slot stage {stage + 1} still holds")
+        self._alive[stage] = alive
+        self._alive_index[stage] = torch.nonzero(alive).flatten().to(self.pos_table.device)
         self._table_cache = None
 
     def slice_master(self, master_idx):
@@ -162,6 +227,11 @@ class ReindexState:
         self.pos_table = self.pos_table.index_select(-1, master_idx)
         if self.visual is not None:
             self.visual = self.visual.index_select(0, master_idx)
+        if self._alive is not None:
+            # Keep the stage masks on the new master axis; the caller then narrows them.
+            cpu_idx = master_idx.cpu()
+            self._alive = [a[cpu_idx] for a in self._alive]
+            self._alive_index = [torch.nonzero(a).flatten().to(master_idx.device) for a in self._alive]
         self.invalidate_rotation()
 
     def invalidate_rotation(self):
@@ -174,20 +244,31 @@ class ReindexState:
         self.score_sum = None
         self.score_layers = 0
         self.score_count = None
+        self.layer_rows = {}
 
     # --- per-layer views -----------------------------------------------------------------
 
     def is_pruned(self, layer_idx):
         return self.pruned_layers is not None and layer_idx in self.pruned_layers
 
+    def layer_stage(self, layer_idx):
+        """Index of the stage holding this layer, or None for an unpruned layer."""
+        if self.stages is None:
+            return None
+        for s, rng in enumerate(self.stages):
+            if layer_idx in rng:
+                return s
+        return None
+
     def scores_layer(self, layer_idx):
         return self.score_layer_set is None or layer_idx in self.score_layer_set
 
     def layer_index(self, layer_idx):
         """Master indices held by this layer, or None when it holds the whole master table."""
-        if self.is_pruned(layer_idx):
-            return self.alive_index
-        return None
+        stage = self.layer_stage(layer_idx)
+        if stage is None:
+            return None
+        return self._alive_index[stage]
 
     def layer_len(self, layer_idx):
         idx = self.layer_index(layer_idx)
@@ -218,8 +299,8 @@ class ReindexState:
 
     def snapshot(self):
         names = ("pos_table", "cos", "sin", "capture_scores", "score_sum", "score_layers",
-                 "score_count", "alive", "alive_index", "visual", "replay_extra",
-                 "replay_extra_layers", "_table_cache")
+                 "score_count", "_alive", "_alive_index", "visual", "replay_extra",
+                 "replay_extra_layers", "_table_cache", "layer_rows")
         return {name: getattr(self, name) for name in names}
 
     def restore(self, snap):
@@ -234,11 +315,11 @@ class ReindexState:
             self.visual = self.visual[:-1]
         self.invalidate_rotation()
         self.capture_scores = False
-        if self.alive is not None:
-            if not bool(self.alive[-1]):
+        if self._alive is not None:
+            if not all(bool(a[-1]) for a in self._alive):
                 raise RuntimeError("the decision slot is not alive in the pruned layers")
-            self.alive = self.alive[:-1]
-            self.alive_index = self.alive_index[:-1]
+            self._alive = [a[:-1] for a in self._alive]
+            self._alive_index = [i[:-1] for i in self._alive_index]
 
 
 def _rotate(x, cos, sin):
@@ -389,7 +470,8 @@ def pre_rope_attention_forward(self, hidden_states, position_embeddings, attenti
     return attn_output, attn_weights
 
 
-def install_pre_rope(text_model, pruned_layers=None, score_layers=None, blind_layers=None):
+def install_pre_rope(text_model, pruned_layers=None, score_layers=None, blind_layers=None,
+                     stages=None):
     """Bind the pre-rotation forward onto every decoder layer's attention.
 
     Returns the shared ReindexState. TextMixin.forward feeds it (table append + whole-cache
@@ -397,11 +479,12 @@ def install_pre_rope(text_model, pruned_layers=None, score_layers=None, blind_la
     bypasses the @deprecate_kwarg wrapper, which is fine -- every caller already passes
     the new `past_key_values` name. `pruned_layers` / `score_layers` select the decoder
     layers the KV budget and the attn importance score apply to (None = all); `blind_layers`
-    are the layers on which visual slots are hidden from every query.
+    are the layers on which visual slots are hidden from every query; `stages` splits the
+    pruned range into nested budget stages (see ReindexState.configure).
     """
     state = ReindexState()
     state.configure(pruned_layers=pruned_layers, score_layers=score_layers,
-                    n_layers=len(text_model.layers), blind_layers=blind_layers)
+                    n_layers=len(text_model.layers), blind_layers=blind_layers, stages=stages)
     text_model._reindex_state = state
     for layer in text_model.layers:
         layer.self_attn._reindex_state = state

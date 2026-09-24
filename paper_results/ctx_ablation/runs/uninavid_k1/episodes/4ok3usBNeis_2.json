@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 11.866374889999861,
+  "episode_id": "2",
+  "episode_label": "4ok3usBNeis_2",
+  "fallback_stops": 0,
+  "goal": "tv_monitor",
+  "inference_calls": 123,
+  "instruction": "Find the tv_monitor.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 8.894048690795898,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.12524520145791077,
+    "spl": 0.0,
+    "success": 0.0
+  },
+  "peak_cuda_bytes": 15802974720,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00877-4ok3usBNeis/4ok3usBNeis.basis.glb",
+  "steps": 245,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/uninavid_k1/traces/4ok3usBNeis_2.jsonl",
+  "video": null
+}

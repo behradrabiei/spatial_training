@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 9.910059300003923,
+  "episode_id": "2",
+  "episode_label": "TEEsavR23oF_2",
+  "fallback_stops": 0,
+  "goal": "sofa",
+  "inference_calls": 80,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the sofa.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.36996322870254517,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.24498580535858783,
+    "spl": 0.2600793757594398,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15972668928,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_pyramiddrop_b1/prune/TEEsavR23oF_2.jsonl",
+  "prune_records": 80,
+  "prune_seconds": 0.633926245951443,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00800-TEEsavR23oF/TEEsavR23oF.basis.glb",
+  "steps": 159,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_pyramiddrop_b1/traces/TEEsavR23oF_2.jsonl",
+  "video": null
+}

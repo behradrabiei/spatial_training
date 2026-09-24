@@ -1,0 +1,17 @@
+\begin{tabular}{llcccccccc}
+\toprule
+ & & \multicolumn{2}{c}{$k=16$} & \multicolumn{2}{c}{$k=8$} & \multicolumn{2}{c}{$k=4$} & \multicolumn{2}{c}{$k=2$} \\
+Model & Protocol & SR & SPL & SR & SPL & SR & SPL & SR & SPL \\
+\midrule
+LongNav-R1 & pyramiddrop & 0.75 & 0.37 & 0.63 & 0.31 & 0.39 & 0.16 & 0.14 & 0.04 \\
+ & \quad held & \multicolumn{2}{c}{14.2} & \multicolumn{2}{c}{7.6} & \multicolumn{2}{c}{3.9} & \multicolumn{2}{c}{2.0} \\
+ & hybrid & 0.86$^{**}$ & 0.44$^{***}$ & 0.77$^{**}$ & 0.36$^{*}$ & 0.61$^{***}$ & 0.27$^{***}$ & 0.36$^{***}$ & 0.09$^{***}$ \\
+ & \quad held & \multicolumn{2}{c}{13.4} & \multicolumn{2}{c}{7.5} & \multicolumn{2}{c}{3.9} & \multicolumn{2}{c}{2.0} \\
+\midrule
+Uni-NaVid & pyramiddrop & 0.74 & 0.38 & 0.70 & 0.37 & 0.62 & 0.33 & 0.68 & 0.39 \\
+ & \quad held & \multicolumn{2}{c}{12.4} & \multicolumn{2}{c}{6.7} & \multicolumn{2}{c}{3.5} & \multicolumn{2}{c}{1.8} \\
+ & hybrid & 0.72 & 0.40 & 0.72 & 0.40 & 0.65 & 0.35 & 0.67 & 0.38 \\
+ & \quad held & \multicolumn{2}{c}{11.6} & \multicolumn{2}{c}{6.6} & \multicolumn{2}{c}{3.4} & \multicolumn{2}{c}{1.8} \\
+\bottomrule
+\end{tabular}
+% held: history visual tokens averaged over all decoder layers, in frames' worth (the budget is k). Stars: paired sign-flip test, hybrid vs pyramiddrop at the same k (* p<0.05, ** p<0.01, *** p<0.001).

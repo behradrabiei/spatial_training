@@ -1,0 +1,39 @@
+# @package _global_
+# Paper protocol for the context-window ablation (paper/ctx_ablation/README.md).
+#
+# One arm = this preset + two overrides:
+#   vlm.context_frames=K vlm.context_window_mode={evict|recompute}
+# and no override at all for the full-context baseline. K counts the frames visible when the
+# action is read, the current one included (context_cut=frame: the window opens on the oldest
+# retained '<|im_start|>user' turn, so K=1 is the current frame alone).
+#
+# Launch from the repo root (task.episode_json is repo-relative, like the system prompt):
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_ctx +resources=single task.run_name=r1_evict_k8 \
+#     vlm.context_frames=8 vlm.context_window_mode=evict
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/ctx_ablation/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_100.json  # the 100-episode HM3D-v2 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # the model's native regime; stated so the saved config shows it
+  sparse_threshold: 0.95
+  context_cut: frame

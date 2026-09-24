@@ -1,0 +1,274 @@
+2026-09-16 14:48:52,216	INFO worker.py:1998 -- Started a local Ray instance. View the dashboard at [1m[32m127.0.0.1:8265 [39m[22m
+/home/brabiei/miniconda3/envs/longnav_vlm/lib/python3.10/site-packages/ray/_private/worker.py:2046: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+  warnings.warn(
+Model ID: Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800
+🔍 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' not found locally. Attempting HF Hub download...
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 40407.55it/s]
+wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+✅ Downloaded 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' to: /home/brabiei/.cache/huggingface/hub/models--Aasdfip--hm3d_rpp_ke_standard-checkpoint_231/snapshots/de338927c8c96d1629ded0d042581776a960a465
+⚠️ Skipping training setup for RL workers.
+loading checkpoint for eval
+[36m(RLActor pid=185593)[0m Loading Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800 with sparsifying patch...
+📄 Config saved to: ./paper_results/info_horizon/runs/r1_probe_leaky/config.yaml
+[36m(RLActor pid=185593)[0m  -> Adapters and (maybe) Value Head loaded.
+Found 0 existing runs with name 'r1_probe_leaky' in project 'longnav_paper'.
+[2026-09-16 14:48:59,683][DriverMain][INFO] - Loaded 9 episodes from JSON: src/longnav/conf/episode_jsons/hm3d_v2_9_seed17_short.json
+[2026-09-16 14:48:59,683][DriverMain][INFO] - After exclusion, 9 episodes remain for sharding.
+[2026-09-16 14:48:59,683][DriverMain][INFO] - Starting rollout collection!
+[36m(WandbLoggerActor pid=186174)[0m wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+[36m(WandbLoggerActor pid=186174)[0m wandb: Currently logged in as: brabiei (brabiei-university-of-michigan) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+[36m(WandbLoggerActor pid=186174)[0m wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+[36m(WandbLoggerActor pid=186174)[0m wandb: setting up run fgsasnzz
+[36m(HabitatEnvActor pid=186673)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=186673)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=186673)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(HabitatEnvActor pid=186673)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=186673)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=186673)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=186673)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=186673)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=186673)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=186673)[0m 2026-09-16 14:49:01,664 Initializing dataset ObjectNav-v1
+[36m(WandbLoggerActor pid=186174)[0m wandb: Tracking run with wandb version 0.28.0
+[36m(WandbLoggerActor pid=186174)[0m wandb: Run data is saved locally in /home/brabiei/Projects/World-Modelling/spatial_training/wandb/run-20260916_144900-fgsasnzz
+[36m(WandbLoggerActor pid=186174)[0m wandb: Run `wandb offline` to turn off syncing.
+[36m(WandbLoggerActor pid=186174)[0m wandb: Syncing run r1_probe_leaky
+[36m(WandbLoggerActor pid=186174)[0m wandb: ⭐️ View project at https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=186174)[0m wandb: 🚀 View run at https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/fgsasnzz
+[36m(HabitatEnvActor pid=186677)[0m 2026-09-16 14:49:58,074 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/VBzV5z6i1WS/VBzV5z6i1WS_1.186677@1789584597.9541607/video.mp4
+[36m(HabitatEnvActor pid=186677)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=186677)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=186677)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(HabitatEnvActor pid=186677)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=186677)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=186677)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=186677)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=186677)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=186677)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=186677)[0m 2026-09-16 14:49:01,665 Initializing dataset ObjectNav-v1
+[36m(HabitatEnvActor pid=186673)[0m 2026-09-16 14:51:52,790 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/zt1RVoi7PcG/zt1RVoi7PcG_0.186673@1789584712.599387/video.mp4
+[36m(HabitatEnvActor pid=186677)[0m 2026-09-16 14:54:03,389 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/a8BtkwhxdRV/a8BtkwhxdRV_2.186677@1789584843.1805177/video.mp4
+[36m(HabitatEnvActor pid=186673)[0m 2026-09-16 14:54:54,814 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/Dd4bFSTQ8gi/Dd4bFSTQ8gi_1.186673@1789584894.7029605/video.mp4
+[36m(HabitatEnvActor pid=186677)[0m 2026-09-16 14:55:58,198 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/h1zeeAwLh9Z/h1zeeAwLh9Z_0.186677@1789584958.0683248/video.mp4
+[36m(HabitatEnvActor pid=186673)[0m 2026-09-16 14:56:14,130 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/q5QZSEeHe5g/q5QZSEeHe5g_0.186673@1789584974.0754826/video.mp4
+[36m(HabitatEnvActor pid=186677)[0m 2026-09-16 14:56:37,923 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/Nfvxx8J5NCo/Nfvxx8J5NCo_1.186677@1789584997.8505867/video.mp4
+[36m(HabitatEnvActor pid=186673)[0m 2026-09-16 15:00:37,683 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/k1cupFYWXJ6/k1cupFYWXJ6_0.186673@1789585237.36888/video.mp4
+[36m(HabitatEnvActor pid=186677)[0m skipping sim initialization since no shards provided, please call assign_shard
+Bootstrapping: Initializing 2 environments...
+[36m(HabitatEnvActor pid=186677)[0m Actor assigned with shard of 5 episodes.
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(RLActor pid=185593)[0m Merging LoRA adapters for inference...
+Collected episode 1
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(HabitatEnvActor pid=186673)[0m skipping sim initialization since no shards provided, please call assign_shard
+[36m(HabitatEnvActor pid=186673)[0m Actor assigned with shard of 4 episodes.
+[36m(HabitatEnvActor pid=186677)[0m applying collision penalty
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m applying collision penalty
+Collected episode 2
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m applying collision penalty
+Collected episode 3
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 4
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(HabitatEnvActor pid=186673)[0m applying collision penalty
+[36m(HabitatEnvActor pid=186673)[0m FALSE POSITIVE STOP! penalizing.
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 5
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(HabitatEnvActor pid=186677)[0m applying collision penalty
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 6
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(HabitatEnvActor pid=186673)[0m applying collision penalty
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 7
+[36m(RLActor pid=185593)[0m using normal mode
+[36m(HabitatEnvActor pid=186677)[0m applying collision penalty
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+Collected episode 8
+[36m(HabitatEnvActor pid=186673)[0m applying collision penalty
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186673)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(RLActor pid=185593)[0m using normal mode
+Collected episode 9
+[36m(HabitatEnvActor pid=186677)[0m applying collision penalty
+[36m(HabitatEnvActor pid=186677)[0m 2026-09-16 15:05:50,486 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/Nfvxx8J5NCo/Nfvxx8J5NCo_2.186677@1789585550.1383305/video.mp4
+[36m(WandbLoggerActor pid=186174)[0m wandb: uploading artifact run-fgsasnzz-episode_details; updating run metadata
+[36m(WandbLoggerActor pid=186174)[0m wandb: uploading artifact run-fgsasnzz-episode_details
+[36m(WandbLoggerActor pid=186174)[0m wandb: 
+[36m(WandbLoggerActor pid=186174)[0m wandb: Run history:
+[36m(WandbLoggerActor pid=186174)[0m wandb:          collision_rate ▄▂▂▄▃█▆▁▁
+[36m(WandbLoggerActor pid=186174)[0m wandb:        distance_to_goal ▁▁▁█▁▁▁▁▁
+[36m(WandbLoggerActor pid=186174)[0m wandb: distance_to_goal_reward ▁▁▁▁▁▁▁▁▁
+[36m(WandbLoggerActor pid=186174)[0m wandb:                duration ▁▃▄▃▂▂▁▄█
+[36m(WandbLoggerActor pid=186174)[0m wandb:       fng_trigger_count ▆▅▅▆▆██▅▁
+[36m(WandbLoggerActor pid=186174)[0m wandb:       fpg_trigger_count ▇▅▄▇▆██▂▁
+[36m(WandbLoggerActor pid=186174)[0m wandb:        last_action_prob █▇▆▆▅▂▃▁█
+[36m(WandbLoggerActor pid=186174)[0m wandb:    mean_distance_reward █▄▁▁▅▇▇▁▃
+[36m(WandbLoggerActor pid=186174)[0m wandb:                 n_steps ▂▄▅▂▃▁▁▇█
+[36m(WandbLoggerActor pid=186174)[0m wandb:                soft_spl █▃▁▁▅▆▅▁▃
+[36m(WandbLoggerActor pid=186174)[0m wandb:                     +28 ...
+[36m(WandbLoggerActor pid=186174)[0m wandb: 
+[36m(WandbLoggerActor pid=186174)[0m wandb: Run summary:
+[36m(WandbLoggerActor pid=186174)[0m wandb:    episode_id 2
+[36m(WandbLoggerActor pid=186174)[0m wandb: episode_label Nfvxx8J5NCo_2
+[36m(WandbLoggerActor pid=186174)[0m wandb:          goal toilet
+[36m(WandbLoggerActor pid=186174)[0m wandb:          node ROB-TIAN-03U
+[36m(WandbLoggerActor pid=186174)[0m wandb:      scene_id Nfvxx8J5NCo
+[36m(WandbLoggerActor pid=186174)[0m wandb: 
+[36m(WandbLoggerActor pid=186174)[0m wandb: 🚀 View run r1_probe_leaky at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/fgsasnzz
+[36m(WandbLoggerActor pid=186174)[0m wandb: ⭐️ View project at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=186174)[0m wandb: Synced 4 W&B file(s), 2 media file(s), 22 artifact file(s) and 0 other file(s)
+[36m(WandbLoggerActor pid=186174)[0m wandb: Find logs at: ./wandb/run-20260916_144900-fgsasnzz/logs
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=186677)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+2026-09-17 13:55:45,891	INFO worker.py:1998 -- Started a local Ray instance. View the dashboard at [1m[32m127.0.0.1:8265 [39m[22m
+/home/brabiei/miniconda3/envs/longnav_vlm/lib/python3.10/site-packages/ray/_private/worker.py:2046: FutureWarning: Tip: In future versions of Ray, Ray will no longer override accelerator visible devices env var if num_gpus=0 or num_gpus=None (default). To enable this behavior and turn off this error message, set RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+  warnings.warn(
+Model ID: Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800
+🔍 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' not found locally. Attempting HF Hub download...
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 46294.75it/s]
+wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+✅ Downloaded 'Aasdfip/hm3d_rpp_ke_standard-checkpoint_231' to: /home/brabiei/.cache/huggingface/hub/models--Aasdfip--hm3d_rpp_ke_standard-checkpoint_231/snapshots/de338927c8c96d1629ded0d042581776a960a465
+⚠️ Skipping training setup for RL workers.
+loading checkpoint for eval
+[36m(RLActor pid=694820)[0m Loading Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800 with sparsifying patch...
+📄 Config saved to: ./paper_results/info_horizon/runs/r1_probe_leaky/config.yaml
+[36m(RLActor pid=694820)[0m  -> Adapters and (maybe) Value Head loaded.
+Found 1 existing runs with name 'r1_probe_leaky' in project 'longnav_paper'.
+Resuming WandB run 'r1_probe_leaky' with ID: fgsasnzz
+Skipping 20 episodes already logged in WandB.
+[2026-09-17 13:55:53,620][DriverMain][INFO] - Loaded 10 episodes from JSON: src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json
+[2026-09-17 13:55:53,620][DriverMain][INFO] - After exclusion, 1 episodes remain for sharding.
+[2026-09-17 13:55:53,620][DriverMain][INFO] - Starting rollout collection!
+[36m(WandbLoggerActor pid=695417)[0m wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/brabiei/.netrc.
+[36m(WandbLoggerActor pid=695417)[0m wandb: Currently logged in as: brabiei (brabiei-university-of-michigan) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+[36m(WandbLoggerActor pid=695417)[0m wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+[36m(HabitatEnvActor pid=695876)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=695876)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=695876)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(WandbLoggerActor pid=695417)[0m wandb: setting up run fgsasnzz
+[36m(HabitatEnvActor pid=695876)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=695876)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=695876)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=695876)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=695876)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=695876)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=695876)[0m 2026-09-17 13:55:55,437 Initializing dataset ObjectNav-v1
+[36m(WandbLoggerActor pid=695417)[0m wandb: Tracking run with wandb version 0.28.0
+[36m(WandbLoggerActor pid=695417)[0m wandb: Run data is saved locally in /home/brabiei/Projects/World-Modelling/spatial_training/wandb/run-20260917_135554-fgsasnzz
+[36m(WandbLoggerActor pid=695417)[0m wandb: Run `wandb offline` to turn off syncing.
+[36m(WandbLoggerActor pid=695417)[0m wandb: Resuming run r1_probe_leaky
+[36m(WandbLoggerActor pid=695417)[0m wandb: ⭐️ View project at https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=695417)[0m wandb: 🚀 View run at https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/fgsasnzz
+[36m(HabitatEnvActor pid=695876)[0m 2026-09-17 14:14:07,641 Video created: /home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/r1_probe_leaky/rollout/wcojb4TFT35/wcojb4TFT35_0.695876@1789668846.4948244/video.mp4
+[36m(HabitatEnvActor pid=695894)[0m Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+[36m(HabitatEnvActor pid=695894)[0m Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+[36m(HabitatEnvActor pid=695894)[0m See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+[36m(HabitatEnvActor pid=695894)[0m PluginManager::Manager: duplicate static plugin StbImageImporter, ignoring
+[36m(HabitatEnvActor pid=695894)[0m PluginManager::Manager: duplicate static plugin GltfImporter, ignoring
+[36m(HabitatEnvActor pid=695894)[0m PluginManager::Manager: duplicate static plugin BasisImporter, ignoring
+[36m(HabitatEnvActor pid=695894)[0m PluginManager::Manager: duplicate static plugin AssimpImporter, ignoring
+[36m(HabitatEnvActor pid=695894)[0m PluginManager::Manager: duplicate static plugin AnySceneImporter, ignoring
+[36m(HabitatEnvActor pid=695894)[0m PluginManager::Manager: duplicate static plugin AnyImageImporter, ignoring
+[36m(HabitatEnvActor pid=695894)[0m 2026-09-17 13:55:55,462 Initializing dataset ObjectNav-v1
+[36m(WandbLoggerActor pid=695417)[0m wandb: updating run metadata; uploading artifact run-fgsasnzz-episode_details
+[36m(WandbLoggerActor pid=695417)[0m wandb: uploading artifact run-fgsasnzz-episode_details
+[36m(WandbLoggerActor pid=695417)[0m wandb: uploading artifact run-fgsasnzz-episode_details; uploading history steps 20-21, summary
+[36m(WandbLoggerActor pid=695417)[0m wandb: uploading artifact run-fgsasnzz-episode_details
+[36m(WandbLoggerActor pid=695417)[0m wandb: uploading data
+[36m(WandbLoggerActor pid=695417)[0m wandb: 
+[36m(WandbLoggerActor pid=695417)[0m wandb: Run history:
+[36m(WandbLoggerActor pid=695417)[0m wandb:          collision_rate ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:        distance_to_goal ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb: distance_to_goal_reward ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:                duration ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:       fng_trigger_count ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:       fpg_trigger_count ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:        last_action_prob ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:    mean_distance_reward ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:                 n_steps ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:                soft_spl ▁
+[36m(WandbLoggerActor pid=695417)[0m wandb:                     +28 ...
+[36m(WandbLoggerActor pid=695417)[0m wandb: 
+[36m(WandbLoggerActor pid=695417)[0m wandb: Run summary:
+[36m(WandbLoggerActor pid=695417)[0m wandb:           collision_rate.max 0.04545
+[36m(WandbLoggerActor pid=695417)[0m wandb:          collision_rate.mean 0.02049
+[36m(WandbLoggerActor pid=695417)[0m wandb:           collision_rate.min 0.0073
+[36m(WandbLoggerActor pid=695417)[0m wandb:         distance_to_goal.max 4.55993
+[36m(WandbLoggerActor pid=695417)[0m wandb:        distance_to_goal.mean 0.60996
+[36m(WandbLoggerActor pid=695417)[0m wandb:         distance_to_goal.min 0.03275
+[36m(WandbLoggerActor pid=695417)[0m wandb:  distance_to_goal_reward.max 0
+[36m(WandbLoggerActor pid=695417)[0m wandb: distance_to_goal_reward.mean 0
+[36m(WandbLoggerActor pid=695417)[0m wandb:  distance_to_goal_reward.min 0
+[36m(WandbLoggerActor pid=695417)[0m wandb:                 duration.max 552.03157
+[36m(WandbLoggerActor pid=695417)[0m wandb:                         +143 ...
+[36m(WandbLoggerActor pid=695417)[0m wandb: 
+[36m(WandbLoggerActor pid=695417)[0m wandb: 🚀 View run r1_probe_leaky at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper/runs/fgsasnzz
+[36m(WandbLoggerActor pid=695417)[0m wandb: ⭐️ View project at: https://wandb.ai/brabiei-university-of-michigan/longnav_paper
+[36m(WandbLoggerActor pid=695417)[0m wandb: Synced 4 W&B file(s), 1 media file(s), 4 artifact file(s) and 0 other file(s)
+[36m(WandbLoggerActor pid=695417)[0m wandb: Find logs at: ./wandb/run-20260917_135554-fgsasnzz/logs
+Warning: Not enough shards for all workers during bootstrap.
+Bootstrapping: Initializing 2 environments...
+[36m(HabitatEnvActor pid=695876)[0m skipping sim initialization since no shards provided, please call assign_shard
+[36m(HabitatEnvActor pid=695876)[0m Actor assigned with shard of 1 episodes.
+[36m(RLActor pid=694820)[0m using normal mode
+[36m(RLActor pid=694820)[0m Merging LoRA adapters for inference...
+DEBUG: System frozen for >6m. Active: 1, PostProc: 0, Flushing: 0, Resetting: 0
+DEBUG: System frozen for >6m. Active: 1, PostProc: 0, Flushing: 0, Resetting: 0
+DEBUG: System frozen for >6m. Active: 1, PostProc: 0, Flushing: 0, Resetting: 0
+Collected episode 1
+[36m(HabitatEnvActor pid=695876)[0m Failed to reduce user key sup/horizon_layers: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=695876)[0m Failed to reduce user key sup/horizon_keep_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=695876)[0m Failed to reduce user key sup/horizon_leave_one: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=695876)[0m Failed to reduce user key sup/horizon_base_logp: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=695876)[0m Failed to reduce user key sup/vlm_mem_GB: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=695876)[0m Failed to reduce user key sup/action_probs: not enough values to unpack (expected 3, got 2)
+[36m(HabitatEnvActor pid=695894)[0m skipping sim initialization since no shards provided, please call assign_shard

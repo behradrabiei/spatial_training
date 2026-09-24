@@ -1,0 +1,5 @@
+{
+ "episode_label": "a8BtkwhxdRV_2",
+ "score_leakfree_kl": 0.2406710684299469,
+ "rule": "max leak-free KL(full || current frame hidden) at step 10"
+}

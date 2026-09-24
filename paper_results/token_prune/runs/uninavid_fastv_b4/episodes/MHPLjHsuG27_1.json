@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 11.214637721001054,
+  "episode_id": "1",
+  "episode_label": "MHPLjHsuG27_1",
+  "fallback_stops": 0,
+  "goal": "bed",
+  "inference_calls": 92,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the bed.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 1.1759026050567627,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.23647355826323851,
+    "spl": 0.0,
+    "success": 0.0
+  },
+  "peak_cuda_bytes": 15971636736,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_fastv_b4/prune/MHPLjHsuG27_1.jsonl",
+  "prune_records": 92,
+  "prune_seconds": 0.12307633406453533,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00869-MHPLjHsuG27/MHPLjHsuG27.basis.glb",
+  "steps": 183,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_fastv_b4/traces/MHPLjHsuG27_1.jsonl",
+  "video": null
+}

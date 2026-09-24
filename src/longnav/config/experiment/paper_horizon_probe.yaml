@@ -1,0 +1,59 @@
+# @package _global_
+# Paper protocol for the information-horizon KL curves of LongNav-R1 (paper/info_horizon/README.md).
+#
+# Full episode context, sparse filter on (the checkpoint's regime), deterministic decoding. After
+# every decision the current frame's visual tokens are hidden from decoder layer L on for each L
+# in vlm.horizon_probe_layers and the frame-level keep-one-in / leave-one-out KL is logged
+# (sequence.json: sup/horizon_layers, sup/horizon_keep_one, sup/horizon_leave_one). The decision
+# itself is never touched, so the trajectory equals r1_full's.
+#
+# Two arms from this preset:
+#   r1_probe        leak-free -- hooked full re-prefill, hidden columns invisible to every query
+#                   (context_window_mode=evict, the default here)
+#   r1_probe_leaky  leaky -- decision-token replay against the live cache, columns hidden from
+#                   that one query only (override vlm.context_window_mode=prune)
+#
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_horizon_probe +resources=single task.run_name=r1_probe
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/info_horizon/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json  # the 10 seed-17 episodes
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true
+  sparse_threshold: 0.95
+  context_cut: header
+  context_frames: null
+  context_window: null  # full episode in context
+  context_window_mode: evict  # leak-free arm; the leaky arm overrides to prune
+  token_info_probe: true  # stored turn records (evict) / decision inputs (prune) for the probe
+  horizon_probe_layers: [0, 4, 8, 12, 14, 16, 18, 20, 24]
+  influence_recompute: false
+  # prune-substrate fields for the leaky arm (ignored in evict mode): nothing is ever pruned
+  kv_budget: 1000000000  # unreachable
+  kv_prune_importance: random  # no decision-row capture on the live forwards
+  kv_prune_granularity: slot
+  kv_prune_candidate_scope: all
+  kv_prune_recent_turns: 2
+  kv_prune_seed: 17
+  kv_prune_log_influence: false
+  kv_prune_log_layer_influence: false
+  kv_prune_log_keep_one: false

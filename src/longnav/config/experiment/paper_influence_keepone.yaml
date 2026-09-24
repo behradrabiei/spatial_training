@@ -1,0 +1,55 @@
+# @package _global_
+# Leave-one-IN variant of paper_influence (paper/frame_influence/README.md, "Leave-one-in variant").
+#
+# Same substrate and trajectories as paper_influence (full context, nothing pruned, deterministic
+# argmax); only the per-frame measure differs: on every step the decision token is replayed once
+# per cached frame f with EVERY visual slot except f's hidden, and the influence is
+# KL(P only f || P no visual) -- the reference is the visual_all probe. The leave-one-out rows are
+# not re-logged (they exist in paper_results/frame_influence/); the joint probes are.
+#
+# Launch from the repo root:
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_influence_keepone +resources=single task.run_name=r1_influence_keepone
+#
+# task.run_name must NOT reuse a name from another experiment in the same wandb project
+# (e.g. r1_influence): resume keys on the run name and would skip every already-logged episode.
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/frame_influence_keepone/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json  # 10 episodes, seed-17 sample of the 100 split
+  # (the 500-step wcojb4TFT35_0 alone costs ~3 h of replays; hm3d_v2_9_seed17_short.json leaves it out)
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # the model's native regime (and required by the prune substrate)
+  sparse_threshold: 0.95
+  context_cut: header  # moot here since nothing is ever cut (full context)
+  context_frames: null
+  context_window: null  # full episode in context
+  context_window_mode: prune  # replay substrate only; the budget below is never reached
+  kv_budget: 1000000000
+  kv_prune_importance: random
+  kv_prune_granularity: slot
+  kv_prune_candidate_scope: all
+  kv_prune_recent_turns: 2
+  kv_prune_seed: 17
+  kv_prune_log_influence: true
+  kv_prune_influence_stride: 1  # every decision step
+  kv_prune_influence_horizons: [4, 8, 16, 32]  # age-band probes; K=1 is the history_all probe
+  kv_prune_influence_measures: [keep_one]  # leave-one-in only (sup/kl_influence_keep_one*)

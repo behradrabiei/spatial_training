@@ -1,0 +1,2 @@
+{"bits": "", "budget": 16, "episode_label": "p53SfW6mjZe_1", "frames": [], "held_tokens": 0.0, "n_kept": [], "n_pool": 0, "n_tokens": [], "prompt_tokens": 189, "seconds": 3.56410164386034e-05, "stage_budgets": [0, 0, 0, 0], "stage_kept": [0, 0, 0, 0], "step": 0}
+{"bits": "yQ==", "budget": 16, "episode_label": "p53SfW6mjZe_1", "frames": [0, 1], "held_tokens": 7.0, "n_kept": [2, 2], "n_pool": 8, "n_tokens": [4, 4], "prompt_tokens": 199, "seconds": 9.450403740629554e-05, "stage_budgets": [8, 8, 8, 4], "stage_kept": [8, 8, 8, 4], "step": 2}

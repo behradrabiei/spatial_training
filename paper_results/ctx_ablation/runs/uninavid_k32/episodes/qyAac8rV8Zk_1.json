@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 2.7853093259909656,
+  "episode_id": "1",
+  "episode_label": "qyAac8rV8Zk_1",
+  "fallback_stops": 0,
+  "goal": "tv_monitor",
+  "inference_calls": 24,
+  "instruction": "Find the tv_monitor.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.03280514478683472,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.4924157541533315,
+    "spl": 0.4974626978650977,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15983892480,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00832-qyAac8rV8Zk/qyAac8rV8Zk.basis.glb",
+  "steps": 47,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/uninavid_k32/traces/qyAac8rV8Zk_1.jsonl",
+  "video": null
+}

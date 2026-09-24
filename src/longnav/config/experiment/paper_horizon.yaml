@@ -1,0 +1,51 @@
+# @package _global_
+# Paper protocol for the visual-blind SR/SPL arms of LongNav-R1 (paper/info_horizon/README.md).
+#
+# Full episode context on the prune substrate with nothing budget-pruned; vlm.kv_prune_visual_blind
+# closes every visual key column (history and current frame) for every query on decoder layers
+# [kv_prune_layer_start, 28) during the live rollout and drops those slots from the blind layers'
+# caches -- leak-free by construction. One arm = this preset + vlm.kv_prune_layer_start=L. The
+# unblinded reference is paper_results/ctx_ablation/runs/r1_full (evict mode; the prune substrate
+# with nothing pruned is bit-identical to it, tests/vtp_prune_smoke.py); L=28 is the identity
+# control.
+#
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_horizon +resources=single task.run_name=r1_blind_l16 vlm.kv_prune_layer_start=16
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/info_horizon/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_100.json  # the 100-episode HM3D-v2 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true
+  sparse_threshold: 0.95
+  context_cut: header
+  context_frames: null
+  context_window: null  # full episode in context
+  context_window_mode: prune
+  kv_budget: null  # no budget: the blind is the only intervention
+  kv_prune_importance: random
+  kv_prune_granularity: slot
+  kv_prune_candidate_scope: all
+  kv_prune_recent_turns: 2
+  kv_prune_seed: 17
+  kv_prune_visual_blind: true
+  kv_prune_layer_start: 0  # overridden per arm
+  kv_prune_layer_end: null

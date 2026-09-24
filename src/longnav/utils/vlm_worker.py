@@ -15,14 +15,24 @@ import torch.nn.functional as F
 from longnav.config_schema import VLMTrainingConfig
 
 CONTEXT_WINDOW_MODES = ("evict", "recompute", "reindex", "prune")
+CONTEXT_CUTS = ("header", "frame")
 KV_PRUNE_VOXEL_MODES = ("voxel_dedup", "voxel_strat")  # need per-turn patch coords from the sim
 KV_PRUNE_IMPORTANCE_MODES = ("attn", "random", "stratified", "diversity", "kl", "keep_one",
-                             "fisher", "fisher_diversity", "grid") + KV_PRUNE_VOXEL_MODES
+                             "fisher", "fisher_diversity", "grid", "divprune", "dart") + KV_PRUNE_VOXEL_MODES
 KV_PRUNE_SCORE_LAYER_MODES = ("pruned", "all", "boundary")
 # Replay-based scorers hand a 4-D additive bias to the model as `attention_mask`; the
 # FlashAttention integration misreads any mask as a 2-D padding mask, so they need sdpa/eager.
 KV_PRUNE_REPLAY_METHODS = ("kl", "keep_one", "fisher", "fisher_diversity")
-KV_PRUNE_KL_METHODS = ("kl", "keep_one")  # replay with an additive bias (no gradient)
+KV_PRUNE_KL_METHODS = ("kl", "keep_one")
+
+
+def _round_list(values, ndigits=6):
+    """Tensor/list -> list of floats rounded for compact JSON logging."""
+    import torch
+
+    if isinstance(values, torch.Tensor):
+        values = values.detach().cpu().float().tolist()
+    return [round(float(v), ndigits) for v in values]  # replay with an additive bias (no gradient)
 
 def compute_full_kl_penalty(log_probs: torch.Tensor, ref_log_probs: torch.Tensor) -> torch.Tensor:
     """
@@ -45,7 +55,7 @@ def compute_full_kl_penalty(log_probs: torch.Tensor, ref_log_probs: torch.Tensor
     return kl
 
 class VLMWorker:
-    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,sparse_threshold=0.95,bev_canvas_size=2000,save_pixels=False,visualize_attention=False,visualize_attention_heads=False,visualize_attention_3d=False,attn3d_layers=None,context_window=None,context_window_mode="evict",attn_weighting="raw",kv_budget=None,kv_prune_recent_turns=2,kv_prune_ema_beta=0.7,kv_prune_merge=False,kv_prune_importance="attn",kv_prune_granularity="slot",kv_prune_candidate_scope="all",kv_prune_seed=17,kv_prune_fisher_pool_factor=2.0,kv_prune_voxel_cap=1,kv_prune_voxel_scale=2,kv_prune_voxel_2d=True,kv_prune_log_influence=False,kv_prune_influence_stride=1,kv_prune_layer_start=0,kv_prune_layer_end=None,kv_prune_score_layers="pruned",kv_prune_log_layer_influence=False,kv_prune_layer_influence_starts=(),kv_prune_visual_blind=False,kv_prune_log_keep_one=False):
+    def __init__(self, model_id="Qwen/Qwen3-VL-2B-Instruct",attn_impl='sdpa',dtype='float16', prefix = '<|im_start|>assistant\n**',postfix = '**<|im_end|>',vocab=["stop","forward","left","right","up","down"],save_outputs=False,load_model=True,offload_cache=False,use_sparse=False,sparse_threshold=0.95,bev_canvas_size=2000,save_pixels=False,visualize_attention=False,visualize_attention_heads=False,visualize_attention_3d=False,attn3d_layers=None,context_window=None,context_frames=None,context_cut="header",context_window_mode="evict",attn_weighting="raw",kv_budget=None,kv_prune_recent_turns=2,kv_prune_ema_beta=0.7,kv_prune_merge=False,kv_prune_importance="attn",kv_prune_granularity="slot",kv_prune_candidate_scope="all",kv_prune_seed=17,kv_prune_fisher_pool_factor=2.0,kv_prune_voxel_cap=1,kv_prune_voxel_scale=2,kv_prune_voxel_2d=True,kv_prune_log_influence=False,kv_prune_influence_stride=1,kv_prune_influence_horizons=(4, 8, 16, 32),kv_prune_influence_measures=("leave_one",),influence_recompute=False,kv_prune_layer_start=0,kv_prune_layer_end=None,kv_prune_score_layers="pruned",kv_prune_score_layer=None,kv_prune_log_layer_influence=False,kv_prune_layer_influence_starts=(),kv_prune_visual_blind=False,kv_prune_log_keep_one=False,kv_prune_budget_frames=None,kv_prune_stages=None,kv_prune_stage_importance=None,kv_prune_tail_budget_frames=None,kv_prune_budget_scope="last_stage",kv_prune_schedule_anchor="original",kv_prune_dart_pivots=8,kv_prune_seed_per_step=False,kv_prune_log_masks=False,token_info_probe=False,horizon_probe_layers=()):
         import transformers.modeling_flash_attention_utils as fa_utils
         def patched(position_ids, batch_size):
             return False
@@ -80,15 +90,37 @@ class VLMWorker:
             # backward pass to read, so they would silently render nothing.
             raise ValueError("attn_weighting='grad' requires visualize_attention_3d=True; "
                              "the 2D attention overlays cannot produce gradients.")
+        if context_frames is not None:
+            # context_frames counts the frames visible at decision time, including the
+            # current one; the eviction schedule below is written in past turns retained.
+            if context_window is not None:
+                raise ValueError("set context_frames or context_window, not both "
+                                 f"(got context_frames={context_frames}, context_window={context_window}).")
+            if context_frames < 1:
+                raise ValueError(f"context_frames must be >= 1 (1 = current frame only), got {context_frames}.")
+            context_window = context_frames - 1
+        if context_window is not None and context_window < 0:
+            raise ValueError(f"context_window must be >= 0, got {context_window}.")
         self.context_window = context_window
         if context_window_mode not in CONTEXT_WINDOW_MODES:
             raise ValueError(f"context_window_mode must be one of {CONTEXT_WINDOW_MODES}, got {context_window_mode!r}")
         self.context_window_mode = context_window_mode
+        if context_cut not in CONTEXT_CUTS:
+            raise ValueError(f"context_cut must be one of {CONTEXT_CUTS}, got {context_cut!r}")
+        if context_cut == "frame" and context_window_mode == "prune" and kv_prune_granularity != "slot":
+            # build_keep_index (turn granularity) carries the legacy header holdback only.
+            raise NotImplementedError("context_cut='frame' with context_window_mode='prune' requires "
+                                      "kv_prune_granularity='slot'.")
+        self.context_cut = context_cut
         if context_window_mode == "recompute":
             if context_window is None:
                 # Nothing is ever evicted at full context, so the rebuild would never fire
                 # and the run would silently be an ordinary full-context eval.
                 raise ValueError("context_window_mode='recompute' requires context_window to be set.")
+            if not use_sparse:
+                # _record_window_turn replays the embeds the sparse subclass exposes on its
+                # output (inputs_embeds, position_ids, deepstack); the stock model has none.
+                raise NotImplementedError("context_window_mode='recompute' requires use_sparse=True.")
             if self._any_attn_viz():
                 # The rebuild replaces the cache wholesale, so nothing indexed by absolute KV
                 # position -- the probe's rows and value-norm banks, the frame records'
@@ -126,15 +158,43 @@ class VLMWorker:
         self.kv_prune_voxel_cap = int(kv_prune_voxel_cap)
         self.kv_prune_voxel_scale = int(kv_prune_voxel_scale)
         self.kv_prune_voxel_2d = bool(kv_prune_voxel_2d)
+        # paper/token_prune: frame-relative budget, PyramidDrop stages, DART pivots, per-step
+        # seeding and the per-frame keep-mask log (see _apply_kv_prune / vtp_log).
+        self.kv_prune_budget_frames = None if kv_prune_budget_frames is None else float(kv_prune_budget_frames)
+        self.kv_prune_stages = None if kv_prune_stages is None else [int(l) for l in kv_prune_stages]
+        # paper/hybrid_prune: per-stage selector and the last stage's own frame-relative budget.
+        self.kv_prune_stage_importance = None if kv_prune_stage_importance is None \
+            else [str(m) for m in kv_prune_stage_importance]
+        self.kv_prune_tail_budget_frames = None if kv_prune_tail_budget_frames is None \
+            else float(kv_prune_tail_budget_frames)
+        self.kv_prune_budget_scope = str(kv_prune_budget_scope)
+        self.kv_prune_schedule_anchor = str(kv_prune_schedule_anchor)
+        self.kv_prune_dart_pivots = int(kv_prune_dart_pivots)
+        self.kv_prune_seed_per_step = bool(kv_prune_seed_per_step)
+        self.kv_prune_log_masks = bool(kv_prune_log_masks)
         self._turn_patch_coords = None  # this turn's (H/32, W/32, 3) world voxel grid, if the sim sent one
         self.kv_prune_log_influence = bool(kv_prune_log_influence)
         self.kv_prune_influence_stride = int(kv_prune_influence_stride)
+        self.kv_prune_influence_horizons = tuple(sorted({int(k) for k in (kv_prune_influence_horizons or ())}))
         self._kl_influence_row = []  # KL(P_t || P_t^{-f}) per cached frame f, when logging influence
+        self._kl_influence_logp = []  # per cached frame f: action log-probs with f's visual slots hidden
+        self._kl_influence_base_logp = []  # action log-probs of the replayed full-context decision
+        self._kl_influence_history_all = []  # [kl, logp]: every history frame's visual slots hidden
+        self._kl_influence_visual_all = []  # [kl, logp]: every visual slot hidden (text-only decision)
+        self._kl_influence_horizon = []  # [[K, kl, logp], ...]: frames of age >= K hidden
+        self._kl_influence_keep_one = []  # keep-one-in: KL(P only f's visual slots || P no visual) per frame f
+        self._kl_influence_keep_one_logp = []  # per cached frame f: action log-probs with only f's visual slots
+        self.kv_prune_influence_measures = tuple(str(m) for m in (kv_prune_influence_measures or ()))
+        if not self.kv_prune_influence_measures or any(
+                m not in ("leave_one", "keep_one") for m in self.kv_prune_influence_measures):
+            raise ValueError("kv_prune_influence_measures must be a non-empty subset of "
+                             f"{{'leave_one', 'keep_one'}}, got {self.kv_prune_influence_measures}")
         self._prune_visual_new = 0  # visual slots this turn added (0 => its KL row entry is vacuous)
         # Layer-selective pruning: the budget applies to decoder layers [start, end) only.
         self.kv_prune_layer_start = int(kv_prune_layer_start)
         self.kv_prune_layer_end = None if kv_prune_layer_end is None else int(kv_prune_layer_end)
         self.kv_prune_score_layers = kv_prune_score_layers
+        self.kv_prune_score_layer = None if kv_prune_score_layer is None else int(kv_prune_score_layer)
         self.kv_prune_log_layer_influence = bool(kv_prune_log_layer_influence)
         self.kv_prune_layer_influence_starts = tuple(
             int(i) for i in (kv_prune_layer_influence_starts or ()))
@@ -148,6 +208,60 @@ class VLMWorker:
         if self.kv_prune_log_influence and context_window_mode != "prune":
             raise ValueError("kv_prune_log_influence requires context_window_mode='prune' "
                              "(the per-slot turn/visual bookkeeping lives in KVPruneState)")
+        if any(k < 2 for k in self.kv_prune_influence_horizons):
+            # K frames survive including the current one; K=1 is the history_all probe.
+            raise ValueError("kv_prune_influence_horizons must all be >= 2")
+        # Leak-free leave-one-frame-out probes: every probe re-prefills prefix + all turns with the
+        # removed frame's visual tokens deleted (see _recompute_influence_probe).
+        self.influence_recompute = bool(influence_recompute)
+        self._influence_recs = []  # device copies of the stored turn records (prefix first)
+        self._influence_probe_count = 0
+        self._influence_probe_latency = 0.0
+        if self.influence_recompute:
+            if not use_sparse:
+                raise NotImplementedError("influence_recompute replays the embeds the sparse subclass "
+                                          "exposes on its output; it requires use_sparse=True.")
+            if context_window is not None or context_frames is not None or context_window_mode != "evict":
+                raise ValueError("influence_recompute probes the full episode context; use "
+                                 "context_window=None with context_window_mode='evict'.")
+            if self._any_attn_viz():
+                raise NotImplementedError("influence_recompute does not combine with attention visualization.")
+            if self.kv_prune_influence_stride < 1:
+                raise ValueError("kv_prune_influence_stride must be at least 1")
+        # paper/layer_token_info: keep what the per-visual-token layer probes need without
+        # running any per-step probe -- the decision-token inputs (prune mode, leaky replay arm)
+        # and the stored turn records (evict mode, leak-free re-prefill arm). The probes
+        # themselves live in longnav.utils.token_info and are called by the driver.
+        self.token_info_probe = bool(token_info_probe)
+        if self.token_info_probe:
+            if not use_sparse:
+                raise NotImplementedError("token_info_probe requires use_sparse=True (visual slot "
+                                          "bookkeeping and stored post-filter embeds).")
+            if context_window is not None or context_frames is not None:
+                raise ValueError("token_info_probe probes the full episode context; use "
+                                 "context_window=None / context_frames=None.")
+            if context_window_mode not in ("prune", "evict"):
+                raise ValueError("token_info_probe runs on context_window_mode='prune' (leaky "
+                                 "decision-replay arm) or 'evict' (leak-free re-prefill arm), "
+                                 f"got {context_window_mode!r}")
+            if self._any_attn_viz():
+                raise NotImplementedError("token_info_probe does not combine with attention visualization.")
+            if attn_impl != "sdpa":
+                raise NotImplementedError("token_info_probe's per-layer column hiding builds bool sdpa "
+                                          "masks; use attn_impl='sdpa'.")
+        # paper/info_horizon: after every decision, the current frame's frame-level keep-one-in /
+        # leave-one-out KL with its visual tokens hidden from each listed decoder layer on --
+        # leak-free re-prefill in evict mode, leaky decision replay in prune mode (see
+        # longnav.utils.token_info.horizon_probe). Rides on the token_info_probe substrate.
+        self.horizon_probe_layers = tuple(sorted({int(l) for l in (horizon_probe_layers or ())}))
+        if self.horizon_probe_layers:
+            if not self.token_info_probe:
+                raise ValueError("horizon_probe_layers requires token_info_probe=True")
+            if any(l < 0 for l in self.horizon_probe_layers):
+                raise ValueError("horizon_probe_layers must be non-negative")
+        self._horizon_row = {}
+        self._horizon_probe_count = 0
+        self._horizon_probe_latency = 0.0
         if (self.kv_prune_log_layer_influence or self.kv_prune_log_keep_one) \
                 and context_window_mode != "prune":
             raise ValueError("kv_prune_log_layer_influence / kv_prune_log_keep_one require "
@@ -157,10 +271,61 @@ class VLMWorker:
             if kv_prune_granularity not in ("slot", "turn"):
                 raise ValueError(f"kv_prune_granularity must be 'slot' or 'turn', "
                                  f"got {kv_prune_granularity!r}")
-            if kv_budget is None and not self.kv_prune_visual_blind:
-                # Without a budget nothing is ever pruned, so the run would silently pay
-                # the re-rotation and capture cost for an ordinary eval.
-                raise ValueError("context_window_mode='prune' requires kv_budget to be set.")
+            if kv_budget is not None and self.kv_prune_budget_frames is not None:
+                raise ValueError("set either kv_budget (total cache slots) or kv_prune_budget_frames "
+                                 "(candidate slots worth N history frames), not both")
+            if self.kv_prune_budget_frames is not None:
+                if self.kv_prune_budget_frames <= 0:
+                    raise ValueError("kv_prune_budget_frames must be positive")
+                # Without a window the budget is relative to every history frame of the episode
+                # (paper/token_prune flat variant): k x the running mean tokens per frame.
+            if kv_budget is None and self.kv_prune_budget_frames is None and not self.kv_prune_visual_blind:
+                # Nothing is ever budget-pruned: the identity arm of paper/token_prune, which
+                # must reproduce the plain window (or, without one, the full context) bit-for-bit.
+                print("[prune] no kv_budget / kv_prune_budget_frames: identity arm, only the window prunes.")
+            if self.kv_prune_stages is not None:
+                stages = self.kv_prune_stages
+                if stages != sorted(stages) or len(set(stages)) != len(stages) or stages[0] < 0:
+                    raise ValueError(f"kv_prune_stages must be strictly increasing layer indices >= 0, got {stages}")
+                if self.kv_prune_budget_scope not in ("last_stage", "model"):
+                    raise ValueError(f"kv_prune_budget_scope must be 'last_stage' or 'model', "
+                                     f"got {self.kv_prune_budget_scope!r}")
+                if self.kv_prune_schedule_anchor not in ("original", "pool"):
+                    raise ValueError(f"kv_prune_schedule_anchor must be 'original' or 'pool', "
+                                     f"got {self.kv_prune_schedule_anchor!r}")
+                if self.kv_prune_budget_scope == "model" and self.kv_prune_budget_frames is None:
+                    raise ValueError("kv_prune_budget_scope='model' bounds the whole-model holding by "
+                                     "kv_prune_budget_frames; set it")
+                if self.kv_prune_layer_start != 0 or self.kv_prune_layer_end is not None:
+                    raise ValueError("kv_prune_stages fixes the pruned layers itself; leave "
+                                     "kv_prune_layer_start / kv_prune_layer_end at their defaults")
+                if kv_prune_importance != "attn" or kv_prune_granularity != "slot" or kv_prune_merge \
+                        or self.kv_prune_visual_blind:
+                    raise ValueError("kv_prune_stages (PyramidDrop) requires kv_prune_importance='attn', "
+                                     "slot granularity, no merge and no visual-blind arm")
+                sel = self.kv_prune_stage_importance
+                if sel is not None and (len(sel) != len(stages) or any(m not in ("attn", "random") for m in sel)):
+                    raise ValueError(f"kv_prune_stage_importance needs one of 'attn'/'random' per stage "
+                                     f"({len(stages)} stages), got {sel}")
+                tail = self.kv_prune_tail_budget_frames
+                if tail is not None:
+                    if len(stages) < 2 or self.kv_prune_budget_frames is None:
+                        raise ValueError("kv_prune_tail_budget_frames sets the last stage's budget below the "
+                                         "schedule's: it needs at least two stages and kv_prune_budget_frames")
+                    if not 0 < tail <= self.kv_prune_budget_frames:
+                        raise ValueError(f"kv_prune_tail_budget_frames must lie in (0, kv_prune_budget_frames], "
+                                         f"got {tail}")
+            elif self.kv_prune_stage_importance is not None or self.kv_prune_tail_budget_frames is not None \
+                    or self.kv_prune_budget_scope != "last_stage" or self.kv_prune_schedule_anchor != "original":
+                raise ValueError("kv_prune_stage_importance / kv_prune_tail_budget_frames / kv_prune_budget_scope / "
+                                 "kv_prune_schedule_anchor describe the stages of kv_prune_stages; set it")
+            if kv_prune_importance == "dart":
+                # layer_start=0 (every layer pruned) reads layer 0: its keys and its output.
+                if self.kv_prune_stages is not None:
+                    raise ValueError("kv_prune_importance='dart' reads keys and hidden states at "
+                                     "kv_prune_layer_start-1; it does not combine with kv_prune_stages")
+                if self.kv_prune_dart_pivots < 1:
+                    raise ValueError("kv_prune_dart_pivots must be at least 1")
             if self.kv_prune_visual_blind and (kv_prune_merge or kv_prune_granularity != "slot"):
                 raise ValueError("kv_prune_visual_blind drops every visual slot on the blind layers; "
                                  "it does not combine with kv_prune_merge or turn granularity")
@@ -189,6 +354,13 @@ class VLMWorker:
             if kv_prune_score_layers == "boundary" and self.kv_prune_layer_start < 1:
                 raise ValueError("kv_prune_score_layers='boundary' reads layer_start-1, so "
                                  "kv_prune_layer_start must be at least 1")
+            if self.kv_prune_score_layer is not None:
+                if self.kv_prune_score_layer < 0:
+                    raise ValueError("kv_prune_score_layer must be nonnegative")
+                if kv_prune_importance != "attn" or self.kv_prune_stages is not None:
+                    raise ValueError("kv_prune_score_layer picks the one decoder layer whose decision row "
+                                     "ranks the slots; it requires kv_prune_importance='attn' and no "
+                                     "kv_prune_stages")
             if layer_selective and kv_prune_granularity != "slot":
                 # build_keep_index drops whole turns off one shared cache; it has no notion
                 # of slots that are dead in some layers and alive in others.
@@ -263,6 +435,16 @@ class VLMWorker:
         self._decision_inputs = None
         self._turn_patch_coords = None
         self._kl_influence_row = []
+        self._kl_influence_logp = []
+        self._kl_influence_base_logp = []
+        self._kl_influence_history_all = []
+        self._kl_influence_visual_all = []
+        self._kl_influence_horizon = []
+        self._kl_influence_keep_one = []
+        self._kl_influence_keep_one_logp = []
+        self._influence_recs = []
+        self._influence_probe_count = 0
+        self._influence_probe_latency = 0.0
         self._prune_visual_new = 0
         self._layer_influence_hist = []
         self._layer_influence_all = []
@@ -272,6 +454,15 @@ class VLMWorker:
         self._prune_replay_count = 0
         self._prune_visual_slots = 0
         self._prune_text_slots = 0
+        self._prune_stage_visual = []
+        self._prune_visual_model = self._prune_visual_model_frames = None
+        self._vtp_log = {}
+        self._horizon_row = {}
+        self._horizon_probe_count = 0
+        self._horizon_probe_latency = 0.0
+        self._episode_label = getattr(self, "_episode_label", "")
+        self._hidden_db = None  # DART: (n_visual_master, hidden) states entering the cut layer
+        self._hidden_capture_armed = False
         if self.attn_probe is not None:
             self.attn_probe.reset()
         if getattr(self, "_reindex_state", None) is not None:
@@ -286,6 +477,12 @@ class VLMWorker:
         self._dropped = 0  # total tokens evicted so far
         self._n_evicted = 0  # number of turns fully evicted so far
         self._prefix_len = None  # pinned prompt tokens (goal + action space), never evicted
+        # context_cut='frame' bookkeeping: per turn, how many tokens precede that turn's
+        # '<|im_start|>user' opener in its chunk (the previous action + postfix; 0 for turn 0),
+        # and whether the next incoming chunk must lose that lead before it is forwarded
+        # (only when the window is a single frame, so the lead is never cached at all).
+        self._turn_leads = []
+        self._strip_next_lead = False
         # Replay buffers for context_window_mode='recompute' (see _rebuild_window_cache).
         self._window_recs = []  # one embed record per retained turn
         self._prefix_rec = None  # the pinned prefix, split off turn 0
@@ -327,14 +524,19 @@ class VLMWorker:
             from longnav.utils.pre_rope import install_pre_rope
             n_layers = len(self.language_model.layers)
             pruned_layers = self._pruned_layer_range(n_layers)
+            stages = self._stage_ranges(n_layers)
             blind_layers = None
             if self.context_window_mode == "prune" and self.kv_prune_visual_blind:
                 end = n_layers if self.kv_prune_layer_end is None else self.kv_prune_layer_end
                 blind_layers = range(self.kv_prune_layer_start, end)
+            score_layers = self._score_layer_range(n_layers, pruned_layers, stages)
             self._reindex_state = install_pre_rope(
-                self.language_model, pruned_layers=pruned_layers,
-                score_layers=self._score_layer_range(n_layers, pruned_layers),
-                blind_layers=blind_layers)
+                self.language_model, pruned_layers=pruned_layers, score_layers=score_layers,
+                blind_layers=blind_layers, stages=stages)
+            if self.context_window_mode == "prune" and self.kv_prune_importance == "dart":
+                # The hidden states leaving the scored layer: layer_start-1, or layer 0 when
+                # every layer is pruned.
+                self._install_hidden_capture(max(self.kv_prune_layer_start, 1))
         if self._any_attn_viz():
             self._attach_attention_probe()
 
@@ -671,6 +873,23 @@ class VLMWorker:
         head = self.processor.tokenizer.decode(seq[boundary + 1:img], skip_special_tokens=True)
         return boundary if "\n" in head and not head.split("\n", 1)[1].strip() else img
 
+    def _chunk_lead(self, input_ids):
+        '''
+        Tokens in this turn's chunk that precede its '<|im_start|>user' opener.
+
+        Turn chunks are cropped to start at the previous reply's action token (see the
+        postfix_starts[0]-1 crop in infer_step), so for every turn but the first the lead is
+        that action plus the postfix markup. Turn 0 opens on the pinned prefix and has no lead.
+        The lead is pure text, so the index is the same in the sparsified cache.
+        '''
+        import torch
+        if not self._turn_leads:
+            return 0
+        seq = input_ids[0]
+        hits = torch.nonzero(seq == self.prefix_ids[0], as_tuple=False)
+        assert hits.numel(), "turn chunk carries no '<|im_start|>' opener"
+        return int(hits[0])
+
     def _recomputing_window(self):
         return self.context_window is not None and self.context_window_mode == "recompute"
 
@@ -744,6 +963,19 @@ class VLMWorker:
         The header does not accumulate: it is replaced on every eviction.
         '''
         n = first_keep - self._n_evicted
+        if self.context_cut == "frame":
+            # No held-back header: the oldest retained turn loses its leading action +
+            # postfix instead, so the window opens on its '<|im_start|>user'. With a
+            # single-frame window nothing is retained; the strip then happens on the
+            # incoming chunk before it is forwarded (see infer_step), so its record is
+            # already lead-free when it arrives here.
+            self._boundary_rec = None
+            if n < len(self._window_recs):
+                rec = self._window_recs[n]
+                self._window_recs[n] = self._slice_rec(rec, self._turn_leads[first_keep],
+                                                       rec['inputs_embeds'].shape[1])
+            del self._window_recs[:n]
+            return
         boundary = self._window_recs[n - 1]
         seq_len = boundary['inputs_embeds'].shape[1]
         self._boundary_rec = self._slice_rec(boundary, seq_len - len(self.prefix_ids), seq_len)
@@ -811,7 +1043,7 @@ class VLMWorker:
         evicted.
         '''
         recs = list(self._window_recs)
-        if self._n_evicted > 0:
+        if self._n_evicted > 0 and self._boundary_rec is not None:
             recs.insert(0, self._boundary_rec)
         if self._prefix_rec is not None:
             recs.insert(0, self._prefix_rec)
@@ -890,7 +1122,21 @@ class VLMWorker:
         # chunk ends with exactly that header (one action token, so the chunk stops at
         # prefix_end), so holding back its length leaves the boundary reply well formed.
         # The tokens do not accumulate: the next eviction's drop_end is past them.
-        drop_end = self._abs_bounds[first_keep - 1] - self._dropped - len(self.prefix_ids)
+        if self.context_cut == "frame":
+            # Cut past the boundary chunk's lead (previous action + postfix) instead, so the
+            # window opens on the oldest retained turn's '<|im_start|>user': K frames and the
+            # K-1 actions between them, nothing older. With a single-frame window the lead
+            # belongs to a chunk that has not arrived yet, so the cache is cut to the prefix
+            # and the next chunk is stripped on entry (infer_step).
+            cache_len = self.past_key_values.get_seq_length()
+            drop_end = self._abs_bounds[first_keep - 1] - self._dropped
+            if first_keep < len(self._turn_leads):
+                drop_end += self._turn_leads[first_keep]
+            else:
+                self._strip_next_lead = True
+            assert drop_end <= cache_len, f"frame cut past the cache ({drop_end} > {cache_len})"
+        else:
+            drop_end = self._abs_bounds[first_keep - 1] - self._dropped - len(self.prefix_ids)
         n_drop = drop_end - prefix
         if n_drop <= 0:
             return
@@ -927,7 +1173,7 @@ class VLMWorker:
                 kept_window = st.pos_table[..., drop_end:]
                 first = kept_window[:, 0, 0]
                 assert int(first[0]) == int(first[1]) == int(first[2]), \
-                    "reindex cut must land on a text token (assistant header)"
+                    "reindex cut must land on a text token (assistant header or user opener)"
                 shift = int(first[0]) - self._prefix_len
                 assert shift > 0, f"eviction dropped {n_drop} tokens but no positions (shift={shift})"
                 st.pos_table = torch.cat([kept_prefix, kept_window - shift], dim=-1)
@@ -985,6 +1231,8 @@ class VLMWorker:
         """Decoder layers the KV budget applies to, or None for every layer."""
         if self.context_window_mode != "prune":
             return None
+        if self.kv_prune_stages is not None:
+            return range(self.kv_prune_stages[0], n_layers)
         start, end = self.kv_prune_layer_start, self.kv_prune_layer_end
         if start == 0 and end is None:
             return None
@@ -995,8 +1243,54 @@ class VLMWorker:
             raise ValueError(f"kv_prune_layer_start={start} exceeds the {n_layers} decoder layers")
         return range(start, end)
 
-    def _score_layer_range(self, n_layers, pruned_layers):
+    def _stage_ranges(self, n_layers):
+        """PyramidDrop stages as adjacent layer ranges [s_0, s_1), ..., [s_last, n_layers)."""
+        if self.context_window_mode != "prune" or self.kv_prune_stages is None:
+            return None
+        bounds = list(self.kv_prune_stages) + [n_layers]
+        if bounds[-2] >= n_layers:
+            raise ValueError(f"kv_prune_stages={self.kv_prune_stages} exceeds the {n_layers} decoder layers")
+        return [range(a, b) for a, b in zip(bounds[:-1], bounds[1:])]
+
+    @staticmethod
+    def _stage_score_layer(rng):
+        """Layer whose decision row ranks a stage: the one below it, layer 0 for a stage at 0."""
+        return max(rng.start - 1, 0)
+
+    def _stage_selectors(self, n_stages):
+        """Selector of each stage: kv_prune_stage_importance, 'attn' everywhere by default."""
+        return self.kv_prune_stage_importance or ["attn"] * n_stages
+
+    def _install_hidden_capture(self, layer_idx):
+        """DART side DB: the hidden states entering decoder layer `layer_idx` at this chunk's
+        visual positions (post-sparse-filter, after deepstack), one row per visual master slot,
+        captured only while the decision forward has armed it."""
+        import torch
+
+        def hook(module, args, kwargs):
+            if not self._hidden_capture_armed:
+                return
+            hs = args[0] if args else kwargs["hidden_states"]
+            vis = self.language_model.visual_pos_masks
+            if vis is None:
+                return
+            rows = hs[0][vis[0].to(hs.device)].detach()
+            self._hidden_db = rows if self._hidden_db is None else torch.cat([self._hidden_db, rows])
+
+        self.language_model.layers[layer_idx].register_forward_pre_hook(hook, with_kwargs=True)
+
+    def _score_layer_range(self, n_layers, pruned_layers, stages=None):
         """Decoder layers whose decision rows feed the 'attn' importance score."""
+        if stages is not None:
+            # PyramidDrop ranks each stage by the attention read at the layer just below it
+            # (a stage at layer 0 by layer 0's own row); a 'random' stage reads no row.
+            return tuple(sorted({self._stage_score_layer(rng) for rng, m in
+                                 zip(stages, self._stage_selectors(len(stages))) if m == "attn"}))
+        if self.kv_prune_score_layer is not None:
+            if self.kv_prune_score_layer >= n_layers:
+                raise ValueError(f"kv_prune_score_layer={self.kv_prune_score_layer} exceeds the "
+                                 f"{n_layers} decoder layers")
+            return range(self.kv_prune_score_layer, self.kv_prune_score_layer + 1)
         if pruned_layers is None:
             return None
         mode = self.kv_prune_score_layers
@@ -1111,30 +1405,184 @@ class VLMWorker:
         kl = torch.sum(base_logp.exp() * (base_logp - other_logp))
         return max(float(kl.detach().cpu()), 0.0)
 
-    def _score_kl_frames(self, candidate_mask, forced):
-        """Frame-level KL(base || visual-frame-ablated) over the action distribution.
+    @staticmethod
+    def _strip_visual_rec(rec):
+        """The record without its visual positions (text, positions and markup survive).
 
-        The ablation hides the frame's visual slots on the layers the budget applies to
-        (every layer in uniform mode), so the score measures exactly what pruning them
-        would remove.
+        Returns ``(stripped_rec, n_visual)``. The deepstack embeds are indexed by visual token,
+        so removing every visual position leaves them empty.
+        """
+        mask = rec['visual_pos_masks']
+        if mask is None or not bool(mask.any()):
+            return rec, 0
+        keep = ~mask[0]
+        out = {
+            'inputs_embeds': rec['inputs_embeds'][:, keep],
+            'position_ids': rec['position_ids'][..., keep],
+            'visual_pos_masks': mask[:, keep],
+            'deepstack_visual_embeds': (None if rec['deepstack_visual_embeds'] is None
+                                        else [v[:0] for v in rec['deepstack_visual_embeds']]),
+        }
+        return out, int(mask.sum())
+
+    def _influence_forward_logp(self, recs):
+        """Action log-probs of the decision when ``recs`` (prefix first) are re-prefilled from
+        scratch against an empty cache. Survivors keep their absolute mRoPE positions; the
+        stored embeds are already sparse-filtered, so the filter is bypassed."""
+        import torch
+
+        merged = self._cat_recs(recs)
+        with self._inference_ctx():
+            # use_cache=True on purpose: it is the path _rebuild_window_cache validated, and with
+            # use_cache=False the sparse text model's visual pathway (deepstack injection) is
+            # silently skipped, so the rebuilt decision would ignore every frame. The scratch
+            # cache is dropped with `out`.
+            out = self.language_model(**merged, attention_mask=None, past_key_values=None,
+                                      use_cache=True, seq_keep_mask='everything',
+                                      vis_keep_mask='everything')
+            hidden = out.last_hidden_state[:, -1]
+            logits = self.model.get_output_embeddings()(hidden)[0, self.vocab_ids].float()
+        del out
+        self._influence_probe_count += 1
+        return torch.log_softmax(logits, dim=-1).cpu()
+
+    def _device_recs(self):
+        """``(prefix_rec, [turn_recs])`` mirrored on the device, one copy per turn, cached across
+        calls (records are captured on CPU by _record_window_turn)."""
+        while len(self._influence_recs) < 1 + len(self._window_recs):
+            src = self._prefix_rec if not self._influence_recs else self._window_recs[len(self._influence_recs) - 1]
+            self._influence_recs.append({
+                k: ([t.to(self.device) for t in v] if isinstance(v, list)
+                    else (v.to(self.device) if v is not None else None))
+                for k, v in src.items()})
+        return self._influence_recs[0], self._influence_recs[1:]
+
+    def _recompute_influence_probe(self):
+        """Leak-free leave-one-frame-out influence (paper/frame_influence, recompute arm).
+
+        Fills the same ``_kl_influence_*`` fields as the prune-mode replay probe, but every
+        probe rebuilds the whole context -- prefix + every turn's stored post-filter
+        embeddings, with the removed frame's visual tokens deleted -- and reads the decision
+        from the last token. Nothing survives from a cache that saw the removed frame, so the
+        result is a strict function of what remains; the gap to the replay probe is what the
+        frame had already written into later tokens' K/V. One full prefill per probe:
+        t + 2 + #horizons(<= t) forwards per scored step, each over the whole context.
+        """
+        import torch
+
+        for name in ("_kl_influence_row", "_kl_influence_logp", "_kl_influence_base_logp",
+                     "_kl_influence_history_all", "_kl_influence_visual_all", "_kl_influence_horizon",
+                     "_kl_influence_keep_one", "_kl_influence_keep_one_logp"):
+            setattr(self, name, [])
+        prefix, turns = self._device_recs()
+        cur = len(turns) - 1
+        self._prune_visual_new = self._strip_visual_rec(turns[cur])[1]
+        if cur % self.kv_prune_influence_stride != 0:
+            return
+        t0 = time.perf_counter()
+        stripped = [self._strip_visual_rec(r) for r in turns]
+
+        def probe(removed):
+            recs = [prefix] + [stripped[i][0] if i in removed else turns[i] for i in range(len(turns))]
+            return self._influence_forward_logp(recs)
+
+        base_logp = probe(set())
+        base_list = _round_list(base_logp)
+        self._kl_influence_base_logp = base_list
+        if "leave_one" in self.kv_prune_influence_measures:
+            rows, logps = [], []
+            for i in range(len(turns)):
+                if stripped[i][1] == 0:  # no visual tokens survived the filter: nothing to remove
+                    rows.append(0.0); logps.append(base_list)
+                    continue
+                lp = probe({i})
+                rows.append(self._action_kl(base_logp, lp)); logps.append(_round_list(lp))
+            self._kl_influence_row, self._kl_influence_logp = rows, logps
+
+        def joint(removed):
+            removed = {i for i in removed if stripped[i][1] > 0}
+            if not removed:
+                return [0.0, base_list]
+            lp = probe(removed)
+            return [self._action_kl(base_logp, lp), _round_list(lp)]
+
+        self._kl_influence_history_all = joint(range(cur))
+        everything = {i for i in range(cur + 1) if stripped[i][1] > 0}
+        vis_logp = probe(everything) if everything else base_logp
+        vis_list = _round_list(vis_logp)
+        self._kl_influence_visual_all = [self._action_kl(base_logp, vis_logp) if everything else 0.0, vis_list]
+        self._kl_influence_horizon = [[K, *joint(range(cur - K + 1))]
+                                      for K in self.kv_prune_influence_horizons if cur - K >= 0]
+        if "keep_one" in self.kv_prune_influence_measures:
+            # Leave-one-IN, leak-free: rebuild the context with every frame's visual tokens
+            # deleted except frame i's; reference = the no-visual rebuild above.
+            keep_rows, keep_logps = [], []
+            for i in range(len(turns)):
+                if stripped[i][1] == 0:
+                    keep_rows.append(0.0); keep_logps.append(vis_list)
+                    continue
+                lp = probe(everything - {i})
+                keep_rows.append(self._action_kl(lp, vis_logp)); keep_logps.append(_round_list(lp))
+            self._kl_influence_keep_one, self._kl_influence_keep_one_logp = keep_rows, keep_logps
+        self._influence_probe_latency += time.perf_counter() - t0
+
+    def _horizon_probe(self):
+        """paper/info_horizon: frame-level layer-wise KL of the current frame after a decision
+        (longnav.utils.token_info.horizon_probe; the mode picks the leak-free or leaky arm)."""
+        from longnav.utils.token_info import horizon_probe
+
+        n_layers = len(self.language_model.layers)
+        if any(l > n_layers for l in self.horizon_probe_layers):
+            raise ValueError(f"horizon_probe_layers {self.horizon_probe_layers} exceed the model's {n_layers} layers")
+        t0 = time.perf_counter()
+        self._horizon_row = horizon_probe(self, self.horizon_probe_layers)
+        self._horizon_probe_count += int(self._horizon_row["n_probes"])
+        self._horizon_probe_latency += time.perf_counter() - t0
+
+    def _kl_frame_probe(self, candidate_mask, forced, base_logp=None):
+        """Leave-one-frame-out replay over the action distribution.
+
+        Returns ``(base_logp, {turn: (kl, ablated_logp)})``: for every turn holding a
+        candidate slot, KL(base || that turn's visual slots hidden) and the hidden-frame
+        action log-probs. The ablation applies on the layers the budget applies to (every
+        layer in uniform mode), so it measures exactly what pruning those slots would
+        remove. Turns with no visual candidate replay nothing: their KL is identically 0
+        and their log-probs are the base ones. Log-probs are fp32 CPU tensors.
         """
         import torch
 
         ps = self._kv_prune_state
         base_bias = self._replay_base_bias(forced)
-        base_logp = self._replay_action_logp(base_bias)
+        if base_logp is None:
+            base_logp = self._replay_action_logp(base_bias)
         layers = self._ablation_layers()
-        group_scores = {}
+        per_turn = {}
         for turn in torch.unique(ps.turn_id[candidate_mask], sorted=True).tolist():
             mask = candidate_mask & ps.is_visual & (ps.turn_id == turn)
             if not bool(mask.any()):
-                # Ablating nothing replays the base distribution: KL is identically 0.
-                group_scores[int(turn)] = 0.0
+                per_turn[int(turn)] = (0.0, base_logp.detach().cpu())
                 continue
             ablated_logp = self._replay_action_logp(
                 base_bias, extra=self._replay_ablation_term(mask), extra_layers=layers)
-            group_scores[int(turn)] = self._action_kl(base_logp, ablated_logp)
-        return group_scores
+            per_turn[int(turn)] = (self._action_kl(base_logp, ablated_logp), ablated_logp.detach().cpu())
+        return base_logp.detach().cpu(), per_turn
+
+    def _score_kl_frames(self, candidate_mask, forced):
+        """Frame-level KL(base || visual-frame-ablated), the 'kl' selector's scores."""
+        _, per_turn = self._kl_frame_probe(candidate_mask, forced)
+        return {turn: kl for turn, (kl, _) in per_turn.items()}
+
+    def _kl_joint_probe(self, mask, base_bias, base_logp):
+        """[kl, logp] of the decision with every slot flagged in ``mask`` hidden at once.
+
+        An empty mask replays nothing: KL 0 and the base log-probs. ``base_logp`` may live on
+        any device; the returned log-probs are a rounded list.
+        """
+        if not bool(mask.any()):
+            return [0.0, _round_list(base_logp)]
+        ablated_logp = self._replay_action_logp(
+            base_bias, extra=self._replay_ablation_term(mask), extra_layers=self._ablation_layers())
+        return [self._action_kl(base_logp.to(ablated_logp.device), ablated_logp), _round_list(ablated_logp)]
 
     def _score_keep_one_frames(self, candidate_mask, forced):
         """Frame-level keep-one-in information over the action distribution.
@@ -1304,6 +1752,20 @@ class VLMWorker:
             vis = vis[st.alive]
         self._prune_visual_slots = int(vis.sum())
         self._prune_text_slots = int((~vis).sum())
+        # Visual slots each stage's layers hold (staged arms; the last entry is the count above).
+        self._prune_stage_visual = [int((ps.is_visual & st.stage_alive(s)).sum())
+                                    for s in range(len(st.stages))] if st.staged and st.alive is not None else []
+        # Whole-model holding: visual slots averaged over every decoder layer (unpruned layers hold
+        # the master cache), and the same in frames' worth of the frames in scope.
+        self._prune_visual_model = self._prune_visual_model_frames = None
+        if self._prune_stage_visual and st.n_layers:
+            held = (st.n_layers - len(st.pruned_layers)) * int(ps.is_visual.sum()) \
+                + sum(len(rng) * n for rng, n in zip(st.stages, self._prune_stage_visual))
+            counts = ps.visual_per_turn[0 if self.context_window is None
+                                        else max(0, ps.n_turns - self.context_window):]
+            self._prune_visual_model = held / st.n_layers
+            if sum(counts):
+                self._prune_visual_model_frames = self._prune_visual_model * len(counts) / sum(counts)
 
     def _apply_kv_prune(self):
         """Apply the frame pool, exact protected partition, and configured selector.
@@ -1312,13 +1774,18 @@ class VLMWorker:
         take the budget drop: the master structures (position table, slot metadata, embed
         DB) and the unpruned layers shrink by the window's forced drop alone, and
         ReindexState.alive records which master slots the pruned layers still hold.
+        PyramidDrop stages (kv_prune_stages) nest that: each stage keeps a subset of the
+        stage above it under its own budget. A frame-relative budget
+        (kv_prune_budget_frames) fixes the number of surviving candidates rather than the
+        total cache size; the per-frame keep masks are logged when kv_prune_log_masks is on.
         """
         import time
         import torch
         from longnav.utils.kv_prune import (
-            build_keep_index, build_prune_partition, build_selected_keep,
-            grid_stratified_select, merge_dropped_visual, mixed_diversity_select,
-            proportional_group_select, random_select, slice_cache_layers, stratified_select,
+            build_keep_index, build_prune_partition, build_selected_keep, dart_select,
+            divprune_select, frame_budget, grid_stratified_select, merge_dropped_visual,
+            mixed_diversity_select, model_budgets, proportional_group_select, pyramid_budgets, random_select,
+            slice_cache_layers, step_seed, stratified_select, visual_slot_embeddings,
             voxel_dedup_select, voxel_stratified_select,
         )
 
@@ -1330,23 +1797,39 @@ class VLMWorker:
         method = self.kv_prune_importance
         layer_selective = st.layer_selective
         alive = st.alive if layer_selective else None
+        frame_cut = self.context_cut == "frame"
 
         n_new = kv_len - (0 if ps.turn_id is None else ps.turn_id.numel())
         lm = getattr(self, "language_model", None)
         vis = getattr(lm, "visual_pos_masks", None) if lm is not None else None
         vis_row = vis[0].bool().cpu() if vis is not None else torch.zeros(n_new, dtype=torch.bool)
-        ps.append(n_new, vis_row, self._turn_voxel_rows(n_new, vis_row))
+        raster = None
+        keep_mask = getattr(lm, "vis_keep_mask", None) if lm is not None else None
+        if keep_mask is not None and int(vis_row.sum()):
+            raster = torch.nonzero(keep_mask.reshape(-1)).flatten().cpu()
+        lead = self._turn_leads[-1] if (frame_cut and self._turn_leads) else 0
+        ps.append(n_new, vis_row, self._turn_voxel_rows(n_new, vis_row), lead=lead, raster=raster)
 
         blind = self.kv_prune_visual_blind
+        first_keep = 0 if self.context_window is None else max(0, ps.n_turns - self.context_window)
+        budget = None if (st.no_pruned_layers or blind) else self.kv_budget
+        capacity = None
+        if self.kv_prune_budget_frames is not None:
+            capacity = frame_budget(ps, first_keep, self.kv_prune_budget_frames)
+        tail_capacity = None  # the last stage's own budget; binds from the second frame on
+        if self.kv_prune_tail_budget_frames is not None:
+            tail_capacity = frame_budget(ps, first_keep, self.kv_prune_tail_budget_frames)
+        if self.kv_prune_seed_per_step:
+            ps.generator.manual_seed(step_seed(self.kv_prune_seed, self._episode_label, ps.n_turns - 1))
+        partition_kwargs = dict(
+            prefix_len=self._prefix_len, context_window=self.context_window,
+            holdback_n=len(self.prefix_ids), recent_turns=self.kv_prune_recent_turns,
+            candidate_scope=self.kv_prune_candidate_scope, frame_cut=frame_cut)
         partition = build_prune_partition(
-            ps, prefix_len=self._prefix_len, context_window=self.context_window,
-            holdback_n=len(self.prefix_ids),
-            budget=None if (st.no_pruned_layers or blind) else self.kv_budget,
-            recent_turns=self.kv_prune_recent_turns,
-            candidate_scope=self.kv_prune_candidate_scope,
+            ps, budget=budget, capacity=capacity,
             # The blind arm removes protected visual slots too, so the protected-alive
             # invariant does not apply to it (nothing is selected).
-            alive=None if blind else alive,
+            alive=None if blind else alive, **partition_kwargs,
         )
         candidate_idx = torch.nonzero(partition.candidates).flatten()
         score_start = time.perf_counter()
@@ -1360,14 +1843,60 @@ class VLMWorker:
         # _prune_replay_count / _prune_score_latency like any other scorer.
         self._prune_visual_new = int(vis_row.sum())
         self._kl_influence_row = []
+        self._kl_influence_logp = []
+        self._kl_influence_base_logp = []
+        self._kl_influence_history_all = []
+        self._kl_influence_visual_all = []
+        self._kl_influence_horizon = []
+        self._kl_influence_keep_one = []
+        self._kl_influence_keep_one_logp = []
         self._layer_influence_hist = []
         self._layer_influence_all = []
         self._keep_one_rows = []
         self._leave_one_rows = []
         probe_step = (ps.n_turns - 1) % self.kv_prune_influence_stride == 0
         if self.kv_prune_log_influence and probe_step:
-            row = self._score_kl_frames(torch.ones(kv_len, dtype=torch.bool), partition.forced)
-            self._kl_influence_row = [float(row.get(t, 0.0)) for t in range(ps.n_turns)]
+            base_bias = self._replay_base_bias(partition.forced)
+            if "leave_one" in self.kv_prune_influence_measures:
+                base_logp, per_turn = self._kl_frame_probe(
+                    torch.ones(kv_len, dtype=torch.bool), partition.forced)
+                base_list = _round_list(base_logp)
+                self._kl_influence_row = [float(per_turn[t][0]) if t in per_turn else 0.0
+                                          for t in range(ps.n_turns)]
+                self._kl_influence_logp = [_round_list(per_turn[t][1]) if t in per_turn else base_list
+                                           for t in range(ps.n_turns)]
+            else:
+                base_logp = self._replay_action_logp(base_bias)
+                base_list = _round_list(base_logp)
+            self._kl_influence_base_logp = base_list
+            # Joint probes on the same replayed decision: every history frame at once, every
+            # visual slot at once, and the age bands (frames of age >= K; K=1 is history_all).
+            cur = ps.n_turns - 1
+            self._kl_influence_history_all = self._kl_joint_probe(
+                ps.is_visual & (ps.turn_id < cur), base_bias, base_logp)
+            layers = self._ablation_layers()
+            vis_logp = self._replay_action_logp(
+                base_bias, extra=self._replay_ablation_term(ps.is_visual), extra_layers=layers)
+            self._kl_influence_visual_all = [self._action_kl(base_logp.to(vis_logp.device), vis_logp),
+                                             _round_list(vis_logp)]
+            self._kl_influence_horizon = [
+                [K, *self._kl_joint_probe(ps.is_visual & (ps.turn_id <= cur - K), base_bias, base_logp)]
+                for K in self.kv_prune_influence_horizons if cur - K >= 0]
+            if "keep_one" in self.kv_prune_influence_measures:
+                # Leave-one-IN: only frame f's visual slots stay visible (every other visual slot,
+                # the current frame's included, is hidden); reference = the no-visual decision.
+                vis_list = _round_list(vis_logp)
+                keep_rows, keep_logps = [], []
+                for f in range(ps.n_turns):
+                    mine = ps.is_visual & (ps.turn_id == f)
+                    if not bool(mine.any()):  # nothing survived the sparse filter: only-f == no visual
+                        keep_rows.append(0.0); keep_logps.append(vis_list)
+                        continue
+                    only_logp = self._replay_action_logp(
+                        base_bias, extra=self._replay_ablation_term(ps.is_visual & ~mine), extra_layers=layers)
+                    keep_rows.append(self._action_kl(only_logp, vis_logp))
+                    keep_logps.append(_round_list(only_logp))
+                self._kl_influence_keep_one, self._kl_influence_keep_one_logp = keep_rows, keep_logps
         if self.kv_prune_log_layer_influence and probe_step:
             visual = partition.base_keep & ps.is_visual
             if alive is not None:
@@ -1382,12 +1911,13 @@ class VLMWorker:
             self._keep_one_rows, self._leave_one_rows = self._score_layer_frame_influence(
                 visual, partition.forced)
 
+        forced, first_keep = partition.forced, partition.first_keep
+        stage_keeps = None
         # Retain the original whole-turn arm for reproducibility. New experimental arms
         # are exact slot selectors and all run with candidate_scope='visual'.
         if blind:
             # Every visual slot leaves the blind layers (the live mask already hid them
             # there during this forward); text and the frame window are untouched.
-            forced, first_keep = partition.forced, partition.first_keep
             keep = partition.base_keep & ~ps.is_visual
             ps.fold_scores(scores, 0.0)
         elif self.kv_prune_granularity == "turn":
@@ -1404,14 +1934,78 @@ class VLMWorker:
                 ps, prefix_len=self._prefix_len, context_window=self.context_window,
                 holdback_n=len(self.prefix_ids), budget=self.kv_budget,
                 recent_turns=self.kv_prune_recent_turns, granularity="turn")
+        elif st.staged:
+            # PyramidDrop: stage s keeps a subset of stage s-1's slots under budget c_s, ranked
+            # by the decision row read at the layer just below the stage. Budgets follow the
+            # geometric schedule from the window's original visual count down to `capacity`.
+            # paper/hybrid_prune: a 'random' stage draws uniformly among the previous stage's
+            # survivors instead, and with kv_prune_tail_budget_frames the last stage has its own
+            # budget while the schedule ends one stage earlier.
+            stages = st.stages
+            selectors = self._stage_selectors(len(stages))
+            tailed = self.kv_prune_tail_budget_frames is not None
+            n_sched = len(stages) - (1 if tailed else 0)
+            if capacity is None:
+                budgets = [None] * n_sched
+            else:
+                total = sum(ps.visual_per_turn[max(0, first_keep):])
+                if self.kv_prune_schedule_anchor == "pool":
+                    # Shrink from what the first stage can draw from now (its survivors + the
+                    # entering frame), not from tokens deleted long ago.
+                    total = int(build_prune_partition(ps, budget=None, capacity=None, alive=st.stage_alive(0),
+                                                      **partition_kwargs).candidates.sum())
+                if self.kv_prune_budget_scope == "model":
+                    # capacity bounds the layer-weighted mean over the whole model, tail included.
+                    budgets = model_budgets(
+                        total, capacity, [len(r) for r in stages[:n_sched]],
+                        n_unpruned=st.n_layers - len(st.pruned_layers),
+                        tail=(len(stages[-1]), tail_capacity) if tailed and tail_capacity is not None else None,
+                        unpruned_total=int((partition.base_keep & ps.is_visual).sum()))
+                else:
+                    budgets = pyramid_budgets(total, capacity, n_sched)
+            if tailed:
+                budgets.append(tail_capacity if tail_capacity is None or budgets[-1] is None
+                               else min(tail_capacity, budgets[-1]))
+            stage_keeps, prev_keep, keep, scored = [], None, None, False
+            for s_idx, (rng, c_s) in enumerate(zip(stages, budgets)):
+                alive_s = st.stage_alive(s_idx)
+                pool = alive_s if prev_keep is None else alive_s & prev_keep
+                part_s = build_prune_partition(ps, budget=None, capacity=c_s, alive=pool,
+                                               **partition_kwargs)
+                cand_s = torch.nonzero(part_s.candidates).flatten()
+                row = None
+                if selectors[s_idx] == "attn":
+                    row = st.layer_rows.get(self._stage_score_layer(rng))
+                    if row is None:
+                        raise RuntimeError(f"no decision row captured at layer {self._stage_score_layer(rng)} "
+                                           f"for stage {s_idx}")
+                    row = row.float().cpu()
+                if part_s.capacity == cand_s.numel():
+                    selected = cand_s
+                elif row is None:
+                    selected = random_select(cand_s, part_s.capacity, ps.generator)
+                else:
+                    selected = cand_s[torch.argsort(row[cand_s], descending=True, stable=True)[:part_s.capacity]]
+                keep = build_selected_keep(part_s, selected)
+                stage_keeps.append((rng, keep, alive_s))
+                prev_keep = keep
+                if row is not None and not scored:
+                    scores, scored = row, True
+            ps.fold_scores(scores, 0.0)
         else:
-            forced, first_keep = partition.forced, partition.first_keep
             if method == "attn":
                 scores = st.mean_scores().cpu()
             if partition.capacity == candidate_idx.numel():
                 selected = candidate_idx
             elif method == "random":
                 selected = random_select(candidate_idx, partition.capacity, ps.generator)
+            elif method == "divprune":
+                db = visual_slot_embeddings(ps, self.past_image_embeds)
+                db_rank = torch.cumsum(ps.is_visual.long(), 0) - 1
+                rows = db[db_rank[candidate_idx].to(db.device)].to(getattr(self, "device", db.device))
+                selected = divprune_select(rows, candidate_idx, partition.capacity)
+            elif method == "dart":
+                selected = self._dart_select(ps, st, candidate_idx, partition.capacity)
             elif method == "grid":
                 selected = grid_stratified_select(
                     ps, st.pos_table, partition.candidates, partition.capacity,
@@ -1464,6 +2058,9 @@ class VLMWorker:
             keep = build_selected_keep(partition, selected)
 
         self._prune_score_latency = time.perf_counter() - score_start
+        if frame_cut and first_keep >= ps.n_turns:
+            # Single-frame window: the next chunk's lead belongs to this evicted turn.
+            self._strip_next_lead = True
         # Slots already budget-dropped from the pruned layers stay in the master cache
         # (the unpruned layers hold them) without being recounted as dropped.
         budget_dropped = partition.base_keep & ~keep
@@ -1471,10 +2068,12 @@ class VLMWorker:
             budget_dropped &= alive
         if not bool(forced.any()) and not bool(budget_dropped.any()):
             self._record_slot_counts()
+            self._log_vtp(first_keep)
             return
 
         # The master cache keeps a budget-dropped slot only while some unpruned layer holds it.
-        master_keep = keep if st.all_layers_pruned else partition.base_keep
+        shallowest_keep = stage_keeps[0][1] if stage_keeps else keep
+        master_keep = shallowest_keep if st.all_layers_pruned else partition.base_keep
         master_shrinks = not bool(master_keep.all())
         with self._inference_ctx():
             if self.kv_prune_merge and self.past_image_embeds is not None:
@@ -1491,13 +2090,18 @@ class VLMWorker:
                     # No visual slot left anywhere (visual-blind on every layer): the sparse
                     # filter expects None rather than an empty DB, and infer_step re-seeds it.
                     self.past_image_embeds = None
+            if self._hidden_db is not None and master_shrinks:
+                self._hidden_db = self._hidden_db[master_keep[ps.is_visual].to(self._hidden_db.device)]
 
             slice_cache_layers(self.past_key_values.layers, master_keep, keep, alive,
-                               st.pruned_layers)
+                               st.pruned_layers, stage_keeps=stage_keeps)
             if master_shrinks:
                 st.slice_master(torch.nonzero(master_keep).flatten())
             st.invalidate_rotation()
-            if layer_selective:
+            if stage_keeps is not None:
+                for s_idx in range(len(stage_keeps) - 1, -1, -1):  # deepest first: nesting holds
+                    st.set_stage_alive(s_idx, stage_keeps[s_idx][1][master_keep])
+            elif layer_selective:
                 st.set_alive(keep[master_keep])
 
         ps.n_budget_dropped += int(budget_dropped.sum())
@@ -1507,6 +2111,62 @@ class VLMWorker:
         if bool(forced.any()):
             self._dropped += int(forced.sum())
             self._n_evicted = first_keep
+        self._log_vtp(first_keep)
+
+    def _dart_select(self, ps, st, candidate_idx, capacity):
+        """DART pivots from the rotated keys of the layer below the cut, similarity on the
+        hidden states entering the cut layer (the side DB filled by _install_hidden_capture).
+        With every layer pruned (layer_start=0) there is no layer below the cut: layer 0 is
+        read instead, its keys and the hidden states leaving it."""
+        import torch
+        from longnav.utils.kv_prune import dart_select
+        from longnav.utils.pre_rope import _rotate
+
+        src = 0 if st.pruned_layers is None else max(st.pruned_layers.start - 1, 0)
+        keys = self.past_key_values.layers[src].keys  # (1, n_kv, master, d), unrotated
+        if keys.shape[-2] != st.master_len():
+            raise RuntimeError(f"layer {src} holds {keys.shape[-2]} slots, master has {st.master_len()}")
+        cos, sin = st.layer_tables(src)
+        rot = _rotate(keys, cos, sin)[0].permute(1, 0, 2).reshape(keys.shape[-2], -1)
+        norms = rot.float().abs().sum(dim=-1).cpu()
+        db_rank = torch.cumsum(ps.is_visual.long(), 0) - 1
+        if self._hidden_db is None or self._hidden_db.shape[0] != int(ps.is_visual.sum()):
+            n_db = 0 if self._hidden_db is None else self._hidden_db.shape[0]
+            raise RuntimeError(f"hidden DB holds {n_db} rows for {int(ps.is_visual.sum())} visual slots")
+        hidden = self._hidden_db[db_rank[candidate_idx].to(self._hidden_db.device)]
+        return dart_select(norms[candidate_idx], hidden, candidate_idx, capacity,
+                           n_pivots=self.kv_prune_dart_pivots)
+
+    def _log_vtp(self, first_keep):
+        """Per-frame keep masks of the window after this step's prune (paper/token_prune):
+        the frames the NEXT decision sees, their original visual counts, the survivors at the
+        deepest pruned stage, the packed per-patch bits and the entering frame's raster."""
+        if not self.kv_prune_log_masks:
+            # Full-context arms switch the masks off (every frame of the episode would be
+            # re-packed each step); the budget's denominator is still reported.
+            if self.kv_prune_budget_frames is not None:
+                self._vtp_log = {"mean/vtp_n_new": self._kv_prune_state.visual_per_turn[-1]}
+            return
+        import torch
+        from longnav.utils.kv_prune import pack_keep_bits
+
+        ps, st = self._kv_prune_state, self._reindex_state
+        turns = list(range(max(0, first_keep), ps.n_turns))
+        alive = st.alive if (st.layer_selective and st.alive is not None) \
+            else torch.ones(ps.turn_id.numel(), dtype=torch.bool)
+        bits, kept = pack_keep_bits(ps, alive, turns)
+        self._vtp_log = {
+            "vtp_frames": turns,
+            "vtp_ntok": [ps.visual_per_turn[t] for t in turns],
+            "vtp_kept": kept,
+            "vtp_bits": bits,
+            "vtp_raster": list(ps.raster_per_turn[-1]),
+            "mean/vtp_n_new": ps.visual_per_turn[-1],
+        }
+
+    def begin_episode(self, label):
+        """Name the episode (per-step seeding and the mask log key on it)."""
+        self._episode_label = "" if label is None else str(label)
 
     def infer_step(self,messages,images,full_logprobs=False,temperature=1.0,check_probs=True,crop_inputs=True,pos_id_kwargs=None):
         t0 = time.time()
@@ -1541,8 +2201,20 @@ class VLMWorker:
                 if 'mm_token_type_ids' in turn_inputs.keys():
                     turn_inputs["mm_token_type_ids"] = turn_inputs['mm_token_type_ids'][:,:(postfix_starts[-1]-1)]
 
-        if (self.context_window is not None or self.context_window_mode == "prune") and self._prefix_len is None:
+        if (self.context_window is not None or self.context_window_mode == "prune"
+                or self.influence_recompute or self.token_info_probe) and self._prefix_len is None:
             self._prefix_len = self._find_prompt_prefix_len(turn_inputs['input_ids'])
+        if self.context_window is not None and self.context_cut == "frame":
+            lead = self._chunk_lead(turn_inputs['input_ids'])
+            if self._strip_next_lead:
+                # The previous step evicted everything but the prefix; this chunk's leading
+                # action + postfix belong to that evicted turn, so they never enter the cache.
+                for key in ('input_ids', 'attention_mask', 'mm_token_type_ids'):
+                    if key in turn_inputs and turn_inputs[key] is not None:
+                        turn_inputs[key] = turn_inputs[key][:, lead:]
+                self._strip_next_lead = False
+                lead = 0
+            self._turn_leads.append(lead)
 
         t = time.time()
         self._accumulate_inputs(turn_inputs)
@@ -1572,7 +2244,8 @@ class VLMWorker:
             # by the context window, so take only as much as the model will actually attend to.
             past_len = self.past_key_values.get_seq_length() if self.past_key_values is not None else 0
             turn_inputs['attention_mask'] = self.cumulative_inputs['attention_mask'][:,-(past_len+current_len):].to(self.device)
-        if self.save_outputs or self._recomputing_window():
+        if (self.save_outputs or self._recomputing_window() or self.influence_recompute
+                or self.token_info_probe):
             turn_inputs['save_embeds'] = True
 
         with self._inference_ctx():
@@ -1586,6 +2259,7 @@ class VLMWorker:
             if (self._kv_prune_state is not None and self.kv_prune_importance == "attn"
                     and not self.kv_prune_visual_blind):
                 self._reindex_state.arm_capture()
+            self._hidden_capture_armed = self.kv_prune_importance == "dart"
             try:
                 t = time.time()
                 outputs = self.model.forward(
@@ -1600,6 +2274,7 @@ class VLMWorker:
                     self.attn_probe.enabled = False
                 if self._kv_prune_state is not None:
                     self._reindex_state.capture_scores = False
+                self._hidden_capture_armed = False
             self.past_key_values = outputs['past_key_values']
              # Compute logprobs directly (1-to-1 mapping)
             relevant_logits = outputs.logits[0].float()
@@ -1611,7 +2286,7 @@ class VLMWorker:
                 logprobs = torch.log_softmax(relevant_logits, dim=-1)
             # print(f"vlm latency: {time.time()-t}",end=" ")
 
-            if self._recomputing_window():
+            if self._recomputing_window() or self.influence_recompute or self.token_info_probe:
                 self._record_window_turn(outputs)
             if self.save_outputs:
                 t = time.time()
@@ -1636,14 +2311,20 @@ class VLMWorker:
         if (self.visualize_attention_3d or
                 self.kv_prune_importance in KV_PRUNE_REPLAY_METHODS or
                 self.kv_prune_log_influence or self.kv_prune_log_layer_influence
-                or self.kv_prune_log_keep_one):
+                or self.kv_prune_log_keep_one or self.token_info_probe):
             self._decision_inputs = self._slice_decision_token(turn_inputs)
         if self._grad_attribution_enabled():
             self._grad_attribution_pass()
+        if self.influence_recompute:
+            self._recompute_influence_probe()
         if self.context_window_mode == "prune":
             self._apply_kv_prune()
         else:
             self._apply_context_window()
+        if self.horizon_probe_layers:
+            # After the (no-op) prune / window pass: the prune substrate registers the new turn's
+            # slots there, and at full context nothing is evicted, so both arms see the whole cache.
+            self._horizon_probe()
         # if check_probs:
         #     try:
         #         assert(torch.argmax(logprobs,dim=-1).item() in self.vocab_ids)

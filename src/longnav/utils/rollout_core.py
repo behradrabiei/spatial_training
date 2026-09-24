@@ -132,7 +132,8 @@ class EpisodeRolloutMixin:
             # Trajectory Buffer (List is fine here!)
             trajectory_buffer = []
             instr_or_goal = state_dict['obs']['instr_or_goal']
-            # episode_label = state_dict['info']['episode_label']
+            if hasattr(self, "begin_episode"):
+                self.begin_episode(state_dict.get('info', {}).get('episode_label', ''))
             while not done and step_count < self.rollout_config['max_steps']:
                 # A. Prepare VLM Input
                 rgb_numpy = rgb
@@ -156,6 +157,41 @@ class EpisodeRolloutMixin:
                     vlm_logs |= {'mean/kv_len': kv_mean, 'max/kv_len': kv_mean,
                                  'max/kv_len_layer_max': kv_layer_max,
                                  'mean/kv_len_master': kv_master}
+                if getattr(self, "kv_prune_log_influence", False) or getattr(self, "influence_recompute", False):
+                    # Leave-one-frame-out influence (paper/frame_influence), from the prune-mode
+                    # replay probe or the leak-free recompute probe -- same schema either way.
+                    # Ragged per-step rows (len t+1) land raw in sequence.json as
+                    # sup/kl_influence; kv_visual_new marks frames whose KL is vacuous.
+                    # Companion rows: hidden-frame action log-probs per frame, the base
+                    # log-probs, and the joint probes ([kl, logp]; [[K, kl, logp], ...] for the
+                    # age bands). No '/' in these names: a reduction prefix would make the
+                    # logger average ragged lists.
+                    vlm_logs["kl_influence"] = list(getattr(self, "_kl_influence_row", []))
+                    vlm_logs["mean/kv_visual_new"] = getattr(self, "_prune_visual_new", 0)
+                    vlm_logs["kl_influence_logp"] = list(getattr(self, "_kl_influence_logp", []))
+                    vlm_logs["kl_influence_base_logp"] = list(getattr(self, "_kl_influence_base_logp", []))
+                    vlm_logs["kl_influence_history_all"] = list(getattr(self, "_kl_influence_history_all", []))
+                    vlm_logs["kl_influence_visual_all"] = list(getattr(self, "_kl_influence_visual_all", []))
+                    vlm_logs["kl_influence_horizon"] = list(getattr(self, "_kl_influence_horizon", []))
+                    # Leave-one-in rows (vlm.kv_prune_influence_measures contains keep_one): only
+                    # frame f's visual slots visible, reference = visual_all; [] otherwise.
+                    vlm_logs["kl_influence_keep_one"] = list(getattr(self, "_kl_influence_keep_one", []))
+                    vlm_logs["kl_influence_keep_one_logp"] = list(getattr(self, "_kl_influence_keep_one_logp", []))
+                if getattr(self, "influence_recompute", False):
+                    # Cumulative counters: their episode total is the final value, so reduce with max.
+                    vlm_logs |= {"max/influence_probe_count": self._influence_probe_count,
+                                 "max/influence_probe_latency": self._influence_probe_latency}
+                if getattr(self, "horizon_probe_layers", ()):
+                    # paper/info_horizon: per-layer keep-one-in / leave-one-out KL of the current
+                    # frame (raw rows in sequence.json as sup/horizon_*; no '/' in the names).
+                    row = getattr(self, "_horizon_row", {}) or {}
+                    vlm_logs["horizon_layers"] = list(self.horizon_probe_layers)
+                    vlm_logs["horizon_keep_one"] = list(row.get("keep_one", []))
+                    vlm_logs["horizon_leave_one"] = list(row.get("leave_one", []))
+                    vlm_logs["horizon_base_logp"] = list(row.get("base_logp", []))
+                    vlm_logs["mean/kv_visual_new"] = row.get("n_cur_tokens", 0)
+                    vlm_logs |= {"max/horizon_probe_count": self._horizon_probe_count,
+                                 "max/horizon_probe_latency": self._horizon_probe_latency}
                 if getattr(self, "context_window_mode", None) == "prune":
                     vlm_logs |= {
                         "mean/prune_score_latency": self._prune_score_latency,
@@ -164,11 +200,15 @@ class EpisodeRolloutMixin:
                         "mean/kv_visual_slots": self._prune_visual_slots,
                         "mean/kv_text_slots": self._prune_text_slots,
                     }
-                    if getattr(self, "kv_prune_log_influence", False):
-                        # Ragged per-step rows (len t+1) land raw in sequence.json as
-                        # sup/kl_influence; kv_visual_new marks frames whose KL is vacuous.
-                        vlm_logs["kl_influence"] = list(getattr(self, "_kl_influence_row", []))
-                        vlm_logs["mean/kv_visual_new"] = getattr(self, "_prune_visual_new", 0)
+                    # Staged arms: visual slots held by each stage's layers (shallow to deep).
+                    for s_idx, n_vis in enumerate(getattr(self, "_prune_stage_visual", [])):
+                        vlm_logs[f"mean/kv_stage_visual_{s_idx}"] = n_vis
+                    if getattr(self, "_prune_visual_model", None) is not None:
+                        # Visual slots averaged over all decoder layers, raw and in frames' worth.
+                        vlm_logs["mean/kv_visual_model"] = self._prune_visual_model
+                        if self._prune_visual_model_frames is not None:
+                            vlm_logs["mean/kv_visual_model_frames"] = self._prune_visual_model_frames
+                            vlm_logs["max/kv_visual_model_frames"] = self._prune_visual_model_frames
                     if getattr(self, "kv_prune_log_layer_influence", False):
                         # One KL per probe layer (vlm.kv_prune_layer_influence_starts), raw in
                         # sequence.json as sup/layer_influence_{hist,all}; [] on skipped steps.
@@ -180,6 +220,11 @@ class EpisodeRolloutMixin:
                         vlm_logs["keep_one_influence"] = [list(r) for r in getattr(self, "_keep_one_rows", [])]
                         vlm_logs["leave_one_influence"] = [list(r) for r in getattr(self, "_leave_one_rows", [])]
                         vlm_logs["mean/kv_visual_new"] = getattr(self, "_prune_visual_new", 0)
+                    if getattr(self, "_vtp_log", None):
+                        # paper/token_prune: the window's per-frame keep masks after this step's
+                        # prune (raw in sequence.json as sup/vtp_*; see VLMWorker._log_vtp). With
+                        # kv_prune_log_masks off only the scalar mean/vtp_n_new is carried.
+                        vlm_logs |= dict(self._vtp_log)
                 try:
                     import torch
                     vlm_mem = torch.cuda.memory_allocated()/(1024**3)

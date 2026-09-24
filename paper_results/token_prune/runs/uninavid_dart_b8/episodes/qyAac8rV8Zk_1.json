@@ -1,0 +1,29 @@
+{
+  "elapsed_seconds": 2.054881691998162,
+  "episode_id": "1",
+  "episode_label": "qyAac8rV8Zk_1",
+  "fallback_stops": 0,
+  "goal": "tv_monitor",
+  "inference_calls": 18,
+  "influence": null,
+  "influence_probes": 0,
+  "influence_records": 0,
+  "influence_seconds": 0.0,
+  "instruction": "Find the tv_monitor.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 0.040456920862197876,
+    "distance_to_goal_reward": -0.0,
+    "soft_spl": 0.5561507868304925,
+    "spl": 0.5631973838554276,
+    "success": 1.0
+  },
+  "peak_cuda_bytes": 15983891968,
+  "prune": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_dart_b8/prune/qyAac8rV8Zk_1.jsonl",
+  "prune_records": 18,
+  "prune_seconds": 0.02145796200784389,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00832-qyAac8rV8Zk/qyAac8rV8Zk.basis.glb",
+  "steps": 35,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune/runs/uninavid_dart_b8/traces/qyAac8rV8Zk_1.jsonl",
+  "video": null
+}

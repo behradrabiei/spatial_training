@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 27.40074349200586,
+  "episode_id": "1",
+  "episode_label": "BAbdmeyTvMZ_1",
+  "fallback_stops": 0,
+  "goal": "tv_monitor",
+  "inference_calls": 250,
+  "instruction": "Find the tv_monitor.",
+  "invalid_output_events": 0,
+  "metrics": {
+    "distance_to_goal": 8.06345272064209,
+    "distance_to_goal_reward": 0.23071861267089844,
+    "soft_spl": 0.014917881370748199,
+    "spl": 0.0,
+    "success": 0.0
+  },
+  "peak_cuda_bytes": 15883711488,
+  "scene_id": "/mnt/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00827-BAbdmeyTvMZ/BAbdmeyTvMZ.basis.glb",
+  "steps": 500,
+  "trace": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/uninavid_k16/traces/BAbdmeyTvMZ_1.jsonl",
+  "video": null
+}
