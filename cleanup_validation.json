@@ -113,7 +113,6 @@
   "limitations": [
     "Real multi-goal integration requires missing original onemap_multi.json and objectnav_hm3d_multi.yaml assets."
   ],
-  "evidence_directory": ".cleanup_archive/before-codebase-cleanup",
   "uninavid_gpu_parity": {
     "status": "PASS",
     "episode": {
@@ -151,5 +150,10 @@
       "steps": 55
     },
     "action_trace": "exact match"
+  },
+  "validation_artifacts": {
+    "status": "Temporary logs, recorded test outputs, source snapshot, and rebuilt mirrors removed after validation.",
+    "one_off_scripts_commit": "52b21afd",
+    "preserved": "Scientific backups, obsolete artifacts, restoration manifests, and this validation summary."
   }
 }

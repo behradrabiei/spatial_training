@@ -95,6 +95,6 @@ python tools/paper_inventory.py verify
 python tools/reproduce_paper.py --name my-rebuild
 ```
 
-The full smoke suite needs cached model weights and a GPU. `tests/inference_parity.py` compares fixed
-inputs against the baseline; `tests/habitat_parity.py` compares a real HM3D episode through Ray.
+The full smoke suite needs cached model weights and a GPU. One-off cleanup comparison scripts
+and generated validation artifacts have been removed; their source remains in Git history.
 See [CLEANUP.md](CLEANUP.md) for measured validation results and remaining integration limitations.

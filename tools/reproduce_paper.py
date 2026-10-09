@@ -1,6 +1,6 @@
 """Rebuild retained paper outputs in an isolated mirror; never overwrite paper_results.
 
-Example: python tools/reproduce_paper.py --name baseline --source .cleanup_archive/before-codebase-cleanup/baseline-code
+Example: python tools/reproduce_paper.py --name reproduction-check
 """
 from __future__ import annotations
 import argparse

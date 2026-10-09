@@ -44,8 +44,10 @@ from active directories and future Git snapshots.
 
 ## Validation
 
-Machine-readable evidence is in `cleanup_validation.json`; full logs and recorded outputs are under
-`.cleanup_archive/before-codebase-cleanup/`.
+The compact validation summary is in `cleanup_validation.json`. After validation, the one-off
+parity/comparison scripts, baseline source copy, generated paper mirrors, recorded test outputs,
+and test logs were removed. Those scripts remain recoverable from commit `52b21afd`. Scientific
+backups, obsolete-artifact archives, and their restoration manifests remain intact.
 
 - Real cached LongNav-R1 adapter, 12 configurations × 2 repeats × 8 fixed image inputs: exact action,
   cache-length, retained-slot identity, and probability matches against `bf4e65ff` (maximum difference

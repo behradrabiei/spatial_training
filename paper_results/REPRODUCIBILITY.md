@@ -33,19 +33,16 @@ Model checkpoints, Habitat datasets, external runtime clones, and Conda environm
 not part of this backup. Their existing locations are unchanged by the cleanup.
 
 The manifest also lists older showcase and alternate cost-plot commands; the reproduction runner
-executes them after their aggregations. Compare two mirrors with the model environment:
+executes them after their aggregations. The completed cleanup comparison matched numerical tables
+and arrays exactly, PNGs pixel-for-pixel, and PDFs with only export timestamps removed. Its
+one-off comparison script is recoverable from commit `52b21afd`; the temporary mirrors and logs
+were removed after recording the validation summary in `cleanup_validation.json`.
 
-```bash
-python tools/compare_paper_outputs.py \
-  .cleanup_archive/before-codebase-cleanup/validation/baseline \
-  .cleanup_archive/before-codebase-cleanup/validation/cleaned \
-  --require-rebuilt --report /tmp/paper-comparison.json
-```
+Future rebuilds create disposable output under `validation/<name>/`. After reviewing the results,
+remove that named mirror when no longer needed. Keep `protected-inputs/`, `obsolete/`, and the
+archive manifests: those hold the scientific backups and restoration data.
 
-`--require-rebuilt` rejects outputs that were only copied into the mirrors. Numerical tables and
-arrays must agree exactly. PNGs are compared pixel-for-pixel, and PDFs are compared with only
-creation/modification timestamps removed. The older cost benchmark's historical published plot
-style is preserved in the original files; the baseline and cleaned code both rebuild using the
-plotting behavior at `bf4e65ff`.
+The older cost benchmark's historical published plot style is preserved in the original files;
+the maintained code rebuilds using the plotting behavior at `bf4e65ff`.
 
 Local archive restoration for confirmed obsolete artifacts is documented in [../CLEANUP.md](../CLEANUP.md).

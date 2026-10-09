@@ -43,10 +43,10 @@ assets must be supplied from the original source, not replaced with a new benchm
 
 `tests/inference_unit.py` covers configuration migration, rejected old options, server lifecycle,
 and scheduling. `tests/run_inference_checks.py` runs retained GPU/cache/probe tests serially.
-`tests/inference_parity.py` supports a baseline src tree through PYTHONPATH and compares action
-probabilities, cache lengths, and retained-slot identities. `tests/habitat_parity.py` exercises a
-canonical episode with Ray and Habitat. Uni-NaVid tests live under baselines/tests.
+`tests/eval_smoke.py` exercises finite Ray scheduling and model inference. Uni-NaVid tests live
+under baselines/tests. Cleanup-specific parity scripts were retired after validation.
 
-Use `tools/paper_inventory.py verify` and `verify --backup` to audit inputs. Compare rebuilt tables,
-arrays, and figures using `tools/compare_paper_outputs.py`. Tests and rebuilds must write to temporary
-or ignored validation locations, not the protected paper directories.
+Use `tools/paper_inventory.py verify` and `verify --backup` to audit inputs, and
+`tools/reproduce_paper.py` to rebuild paper outputs. Tests and rebuilds must write to temporary
+or ignored validation locations, not the protected paper directories. Remove disposable outputs
+after recording results; retain the scientific backups and archival restoration manifests.
