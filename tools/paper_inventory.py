@@ -32,6 +32,31 @@ STUDIES = {
 }
 
 
+ADDITIONAL_COMMANDS = [['python', 'paper/hybrid_prune/plot_vs_ctx.py'],
+ ['python', 'paper/hybrid_prune/plot_vs_flat.py'],
+ ['python', 'paper/layer_token_info/plot.py', '--episode', 'q5QZSEeHe5g_0'],
+ ['python',
+  'paper/hybrid_prune/plot_cost.py',
+  '--bench',
+  'paper_results/hybrid_prune/runs/cost_bench_100',
+  '--name',
+  'cost_bench_100',
+  '--protocol',
+  'hybrid',
+  '--edge',
+  'min5'],
+ ['python',
+  'paper/hybrid_prune/plot_cost.py',
+  '--bench',
+  'paper_results/hybrid_prune/runs/cost_bench_100',
+  '--name',
+  'cost_bench_100',
+  '--protocol',
+  'uniform',
+  '--edge',
+  'min5']]
+
+
 def digest(path):
     h = hashlib.sha256()
     with path.open('rb') as stream:
@@ -69,6 +94,14 @@ def episode_labels(run):
     return sorted(labels)
 
 
+def run_record(path):
+    episodes = episode_labels(path)
+    root = str(path.relative_to(ROOT))
+    return {'episodes': episodes, 'episode_count': len(episodes), 'input_prefix': root + '/',
+            'configurations': [root + '/' + n for n in ('config.yaml', 'manifest.json') if (path / n).is_file()],
+            'result_records': [root + '/summary.json'] if (path / 'summary.json').is_file() else []}
+
+
 def freeze():
     if MANIFEST.exists():
         raise SystemExit('Manifest already exists; verify it instead of overwriting the baseline.')
@@ -80,14 +113,21 @@ def freeze():
         runs = {}
         for p in sorted(root.glob('**/runs/*')):
             if p.is_dir() and not obsolete(p) and p.name != '.locks':
-                runs[str(p.relative_to(ROOT))] = {'episodes': episode_labels(p)}
+                runs[str(p.relative_to(ROOT))] = run_record(p)
         # Nested cost-benchmark arms have their own episode records.
         for p in sorted(root.glob('runs/cost_bench*/*')):
             if p.is_dir():
-                runs[str(p.relative_to(ROOT))] = {'episodes': episode_labels(p)}
+                runs[str(p.relative_to(ROOT))] = run_record(p)
+        reference = 'info_horizon_mp3d' if name.endswith('_mp3d') else 'ctx_ablation'
+        arms = ('r1_ref', 'uninavid_ref') if name.endswith('_mp3d') else ('r1_full', 'uninavid_full')
         studies[name] = {'commands': [['python', 'paper/' + c[0], *c[1:]] for c in commands],
                          'runs': runs, 'outputs': str(root.relative_to(ROOT)),
-                         'shared_references': ['paper_results/ctx_ablation/runs/r1_full']}
+                         'shared_references': [f'paper_results/{reference}/runs/{arm}' for arm in arms]}
+    studies['hybrid_prune']['cost_commands'] = [
+        ['python', 'paper/hybrid_prune/plot_cost.py', '--bench',
+         'paper_results/hybrid_prune/runs/' + bench, '--name', bench, '--protocol', protocol]
+        for bench in ('cost_bench', 'cost_bench_seed17', 'cost_bench_100')
+        for protocol in (('hybrid', 'uniform') if bench == 'cost_bench_100' else ('hybrid',))]
     for name in EXTRA:
         p = ROOT / name
         if not p.exists():
@@ -105,7 +145,7 @@ def freeze():
             raise RuntimeError(f'Backup checksum mismatch: {relative}')
         records.append({'path': relative, 'bytes': p.stat().st_size, 'sha256': sha})
     manifest = {'baseline_commit': 'bf4e65ff', 'backup': str(ARCHIVE.relative_to(ROOT) / 'protected-inputs'),
-                'studies': studies, 'files': records}
+                'studies': studies, 'additional_commands': ADDITIONAL_COMMANDS, 'files': records}
     MANIFEST.write_text(json.dumps(manifest, indent=2) + '\n')
     print(f'Protected and backed up {len(records)} files ({sum(r["bytes"] for r in records) / 2**30:.2f} GiB).')
 

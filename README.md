@@ -1,88 +1,100 @@
 # LongNav
-This repository provides the implementation of LongNav. 
 
-### 🚧 🚧 under construction 🚧🚧
-## Installation 🛠️
-### RL trainer
-Create the main conda environment responsible for vlm trainer
-```
-conda create -n longnav_vlm python=3.10.16 && conda activate longnav_vlm
-```
+Inference and paper reproduction for LongNav-R1 and Uni-NaVid navigation models.
+Pretrained SFT and RL-derived checkpoints remain supported; this repository does not train models.
 
-Install with pip:
-```
+## Installation
+
+Keep model inference and Habitat in separate environments. The tested local setup is recorded in
+[SETUP_NOTES.md](SETUP_NOTES.md); cleanup did not upgrade that stack.
+
+In `longnav_vlm` (Python 3.10):
+
+```bash
 pip install -e .
-pip install flash-attn --no-build-isolation
 ```
 
-Make sure that the verl submodule is installed. 
-```
-git submodule update --init --recursive
-cd verl && pip install --no-dependencies -e .
+SDPA is the default attention implementation. FlashAttention is optional. PEFT is required for
+pretrained adapter loading. No `verl`, TRL, optimizer, or training runtime is required.
+
+Install Habitat Lab / Habitat Sim in `vln`, then register the inference package without changing
+Habitat's pinned dependencies:
+
+```bash
+pip install 'ray[default]==2.53.0'
+pip install --no-deps -e .
 ```
 
-You may optionally install flash attention in the same env.
-### Environment
-Install habitat lab in a separate conda env named vln. Then run under the repo root directory:
-```
-pip install "ray[default]==2.53.0"
-pip install --no-dependencies -e .
-```
-Ray is required in `vln` because Habitat sim workers are Ray actors. Install longnav with `--no-deps` so habitat-sim's pinned packages are not disturbed; ray must be installed explicitly (it is a longnav dependency but skipped by `--no-deps`).
+Use the same Ray version in both environments. Dataset paths are configured by
+`src/longnav/config/dataset/`; `sim.workspace` is the root from which Habitat resolves relative paths.
+Uni-NaVid has its own runtime; see [baselines/README.md](baselines/README.md).
 
-### Testing the Install
-Two basic tests are currently available to validate your install. The code should be run with the longnav_vlm conda env active.
+## Evaluation
 
-[eval smoke test](tests/eval_smoke.py) (tests the rollout collection)
-```
-python3 tests/eval_smoke.py
+Run from the repository root with `longnav_vlm` active:
+
+```bash
+python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+  +experiment=paper_ctx +resources=single task.run_name=my_eval \
+  task.wandb_project=null resources.osm_gb=10
 ```
 
-[rl smoke test](tests/rl_smoke.py) (tests one RL training step)
-```
-python3 tests/rl_smoke.py
-```
+`checkpoint=base`, `sft`, and `longnav` select the maintained pretrained models. Adapter settings live
+under `adapter.path` and `adapter.peft_config`. Historical `training.checkpoint` and PEFT fields are
+translated at bootstrap; conflicting settings raise an error. Historical optimizer/loss fields are
+ignored only when reading a saved configuration. Removed pruning policies and active removed knobs
+raise errors.
 
-These may be referenced for integrating new Envs.
+Resource presets set the number of model/simulator actors and Ray object-store size. Adjust them to
+available GPUs, CPUs, and shared memory. Each simulator flushes episode results before reuse.
+`task.wandb_project=null` disables remote logging; results are still written locally.
 
-## Quickstart
-Run our framework with a dummy environment (doesn't require habitat dependencies)
-```
-python3 -m longnav.scripts.train_dummy.py
-```
+## Serving and other interfaces
 
-## Training 🚀
-
-```
-python3 -m longnav.scripts.train_rl +checkpoint=sft +dataset=hm3d_train +experiment=train +resources=octo +training=hapo task.run_name=my_awesome_training_run
+```bash
+python -m longnav.scripts.serve
 ```
 
-## Eval ⏱️
-Example:
+The FastAPI application loads the model at startup. POST an image to `/act` with `instr_or_goal` to
+start or reset an episode; subsequent requests continue its cached context. A single server worker
+owns one conversation. See [tools/client.py](tools/client.py) for the client interface.
+
+Uni-NaVid evaluation, teleoperation, action buffering, and multi-goal interfaces are documented in
+[baselines/README.md](baselines/README.md). Its default single-goal manifest is
+`dump/hm3d_v2_100_labels.json`, a protected local input. The original multi-goal manifest and Habitat
+configuration are missing in this checkout; see [CLEANUP.md](CLEANUP.md) before an integration run.
+
+## Retained methods and paper results
+
+Context eviction, recomputation, and reindexing are retained, as are random, FastV, DivPrune, DART,
+PyramidDrop, hybrid, uniform, visual-blind controls, and paper diagnostics. Both whole-model and
+last-stage budget calculations remain available. KL/keep-one diagnostics and gradient attention
+attribution remain; they are independent of model training.
+
+[paper_results/README.md](paper_results/README.md) links the study protocols.
+[paper_results/REPRODUCIBILITY.md](paper_results/REPRODUCIBILITY.md) describes the checksummed input
+manifest, local backups, isolated rebuilds, and restoration. Preserve raw traces and probe arrays,
+not just summaries. Unknown artifacts remain in place; confirmed obsolete artifacts are in the
+ignored `.cleanup_archive/before-codebase-cleanup/` directory.
+
+## Code and validation
+
+- `utils/checkpoints.py`: shared pretrained model and adapter loading.
+- `utils/vlm_worker.py`: model inference and attention attribution.
+- `utils/context_cache.py`: context windows, cache eviction, and recomputation.
+- `utils/kv_prune.py`, `utils/pruning_runtime.py`: selectors and staged pruning.
+- `utils/diagnostics.py`: replay-based paper diagnostics.
+- `utils/rollout_core.py`: episode collection and Ray scheduling.
+- `env/`: Habitat metrics, stopping, rendering, and simulator interfaces.
+
+```bash
+python tests/inference_unit.py
+python tests/run_inference_checks.py --output /tmp/longnav-checks
+python tests/eval_smoke.py
+python tools/paper_inventory.py verify
+python tools/reproduce_paper.py --name my-rebuild
 ```
-python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_val +experiment=eval +resources=octo task.run_name=my_awesome_eval_run
-```
 
-## Sim to Real Serving 🤖
-Serve the FAST API:
-```
-python3 -m longnav.serve
-```
-
-See the [client example](tools/client.py) for API usage.
-## Project Structure:
-### Configuration Management
-Config schemas are defined via data class in [config_schema.py](src/longnav/config_schema.py). 
-
-Config overrides are defined within the [config directory](src/longnav/config) which provides presets that can be composed. 
-#### Key Configs:
-- sim.workspace: directory containing "data", see [habitat lab datasets](https://github.com/facebookresearch/habitat-lab/blob/main/DATASETS.md)
-- resources.num_vlms and resources.num_sims: number of workers for policy and simualator respectively. the former must be less than your number of GPUs. the latter is recommended to be 1+num_vlms. when training, num_vlms must divide the number of rollouts (default 16) or the code will hang.
-- task.run_name: run name used for wandb, default behavior is to resume. 
-- resources.osm_gb: size of ray objectstore, tune according to available shared memory and spilling situation
-
-### RL Env Interface
-See [dummy env structure](src/longnav/env/env_base.py) for reference. Any compatible Env may be used by the [rollout collection orchestration](src/longnav/utils/rollout_core.py) to produce rollouts for training steps.
-
-At a high level, the Env Actors return dictionaries of standard RL outputs. However, RGB observation is separated out for better Ray performance.
-
+The full smoke suite needs cached model weights and a GPU. `tests/inference_parity.py` compares fixed
+inputs against the baseline; `tests/habitat_parity.py` compares a real HM3D episode through Ray.
+See [CLEANUP.md](CLEANUP.md) for measured validation results and remaining integration limitations.

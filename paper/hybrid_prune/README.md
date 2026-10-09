@@ -146,9 +146,9 @@ Knobs (LongNav-R1, `src/longnav/config_schema.py`): `vlm.kv_prune_stage_importan
   the last few frames; stages can sit a few slots under their budget when the per-frame count drifts.
 - The sweep runs two arms at a time on one GPU: `vlm_latency_ms` is contaminated and is not a result.
 
-## Earlier definitions of the budget (superseded, data kept)
+## Earlier definitions of the budget (superseded, archived locally)
 
-- `..._b<k>` arms, `results_last_stage/`, `figures_last_stage/` (`aggregate.py --budget last_stage`): `k`
+- `..._b<k>` arms, `results_last_stage/`, `figures_last_stage/` (historical reporting mode): `k`
   bounded only the **last scheduled stage** (PyramidDrop's own reading, as in Exp 4) and layers 0–6 were
   never pruned. By the whole-model measure those arms held 8.0 / 9.6 / 11.3 / 13.9 frames' worth (hybrid)
   and 25.7 / 29.8 / 30.9 / 41.2 (PyramidDrop) at nominal `k` = 1 / 4 / 8 / 16 on LongNav-R1 — nowhere near
@@ -156,9 +156,14 @@ Knobs (LongNav-R1, `src/longnav/config_schema.py`): `vlm.kv_prune_stage_importan
 - `..._m<k>` arms (`runs_aborted/`, 21 episodes): whole-model budget anchored at the original token
   count; stopped for the PyramidDrop starvation described above.
 
+The superseded run directories and outputs are preserved under
+`.cleanup_archive/before-codebase-cleanup/obsolete/paper_results/hybrid_prune/` with
+checksummed restoration manifests. Current reporting accepts only the retained model budget.
+The `last_stage` budget calculation remains available for the windowed token-pruning studies.
+
 ## MP3D replicate
 
-The same 16 arms on MP3D ObjectNav val (`DATASET=mp3d`): 100 episodes drawn with seed 17 from the
+The hybrid/PyramidDrop comparison, extended to all 24 arms with uniform below, on MP3D ObjectNav val (`DATASET=mp3d`): 100 episodes drawn with seed 17 from the
 2195-episode split (`src/longnav/conf/episode_jsons/mp3d_100_seed17.json`, the manifest of the MP3D
 information-horizon replicate). LongNav-R1 runs with `+dataset=mp3d_val`; Uni-NaVid with
 `baselines/uninavid_hm3d/config/objectnav_mp3d.yaml` and the MP3D dataset and scene paths. Protocols,
@@ -220,9 +225,9 @@ EXTRA_OVERRIDES="resources.osm_gb=10" nohup bash paper/hybrid_prune/run_worker.s
 # the MP3D replicate: prefix the same commands with DATASET=mp3d, and pass --dataset mp3d below
 python paper/hybrid_prune/aggregate.py --status          # progress
 python paper/hybrid_prune/aggregate.py --allow-partial   # interim
-python paper/hybrid_prune/aggregate.py --strict          # final (--budget last_stage: the first run)
+python paper/hybrid_prune/aggregate.py --strict          # final whole-model protocol
 /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot.py
-# the MP3D replicate has no uniform arms: add --protocols pyramiddrop hybrid to aggregate.py / plot.py
+# MP3D includes all three protocols: add --dataset mp3d to aggregate.py / plot.py
 ```
 
 Finished arms are skipped; a partial arm resumes (LongNav-R1 through wandb — project

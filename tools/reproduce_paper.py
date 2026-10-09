@@ -4,7 +4,6 @@ Example: python tools/reproduce_paper.py --name baseline --source .cleanup_archi
 """
 from __future__ import annotations
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,7 +17,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--name', required=True)
     ap.add_argument('--source', type=Path, default=ROOT)
+    envs = Path.home() / 'miniconda3/envs'
+    ap.add_argument('--inference-python', type=Path, default=envs / 'longnav_vlm/bin/python')
+    ap.add_argument('--plot-python', type=Path, default=envs / 'vln/bin/python')
     args = ap.parse_args()
+    for python in (args.inference_python, args.plot_python):
+        if not python.is_file():
+            ap.error(f'Missing runtime {python}; supply --inference-python / --plot-python')
     manifest = json.loads((ROOT / 'paper_results/protected_inputs.json').read_text())
     mirror = ROOT / '.cleanup_archive/before-codebase-cleanup/validation' / args.name
     mirror.mkdir(parents=True, exist_ok=False)
@@ -38,16 +43,13 @@ def main():
     commands = [c for study in manifest['studies'].values() for c in study['commands']]
     # Keep dependencies first: other studies read context-ablation results.
     commands.sort(key=lambda c: (0 if 'ctx_ablation' in c[1] else 1))
-    for bench in ('cost_bench', 'cost_bench_seed17', 'cost_bench_100'):
-        for protocol in (('hybrid', 'uniform') if bench == 'cost_bench_100' else ('hybrid',)):
-            commands.append(['python', 'paper/hybrid_prune/plot_cost.py', '--bench',
-                             'paper_results/hybrid_prune/runs/' + bench, '--name', bench,
-                             '--protocol', protocol])
+    commands += manifest['studies']['hybrid_prune'].get('cost_commands', [])
+    commands += manifest.get('additional_commands', [])
     env = dict(os.environ, PYTHONPATH=str(mirror / 'src'), PYTHONDONTWRITEBYTECODE='1', MPLBACKEND='Agg')
     report = []
     for i, cmd in enumerate(commands):
         plot = 'plot' in Path(cmd[1]).stem or Path(cmd[1]).name == 'horizon.py'
-        python = Path('/home/brabiei/miniconda3/envs') / ('vln' if plot else 'longnav_vlm') / 'bin/python'
+        python = args.plot_python if plot else args.inference_python
         log = mirror / f'command-{i:02d}.log'
         with log.open('w') as stream:
             proc = subprocess.run([str(python), *cmd[1:]], cwd=mirror, env=env, stdout=stream, stderr=subprocess.STDOUT)

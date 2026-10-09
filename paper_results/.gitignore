@@ -14,7 +14,7 @@
 **/frames/
 **/selector/
 **/horizon/
-# Chained launch logs (Ray/progress noise, several MB each; each arm's launch.log is kept) and
+# Chained launch logs (Ray/progress noise) and
 # derived files over GitHub's 100 MB limit (aggregate.py rebuilds masks.parquet from the runs).
 **/driver.log
 **/driver.log.partial

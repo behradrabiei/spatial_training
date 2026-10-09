@@ -117,7 +117,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_evict_k1/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_evict_k1/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_evict_k16": {
           "episodes": [
@@ -221,7 +227,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_evict_k16/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_evict_k16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_evict_k32": {
           "episodes": [
@@ -325,7 +337,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_evict_k32/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_evict_k32/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_evict_k4": {
           "episodes": [
@@ -429,7 +447,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_evict_k4/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_evict_k4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_evict_k8": {
           "episodes": [
@@ -533,7 +557,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_evict_k8/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_evict_k8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_full": {
           "episodes": [
@@ -637,7 +667,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_full/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_full/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_recompute_k1": {
           "episodes": [
@@ -741,7 +777,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_recompute_k1/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_recompute_k1/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_recompute_k16": {
           "episodes": [
@@ -845,7 +887,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_recompute_k16/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_recompute_k16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_recompute_k32": {
           "episodes": [
@@ -949,7 +997,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_recompute_k32/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_recompute_k32/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_recompute_k4": {
           "episodes": [
@@ -1053,7 +1107,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_recompute_k4/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_recompute_k4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/r1_recompute_k8": {
           "episodes": [
@@ -1157,7 +1217,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/r1_recompute_k8/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/r1_recompute_k8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/ctx_ablation/runs/uninavid_full": {
           "episodes": [
@@ -1261,6 +1327,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/uninavid_full/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/uninavid_full/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/ctx_ablation/runs/uninavid_full/summary.json"
           ]
         },
         "paper_results/ctx_ablation/runs/uninavid_k1": {
@@ -1365,6 +1439,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/uninavid_k1/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/uninavid_k1/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/ctx_ablation/runs/uninavid_k1/summary.json"
           ]
         },
         "paper_results/ctx_ablation/runs/uninavid_k16": {
@@ -1469,6 +1551,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/uninavid_k16/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/uninavid_k16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/ctx_ablation/runs/uninavid_k16/summary.json"
           ]
         },
         "paper_results/ctx_ablation/runs/uninavid_k32": {
@@ -1573,6 +1663,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/uninavid_k32/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/uninavid_k32/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/ctx_ablation/runs/uninavid_k32/summary.json"
           ]
         },
         "paper_results/ctx_ablation/runs/uninavid_k4": {
@@ -1677,6 +1775,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/uninavid_k4/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/uninavid_k4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/ctx_ablation/runs/uninavid_k4/summary.json"
           ]
         },
         "paper_results/ctx_ablation/runs/uninavid_k8": {
@@ -1781,12 +1887,21 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/ctx_ablation/runs/uninavid_k8/",
+          "configurations": [
+            "paper_results/ctx_ablation/runs/uninavid_k8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/ctx_ablation/runs/uninavid_k8/summary.json"
           ]
         }
       },
       "outputs": "paper_results/ctx_ablation",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     },
     "frame_influence": {
@@ -1813,7 +1928,13 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/frame_influence/runs/r1_influence/",
+          "configurations": [
+            "paper_results/frame_influence/runs/r1_influence/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/frame_influence/runs/r1_influence_recompute": {
           "episodes": [
@@ -1826,7 +1947,13 @@
             "k1cupFYWXJ6_0",
             "q5QZSEeHe5g_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 9,
+          "input_prefix": "paper_results/frame_influence/runs/r1_influence_recompute/",
+          "configurations": [
+            "paper_results/frame_influence/runs/r1_influence_recompute/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/frame_influence/runs/uninavid_influence": {
           "episodes": [
@@ -1840,12 +1967,21 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/frame_influence/runs/uninavid_influence/",
+          "configurations": [
+            "paper_results/frame_influence/runs/uninavid_influence/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/frame_influence/runs/uninavid_influence/summary.json"
           ]
         }
       },
       "outputs": "paper_results/frame_influence",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     },
     "frame_influence_keepone": {
@@ -1876,7 +2012,13 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/frame_influence_keepone/runs/r1_influence_keepone/",
+          "configurations": [
+            "paper_results/frame_influence_keepone/runs/r1_influence_keepone/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone": {
           "episodes": [
@@ -1890,6 +2032,14 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone/",
+          "configurations": [
+            "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone/summary.json"
           ]
         },
         "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone_splice": {
@@ -1904,12 +2054,21 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone_splice/",
+          "configurations": [
+            "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone_splice/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/frame_influence_keepone/runs/uninavid_influence_keepone_splice/summary.json"
           ]
         }
       },
       "outputs": "paper_results/frame_influence_keepone",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     },
     "token_prune": {
@@ -2027,7 +2186,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_dart_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_dart_b1/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_dart_b16": {
           "episodes": [
@@ -2131,7 +2296,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_dart_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_dart_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_dart_b4": {
           "episodes": [
@@ -2235,7 +2406,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_dart_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_dart_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_dart_b8": {
           "episodes": [
@@ -2339,7 +2516,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_dart_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_dart_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_divprune_b1": {
           "episodes": [
@@ -2443,7 +2626,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_divprune_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_divprune_b1/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_divprune_b16": {
           "episodes": [
@@ -2547,7 +2736,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_divprune_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_divprune_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_divprune_b4": {
           "episodes": [
@@ -2651,7 +2846,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_divprune_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_divprune_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_divprune_b8": {
           "episodes": [
@@ -2755,7 +2956,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_divprune_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_divprune_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_fastv_b1": {
           "episodes": [
@@ -2859,7 +3066,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_fastv_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_fastv_b1/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_fastv_b16": {
           "episodes": [
@@ -2963,7 +3176,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_fastv_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_fastv_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_fastv_b4": {
           "episodes": [
@@ -3067,7 +3286,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_fastv_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_fastv_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_fastv_b8": {
           "episodes": [
@@ -3171,7 +3396,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_fastv_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_fastv_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_identity": {
           "episodes": [
@@ -3275,7 +3506,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_identity/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_identity/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_pyramiddrop_b1": {
           "episodes": [
@@ -3379,7 +3616,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_pyramiddrop_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_pyramiddrop_b1/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_pyramiddrop_b16": {
           "episodes": [
@@ -3483,7 +3726,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_pyramiddrop_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_pyramiddrop_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_pyramiddrop_b4": {
           "episodes": [
@@ -3587,7 +3836,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_pyramiddrop_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_pyramiddrop_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_pyramiddrop_b8": {
           "episodes": [
@@ -3691,7 +3946,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_pyramiddrop_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_pyramiddrop_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_random_b1": {
           "episodes": [
@@ -3795,7 +4056,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_random_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_random_b1/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_random_b16": {
           "episodes": [
@@ -3899,7 +4166,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_random_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_random_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_random_b4": {
           "episodes": [
@@ -4003,7 +4276,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_random_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_random_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/r1_random_b8": {
           "episodes": [
@@ -4107,7 +4386,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/r1_random_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/r1_random_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune/runs/uninavid_dart_b1": {
           "episodes": [
@@ -4211,6 +4496,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_dart_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_dart_b1/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_dart_b1/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_dart_b16": {
@@ -4315,6 +4608,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_dart_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_dart_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_dart_b16/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_dart_b4": {
@@ -4419,6 +4720,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_dart_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_dart_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_dart_b4/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_dart_b8": {
@@ -4523,6 +4832,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_dart_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_dart_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_dart_b8/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_divprune_b1": {
@@ -4627,6 +4944,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_divprune_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_divprune_b1/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_divprune_b1/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_divprune_b16": {
@@ -4731,6 +5056,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_divprune_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_divprune_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_divprune_b16/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_divprune_b4": {
@@ -4835,6 +5168,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_divprune_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_divprune_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_divprune_b4/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_divprune_b8": {
@@ -4939,6 +5280,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_divprune_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_divprune_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_divprune_b8/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_fastv_b1": {
@@ -5043,6 +5392,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_fastv_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_fastv_b1/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_fastv_b1/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_fastv_b16": {
@@ -5147,6 +5504,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_fastv_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_fastv_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_fastv_b16/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_fastv_b4": {
@@ -5251,6 +5616,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_fastv_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_fastv_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_fastv_b4/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_fastv_b8": {
@@ -5355,6 +5728,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_fastv_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_fastv_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_fastv_b8/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_identity": {
@@ -5459,6 +5840,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_identity/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_identity/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_identity/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_pyramiddrop_b1": {
@@ -5563,6 +5952,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_pyramiddrop_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b1/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b1/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_pyramiddrop_b16": {
@@ -5667,6 +6064,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_pyramiddrop_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b16/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_pyramiddrop_b4": {
@@ -5771,6 +6176,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_pyramiddrop_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b4/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_pyramiddrop_b8": {
@@ -5875,6 +6288,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_pyramiddrop_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_pyramiddrop_b8/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_random_b1": {
@@ -5979,6 +6400,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_random_b1/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_random_b1/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_random_b1/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_random_b16": {
@@ -6083,6 +6512,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_random_b16/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_random_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_random_b16/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_random_b4": {
@@ -6187,6 +6624,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_random_b4/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_random_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_random_b4/summary.json"
           ]
         },
         "paper_results/token_prune/runs/uninavid_random_b8": {
@@ -6291,12 +6736,21 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune/runs/uninavid_random_b8/",
+          "configurations": [
+            "paper_results/token_prune/runs/uninavid_random_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune/runs/uninavid_random_b8/summary.json"
           ]
         }
       },
       "outputs": "paper_results/token_prune",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     },
     "token_prune_flat": {
@@ -6418,7 +6872,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_dart_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_dart_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_dart_b32": {
           "episodes": [
@@ -6522,7 +6982,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_dart_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_dart_b32/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_dart_b4": {
           "episodes": [
@@ -6626,7 +7092,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_dart_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_dart_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_dart_b8": {
           "episodes": [
@@ -6730,7 +7202,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_dart_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_dart_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_divprune_b16": {
           "episodes": [
@@ -6834,7 +7312,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_divprune_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_divprune_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_divprune_b32": {
           "episodes": [
@@ -6938,7 +7422,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_divprune_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_divprune_b32/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_divprune_b4": {
           "episodes": [
@@ -7042,7 +7532,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_divprune_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_divprune_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_divprune_b8": {
           "episodes": [
@@ -7146,7 +7642,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_divprune_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_divprune_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_fastv_b16": {
           "episodes": [
@@ -7250,7 +7752,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_fastv_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_fastv_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_fastv_b32": {
           "episodes": [
@@ -7354,7 +7862,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_fastv_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_fastv_b32/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_fastv_b4": {
           "episodes": [
@@ -7458,7 +7972,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_fastv_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_fastv_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_fastv_b8": {
           "episodes": [
@@ -7562,7 +8082,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_fastv_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_fastv_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_identity": {
           "episodes": [
@@ -7666,7 +8192,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_identity/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_identity/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_random_b16": {
           "episodes": [
@@ -7770,7 +8302,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_random_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_random_b16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_random_b32": {
           "episodes": [
@@ -7874,7 +8412,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_random_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_random_b32/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_random_b4": {
           "episodes": [
@@ -7978,7 +8522,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_random_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_random_b4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/r1_random_b8": {
           "episodes": [
@@ -8082,7 +8632,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/r1_random_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/r1_random_b8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/token_prune_flat/runs/uninavid_dart_b16": {
           "episodes": [
@@ -8186,6 +8742,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_dart_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b16/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_dart_b32": {
@@ -8290,6 +8854,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_dart_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b32/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b32/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_dart_b4": {
@@ -8394,6 +8966,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_dart_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b4/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_dart_b8": {
@@ -8498,6 +9078,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_dart_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_dart_b8/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_divprune_b16": {
@@ -8602,6 +9190,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_divprune_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b16/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_divprune_b32": {
@@ -8706,6 +9302,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_divprune_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b32/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b32/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_divprune_b4": {
@@ -8810,6 +9414,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_divprune_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b4/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_divprune_b8": {
@@ -8914,6 +9526,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_divprune_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_divprune_b8/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_fastv_b16": {
@@ -9018,6 +9638,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_fastv_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b16/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_fastv_b32": {
@@ -9122,6 +9750,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_fastv_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b32/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b32/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_fastv_b4": {
@@ -9226,6 +9862,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_fastv_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b4/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_fastv_b8": {
@@ -9330,6 +9974,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_fastv_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_fastv_b8/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_identity": {
@@ -9434,6 +10086,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_identity/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_identity/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_identity/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_random_b16": {
@@ -9538,6 +10198,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_random_b16/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b16/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_random_b32": {
@@ -9642,6 +10310,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_random_b32/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b32/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b32/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_random_b4": {
@@ -9746,6 +10422,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_random_b4/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b4/summary.json"
           ]
         },
         "paper_results/token_prune_flat/runs/uninavid_random_b8": {
@@ -9850,12 +10534,21 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/token_prune_flat/runs/uninavid_random_b8/",
+          "configurations": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/token_prune_flat/runs/uninavid_random_b8/summary.json"
           ]
         }
       },
       "outputs": "paper_results/token_prune_flat",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     },
     "layer_token_info": {
@@ -9881,52 +10574,116 @@
       ],
       "runs": {
         "paper_results/layer_token_info/nohist/runs/Dd4bFSTQ8gi_1": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/Dd4bFSTQ8gi_1/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/Nfvxx8J5NCo_1": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/Nfvxx8J5NCo_1/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/Nfvxx8J5NCo_2": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/Nfvxx8J5NCo_2/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/VBzV5z6i1WS_1": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/VBzV5z6i1WS_1/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/a8BtkwhxdRV_2": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/a8BtkwhxdRV_2/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/h1zeeAwLh9Z_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/h1zeeAwLh9Z_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/k1cupFYWXJ6_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/k1cupFYWXJ6_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/q5QZSEeHe5g_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/q5QZSEeHe5g_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/wcojb4TFT35_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/wcojb4TFT35_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/nohist/runs/zt1RVoi7PcG_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/nohist/runs/zt1RVoi7PcG_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/Dd4bFSTQ8gi_1": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/Dd4bFSTQ8gi_1/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/Nfvxx8J5NCo_1": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/Nfvxx8J5NCo_1/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/Nfvxx8J5NCo_2": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/Nfvxx8J5NCo_2/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/VBzV5z6i1WS_1": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/VBzV5z6i1WS_1/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/a8BtkwhxdRV_2": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/a8BtkwhxdRV_2/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/h1zeeAwLh9Z_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/h1zeeAwLh9Z_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind": {
           "episodes": [
@@ -10030,7 +10787,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l12": {
           "episodes": [
@@ -10134,7 +10897,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l12/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l12/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l16": {
           "episodes": [
@@ -10238,7 +11007,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l16/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l20": {
           "episodes": [
@@ -10342,7 +11117,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l20/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l20/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l24": {
           "episodes": [
@@ -10446,7 +11227,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l24/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l24/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l4": {
           "episodes": [
@@ -10550,7 +11337,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l4/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l8": {
           "episodes": [
@@ -10654,7 +11447,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l8/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_w32_vblind_l8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/hm3d_v2_100_win32": {
           "episodes": [
@@ -10758,24 +11557,47 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/layer_token_info/runs/hm3d_v2_100_win32/",
+          "configurations": [
+            "paper_results/layer_token_info/runs/hm3d_v2_100_win32/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/k1cupFYWXJ6_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/k1cupFYWXJ6_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/q5QZSEeHe5g_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/q5QZSEeHe5g_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/wcojb4TFT35_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/wcojb4TFT35_0/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/layer_token_info/runs/zt1RVoi7PcG_0": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/layer_token_info/runs/zt1RVoi7PcG_0/",
+          "configurations": [],
+          "result_records": []
         }
       },
       "outputs": "paper_results/layer_token_info",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     },
     "info_horizon": {
@@ -10892,7 +11714,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/r1_blind_l12/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_blind_l12/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/r1_blind_l14": {
           "episodes": [
@@ -10996,7 +11824,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/r1_blind_l14/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_blind_l14/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/r1_blind_l16": {
           "episodes": [
@@ -11100,7 +11934,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/r1_blind_l16/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_blind_l16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/r1_blind_l18": {
           "episodes": [
@@ -11204,7 +12044,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/r1_blind_l18/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_blind_l18/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/r1_blind_l20": {
           "episodes": [
@@ -11308,7 +12154,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/r1_blind_l20/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_blind_l20/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/r1_blind_l24": {
           "episodes": [
@@ -11412,7 +12264,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/r1_blind_l24/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_blind_l24/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/r1_blind_l8": {
           "episodes": [
@@ -11516,7 +12374,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/r1_blind_l8/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_blind_l8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/r1_probe_leaky": {
           "episodes": [
@@ -11530,7 +12394,13 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/info_horizon/runs/r1_probe_leaky/",
+          "configurations": [
+            "paper_results/info_horizon/runs/r1_probe_leaky/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon/runs/uninavid_blind_l12": {
           "episodes": [
@@ -11634,6 +12504,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_blind_l12/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_blind_l12/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_blind_l12/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_blind_l16": {
@@ -11738,6 +12616,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_blind_l16/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_blind_l16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_blind_l16/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_blind_l18": {
@@ -11842,6 +12728,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_blind_l18/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_blind_l18/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_blind_l18/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_blind_l20": {
@@ -11946,6 +12840,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_blind_l20/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_blind_l20/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_blind_l20/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_blind_l24": {
@@ -12050,6 +12952,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_blind_l24/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_blind_l24/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_blind_l24/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_blind_l28": {
@@ -12154,6 +13064,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_blind_l28/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_blind_l28/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_blind_l28/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_blind_l8": {
@@ -12258,6 +13176,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_blind_l8/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_blind_l8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_blind_l8/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_probe": {
@@ -12272,6 +13198,14 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_probe/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_probe/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_probe/summary.json"
           ]
         },
         "paper_results/info_horizon/runs/uninavid_ref": {
@@ -12376,12 +13310,21 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon/runs/uninavid_ref/",
+          "configurations": [
+            "paper_results/info_horizon/runs/uninavid_ref/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon/runs/uninavid_ref/summary.json"
           ]
         }
       },
       "outputs": "paper_results/info_horizon",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     },
     "info_horizon_mp3d": {
@@ -12502,7 +13445,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_blind_l12/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_blind_l12/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_blind_l14": {
           "episodes": [
@@ -12606,7 +13555,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_blind_l14/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_blind_l14/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_blind_l16": {
           "episodes": [
@@ -12710,7 +13665,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_blind_l16/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_blind_l16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_blind_l18": {
           "episodes": [
@@ -12814,7 +13775,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_blind_l18/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_blind_l18/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_blind_l20": {
           "episodes": [
@@ -12918,7 +13885,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_blind_l20/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_blind_l20/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_blind_l24": {
           "episodes": [
@@ -13022,7 +13995,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_blind_l24/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_blind_l24/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_blind_l8": {
           "episodes": [
@@ -13126,7 +14105,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_blind_l8/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_blind_l8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_probe_leaky": {
           "episodes": [
@@ -13140,7 +14125,13 @@
             "pLe4wQe7qrG_76",
             "x8F5xyUWy9e_157",
             "zsNo4HB9uLZ_75"
-          ]
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_probe_leaky/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_probe_leaky/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/r1_ref": {
           "episodes": [
@@ -13244,7 +14235,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/r1_ref/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/r1_ref/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_blind_l12": {
           "episodes": [
@@ -13348,6 +14345,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_blind_l12/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l12/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l12/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_blind_l16": {
@@ -13452,6 +14457,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_blind_l16/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l16/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_blind_l18": {
@@ -13556,6 +14569,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_blind_l18/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l18/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l18/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_blind_l20": {
@@ -13660,6 +14681,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_blind_l20/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l20/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l20/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_blind_l24": {
@@ -13764,6 +14793,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_blind_l24/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l24/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l24/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_blind_l28": {
@@ -13868,6 +14905,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_blind_l28/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l28/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l28/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_blind_l8": {
@@ -13972,6 +15017,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_blind_l8/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_blind_l8/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_probe": {
@@ -13986,6 +15039,14 @@
             "pLe4wQe7qrG_76",
             "x8F5xyUWy9e_157",
             "zsNo4HB9uLZ_75"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_probe/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_probe/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_probe/summary.json"
           ]
         },
         "paper_results/info_horizon_mp3d/runs/uninavid_ref": {
@@ -14090,12 +15151,21 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/info_horizon_mp3d/runs/uninavid_ref/",
+          "configurations": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_ref/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/info_horizon_mp3d/runs/uninavid_ref/summary.json"
           ]
         }
       },
       "outputs": "paper_results/info_horizon_mp3d",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/info_horizon_mp3d/runs/r1_ref",
+        "paper_results/info_horizon_mp3d/runs/uninavid_ref"
       ]
     },
     "hybrid_prune": {
@@ -14112,13 +15182,25 @@
       ],
       "runs": {
         "paper_results/hybrid_prune/runs/cost_bench": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_100": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_seed17": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_seed17/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_hybrid_mp16": {
           "episodes": [
@@ -14222,7 +15304,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_hybrid_mp16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_hybrid_mp2": {
           "episodes": [
@@ -14326,7 +15414,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_hybrid_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_hybrid_mp2/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_hybrid_mp4": {
           "episodes": [
@@ -14430,7 +15524,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_hybrid_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_hybrid_mp4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_hybrid_mp8": {
           "episodes": [
@@ -14534,7 +15634,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_hybrid_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_hybrid_mp8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp16": {
           "episodes": [
@@ -14638,7 +15744,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp2": {
           "episodes": [
@@ -14742,7 +15854,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp2/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp4": {
           "episodes": [
@@ -14846,7 +15964,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp8": {
           "episodes": [
@@ -14950,7 +16074,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_pyramiddrop_mp8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_uniform_mp16": {
           "episodes": [
@@ -15054,7 +16184,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_uniform_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_uniform_mp16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_uniform_mp2": {
           "episodes": [
@@ -15158,7 +16294,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_uniform_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_uniform_mp2/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_uniform_mp4": {
           "episodes": [
@@ -15262,7 +16404,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_uniform_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_uniform_mp4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/r1_uniform_mp8": {
           "episodes": [
@@ -15366,7 +16514,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/r1_uniform_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/r1_uniform_mp8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/uninavid_hybrid_mp16": {
           "episodes": [
@@ -15470,6 +16624,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_hybrid_mp2": {
@@ -15574,6 +16736,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_hybrid_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp2/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp2/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_hybrid_mp4": {
@@ -15678,6 +16848,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_hybrid_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp4/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_hybrid_mp8": {
@@ -15782,6 +16960,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_hybrid_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_hybrid_mp8/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp16": {
@@ -15886,6 +17072,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp2": {
@@ -15990,6 +17184,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp2/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp2/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp4": {
@@ -16094,6 +17296,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp4/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp8": {
@@ -16198,6 +17408,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_pyramiddrop_mp8/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_uniform_mp16": {
@@ -16302,6 +17520,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_uniform_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_uniform_mp2": {
@@ -16406,6 +17632,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_uniform_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp2/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp2/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_uniform_mp4": {
@@ -16510,6 +17744,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_uniform_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp4/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/uninavid_uniform_mp8": {
@@ -16614,6 +17856,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/uninavid_uniform_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/uninavid_uniform_mp8/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench/cost_r1_full": {
@@ -16635,7 +17885,13 @@
             "k1cupFYWXJ6_1",
             "p53SfW6mjZe_0",
             "wcojb4TFT35_0"
-          ]
+          ],
+          "episode_count": 17,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench/cost_r1_full/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench/cost_r1_full/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench/cost_r1_hybrid_mp16": {
           "episodes": [
@@ -16656,7 +17912,13 @@
             "k1cupFYWXJ6_1",
             "p53SfW6mjZe_0",
             "wcojb4TFT35_0"
-          ]
+          ],
+          "episode_count": 17,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench/cost_r1_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench/cost_r1_hybrid_mp16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_full": {
           "episodes": [
@@ -16677,6 +17939,14 @@
             "k1cupFYWXJ6_1",
             "p53SfW6mjZe_0",
             "wcojb4TFT35_0"
+          ],
+          "episode_count": 17,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_full/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_full/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_full/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_hybrid_mp16": {
@@ -16698,6 +17968,14 @@
             "k1cupFYWXJ6_1",
             "p53SfW6mjZe_0",
             "wcojb4TFT35_0"
+          ],
+          "episode_count": 17,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_hybrid_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench/cost_uninavid_hybrid_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_full_100": {
@@ -16802,7 +18080,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_full_100/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_full_100/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_hybrid_mp16_100": {
           "episodes": [
@@ -16906,7 +18190,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_hybrid_mp16_100/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_hybrid_mp16_100/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_pyramiddrop_mp16_100": {
           "episodes": [
@@ -17010,7 +18300,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_pyramiddrop_mp16_100/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_pyramiddrop_mp16_100/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_uniform_mp16_100": {
           "episodes": [
@@ -17114,7 +18410,13 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_uniform_mp16_100/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_r1_uniform_mp16_100/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full": {
           "episodes": [
@@ -17218,6 +18520,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full_nomem": {
@@ -17322,6 +18632,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full_nomem/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full_nomem/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_full_nomem/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16": {
@@ -17426,6 +18744,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16_nomem": {
@@ -17530,6 +18856,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16_nomem/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16_nomem/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_hybrid_mp16_nomem/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_pyramiddrop_mp16": {
@@ -17634,6 +18968,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_pyramiddrop_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_pyramiddrop_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_pyramiddrop_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_uniform_mp16": {
@@ -17738,6 +19080,14 @@
             "ziup5kvtCCR_1",
             "zt1RVoi7PcG_0",
             "zt1RVoi7PcG_1"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_uniform_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_uniform_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_100/cost_uninavid_uniform_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_r1_full_seed17": {
@@ -17752,7 +19102,13 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_r1_full_seed17/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_r1_full_seed17/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_r1_hybrid_mp16_seed17": {
           "episodes": [
@@ -17766,7 +19122,13 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_r1_hybrid_mp16_seed17/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_r1_hybrid_mp16_seed17/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_full": {
           "episodes": [
@@ -17780,6 +19142,14 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_full/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_full/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_full/summary.json"
           ]
         },
         "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_hybrid_mp16": {
@@ -17794,12 +19164,63 @@
             "q5QZSEeHe5g_0",
             "wcojb4TFT35_0",
             "zt1RVoi7PcG_0"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_hybrid_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune/runs/cost_bench_seed17/cost_uninavid_hybrid_mp16/summary.json"
           ]
         }
       },
       "outputs": "paper_results/hybrid_prune",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
+      ],
+      "cost_commands": [
+        [
+          "python",
+          "paper/hybrid_prune/plot_cost.py",
+          "--bench",
+          "paper_results/hybrid_prune/runs/cost_bench",
+          "--name",
+          "cost_bench",
+          "--protocol",
+          "hybrid"
+        ],
+        [
+          "python",
+          "paper/hybrid_prune/plot_cost.py",
+          "--bench",
+          "paper_results/hybrid_prune/runs/cost_bench_seed17",
+          "--name",
+          "cost_bench_seed17",
+          "--protocol",
+          "hybrid"
+        ],
+        [
+          "python",
+          "paper/hybrid_prune/plot_cost.py",
+          "--bench",
+          "paper_results/hybrid_prune/runs/cost_bench_100",
+          "--name",
+          "cost_bench_100",
+          "--protocol",
+          "hybrid"
+        ],
+        [
+          "python",
+          "paper/hybrid_prune/plot_cost.py",
+          "--bench",
+          "paper_results/hybrid_prune/runs/cost_bench_100",
+          "--name",
+          "cost_bench_100",
+          "--protocol",
+          "uniform"
+        ]
       ]
     },
     "hybrid_prune_mp3d": {
@@ -17921,7 +19342,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp2": {
           "episodes": [
@@ -18025,7 +19452,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp2/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp4": {
           "episodes": [
@@ -18129,7 +19562,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp8": {
           "episodes": [
@@ -18233,7 +19672,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_hybrid_mp8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp16": {
           "episodes": [
@@ -18337,7 +19782,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp2": {
           "episodes": [
@@ -18441,7 +19892,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp2/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp4": {
           "episodes": [
@@ -18545,7 +20002,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp8": {
           "episodes": [
@@ -18649,7 +20112,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_pyramiddrop_mp8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp16": {
           "episodes": [
@@ -18753,7 +20222,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp16/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp2": {
           "episodes": [
@@ -18857,7 +20332,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp2/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp4": {
           "episodes": [
@@ -18961,7 +20442,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp4/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp8": {
           "episodes": [
@@ -19065,7 +20552,13 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
-          ]
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/r1_uniform_mp8/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp16": {
           "episodes": [
@@ -19169,6 +20662,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp2": {
@@ -19273,6 +20774,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp2/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp2/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp4": {
@@ -19377,6 +20886,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp4/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp8": {
@@ -19481,6 +20998,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_hybrid_mp8/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp16": {
@@ -19585,6 +21110,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp2": {
@@ -19689,6 +21222,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp2/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp2/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp4": {
@@ -19793,6 +21334,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp4/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp8": {
@@ -19897,6 +21446,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_pyramiddrop_mp8/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp16": {
@@ -20001,6 +21558,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp16/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp16/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp16/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp2": {
@@ -20105,6 +21670,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp2/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp2/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp2/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp4": {
@@ -20209,6 +21782,14 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp4/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp4/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp4/summary.json"
           ]
         },
         "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp8": {
@@ -20313,12 +21894,21 @@
             "zsNo4HB9uLZ_57",
             "zsNo4HB9uLZ_75",
             "zsNo4HB9uLZ_80"
+          ],
+          "episode_count": 100,
+          "input_prefix": "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp8/",
+          "configurations": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp8/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/hybrid_prune_mp3d/runs/uninavid_uniform_mp8/summary.json"
           ]
         }
       },
       "outputs": "paper_results/hybrid_prune_mp3d",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/info_horizon_mp3d/runs/r1_ref",
+        "paper_results/info_horizon_mp3d/runs/uninavid_ref"
       ]
     },
     "selector_kl": {
@@ -20347,7 +21937,13 @@
             "wcojb4TFT35_0",
             "yr17PDCnDDW_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 12,
+          "input_prefix": "paper_results/selector_kl/runs/length_check/",
+          "configurations": [
+            "paper_results/selector_kl/runs/length_check/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/selector_kl/runs/r1_selector_probe": {
           "episodes": [
@@ -20361,10 +21957,20 @@
             "wcojb4TFT35_0",
             "yr17PDCnDDW_0",
             "zt1RVoi7PcG_0"
-          ]
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/selector_kl/runs/r1_selector_probe/",
+          "configurations": [
+            "paper_results/selector_kl/runs/r1_selector_probe/config.yaml"
+          ],
+          "result_records": []
         },
         "paper_results/selector_kl/runs/showcase": {
-          "episodes": []
+          "episodes": [],
+          "episode_count": 0,
+          "input_prefix": "paper_results/selector_kl/runs/showcase/",
+          "configurations": [],
+          "result_records": []
         },
         "paper_results/selector_kl/runs/uninavid_selector_probe": {
           "episodes": [
@@ -20378,12 +21984,21 @@
             "wcojb4TFT35_0",
             "yr17PDCnDDW_0",
             "zt1RVoi7PcG_0"
+          ],
+          "episode_count": 10,
+          "input_prefix": "paper_results/selector_kl/runs/uninavid_selector_probe/",
+          "configurations": [
+            "paper_results/selector_kl/runs/uninavid_selector_probe/manifest.json"
+          ],
+          "result_records": [
+            "paper_results/selector_kl/runs/uninavid_selector_probe/summary.json"
           ]
         }
       },
       "outputs": "paper_results/selector_kl",
       "shared_references": [
-        "paper_results/ctx_ablation/runs/r1_full"
+        "paper_results/ctx_ablation/runs/r1_full",
+        "paper_results/ctx_ablation/runs/uninavid_full"
       ]
     }
   },
@@ -291993,5 +293608,45 @@
       "bytes": 288,
       "sha256": "9172ce155be8ce5c89c76342347fac5de2fcc0f16904b6f356e8bf1e373a1583"
     }
+  ],
+  "additional_commands": [
+    [
+      "python",
+      "paper/hybrid_prune/plot_vs_ctx.py"
+    ],
+    [
+      "python",
+      "paper/hybrid_prune/plot_vs_flat.py"
+    ],
+    [
+      "python",
+      "paper/layer_token_info/plot.py",
+      "--episode",
+      "q5QZSEeHe5g_0"
+    ],
+    [
+      "python",
+      "paper/hybrid_prune/plot_cost.py",
+      "--bench",
+      "paper_results/hybrid_prune/runs/cost_bench_100",
+      "--name",
+      "cost_bench_100",
+      "--protocol",
+      "hybrid",
+      "--edge",
+      "min5"
+    ],
+    [
+      "python",
+      "paper/hybrid_prune/plot_cost.py",
+      "--bench",
+      "paper_results/hybrid_prune/runs/cost_bench_100",
+      "--name",
+      "cost_bench_100",
+      "--protocol",
+      "uniform",
+      "--edge",
+      "min5"
+    ]
   ]
 }

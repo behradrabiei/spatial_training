@@ -1,2 +1,0 @@
-{"bits": "", "budget": 4, "episode_label": "wcojb4TFT35_0", "frames": [], "n_kept": [], "n_pool": 0, "n_tokens": [], "prompt_tokens": 192, "seconds": 2.8836890123784542e-05, "stage_budgets": [0, 0, 0], "stage_kept": [0, 0, 0], "step": 0}
-{"bits": "1A==", "budget": 4, "episode_label": "wcojb4TFT35_0", "frames": [0, 1], "n_kept": [3, 1], "n_pool": 8, "n_tokens": [4, 4], "prompt_tokens": 202, "seconds": 0.005940268049016595, "stage_budgets": [6, 5, 4], "stage_kept": [6, 5, 4], "step": 2}

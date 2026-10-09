@@ -1,0 +1,2 @@
+{"bits": "", "budget": 8, "episode_label": "Dd4bFSTQ8gi_1", "frames": [], "held_tokens": 0.0, "n_kept": [], "n_pool": 0, "n_tokens": [], "prompt_tokens": 189, "seconds": 2.8151996957603842e-05, "stage_budgets": [0, 0], "stage_kept": [0, 0], "step": 0}
+{"bits": "/w==", "budget": 8, "episode_label": "Dd4bFSTQ8gi_1", "frames": [0, 1], "held_tokens": 5.0, "n_kept": [4, 4], "n_pool": 8, "n_tokens": [4, 4], "prompt_tokens": 199, "seconds": 6.932299584150314e-05, "stage_budgets": [8, 0], "stage_kept": [8, 0], "step": 2}

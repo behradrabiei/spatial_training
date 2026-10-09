@@ -1,55 +1,32 @@
-# Setup Notes
+# Local inference setup
 
-Local setup record for this machine (RTX 5090 / Blackwell `sm_120`). Two conda envs, both Python 3.10.16.
+This records the existing RTX 5090 setup. Cleanup preserved these environments and package versions.
 
-## Environments
+| Environment | Purpose | Existing stack |
+|---|---|---|
+| `longnav_vlm` | Model inference, Ray driver, serving | Python 3.10, torch 2.8.0+cu128, Ray 2.53.0, Transformers, PEFT |
+| `vln` | Habitat actors and paper plotting | Python 3.10, Habitat Sim/Lab 0.3.3, Ray 2.53.0 |
+| `baselines/.envs/uninavid-hm3d` | Uni-NaVid runtime | Separate baseline stack; see baselines/README.md |
 
-| Env | Purpose | Key packages |
-|-----|---------|--------------|
-| `longnav_vlm` | VLM / RL trainer, driver, serving | torch 2.8.0+cu128, ray 2.53.0, transformers, trl, verl (editable), longnav (editable) |
-| `vln` | Habitat sim workers | habitat-sim 0.3.3, habitat-lab 0.3.3, ray 2.53.0, longnav (editable, `--no-deps`) |
+LongNav is installed editable in both conda environments. For an existing Habitat environment,
+use `pip install --no-deps -e .` and install matching Ray explicitly so Habitat pins stay intact.
+PEFT and its runtime dependencies are needed to load the retained pretrained adapters. `verl` and
+TRL are no longer inference requirements. Existing environment packages were not uninstalled.
 
-## What we did
+SDPA is the default and is used for cleanup parity. The local `longnav_vlm` environment also has
+FlashAttention 2.8.3 with Blackwell kernels; select it explicitly per run if needed. CUDA 12.8 tools
+live in that environment. Cleanup did not change drivers, attention defaults, tokenizer settings,
+or checkpoint weights.
 
-```bash
-# 1. Submodules (verl + ovon)
-git submodule update --init --recursive
+Dataset presets in `src/longnav/config/dataset/` specify local HM3D v2 / MP3D dataset and scene paths
+under `/home/brabiei/vault/habitat_data/`. Evaluation needs the original datasets, semantics, and
+scene assets. The old HM3D v1 setup notes are superseded by these presets.
 
-# 2. longnav_vlm env
-conda create -n longnav_vlm python=3.10.16 -y
-conda activate longnav_vlm
-pip install -e .
-pip install trl                       # needed by SFT scripts, not in pyproject
-cd verl && pip install --no-dependencies -e . && cd ..
+`task.wandb_project=null` runs without remote logging. Cached public checkpoints can be used with
+`HF_HUB_OFFLINE=1`. All acceptance runs write under the ignored cleanup archive.
 
-# 3. vln env (Habitat). Python 3.10 -> habitat-sim only on aihabitat-nightly
-conda create -n vln python=3.10.16 cmake=3.14.0 -y
-conda install -n vln habitat-sim withbullet headless -c conda-forge -c aihabitat-nightly -y
-git clone --branch stable --depth 1 https://github.com/facebookresearch/habitat-lab.git .habitat-lab
-conda run -n vln pip install -e .habitat-lab/habitat-lab
-conda run -n vln pip install "pillow==10.4.0" regex   # pillow pinned by habitat-sim
-conda run -n vln pip install "ray[default]==2.53.0"  # required for Habitat Ray workers (match longnav_vlm)
-conda run -n vln pip install --no-dependencies -e .    # register longnav for Ray
-```
+The default multi-goal assets `src/longnav/conf/episode_jsons/onemap_multi.json` and
+`habitat_configs/objectnav_hm3d_multi.yaml` are absent in this checkout. Multi-goal unit tests cover
+transitions, but a real benchmark integration run requires those original assets.
 
-## Validated
-
-- `longnav_vlm`: `tests/eval_smoke.py` and `tests/rl_smoke.py` pass (real LoRA training step on GPU); SDPA runs on the 5090.
-- `vln`: `import habitat, habitat_sim, longnav` all clean.
-
-## Skipped / optional
-
-- **flash-attn** — INSTALLED (2026-08-14) in `longnav_vlm`: flash_attn 2.8.3 via community prebuilt wheel with `sm_120` kernels ([mjun0812/flash-attention-prebuild-wheels](https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu128torch2.8-cp310-cp310-linux_x86_64.whl), cu128/torch2.8/cp310). Verified: `flash_attn_func` matches sdpa on the 5090 (max diff 2.4e-4 bf16), and `tests/eval_smoke.py` passes with `attn_impl="flash_attention_2"`. NB: config default is still `attn_impl=sdpa` — add `vlm.attn_impl=flash_attention_2` per run to use it. FA3/FA4 still can't run on desktop Blackwell.
-- **wandb login** — DONE (entity `brabiei-university-of-michigan`, verified end-to-end). Enable per-run with `task.wandb_project=<name>`; same `run_name`+`project` resumes.
-- **Hugging Face login** — public model download already works; only needed for private/push.
-- **Habitat HM3D dataset** — required for real sim runs (`train_rl`/`eval` with `dataset=hm3d_*`). Status:
-  - Scene meshes PRESENT at `/home/brabiei/vault/habitat_data/habitat_scenes/{HM3D,MP3D}` (HM3D: 904 scenes, `.basis.glb`+`.basis.navmesh`, flat layout; MP3D has `_semantic.ply`).
-  - STILL MISSING: ObjectNav episode datasets (`objectnav/hm3d/v1/{split}/{split}.json.gz`), HM3D semantic annotations (`*.semantic.glb/.txt` — config uses a semantic sensor + `sim.semantic_scene`), and `hm3d_*.scene_dataset_config.json`.
-  - Wiring (once complete): `sim.workspace=<root containing data/>`, `sim.scenes_dir=<scene_datasets>`, `sim.dataset_path=<{split}.json.gz>` (schema lines 152-156). Expected layout: `data/scene_datasets/hm3d/{train,val}/...` + `data/datasets/objectnav/hm3d/v1/{train,val}/...json.gz`.
-- **verl extras** (`liger-kernel`, `math_verify`, ...) — only for those specific verl features.
-
-## Notes
-
-- All CUDA toolchain (`cuda-nvcc`/`cuda-toolkit`/`cuda-compiler` 12.8) was installed **into the `longnav_vlm` env only** — system drivers and base env untouched.
-- `verl` pins `numpy<2.0.0` but env has numpy 2.x (from longnav deps); installed per README with `--no-dependencies`. Smoke tests pass; pin down only if a concrete verl error appears.
-- habitat-lab lives at `./.habitat-lab` (gitignored clone), installed editable into `vln`.
+See CLEANUP.md for current validation results, rather than historical training smoke-test claims.
