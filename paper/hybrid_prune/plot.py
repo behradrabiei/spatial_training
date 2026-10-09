@@ -2,9 +2,10 @@
 """Figures for the hybrid-pruning comparison (run aggregate.py first). Plain matplotlib
 defaults; writes to paper_results/hybrid_prune/figures/:
 
-  protocol_curves.{pdf,png}  SR (top) and SPL (bottom) vs the budget k -- history visual tokens
+  protocol_curves.{pdf,png}  (large text, legend on top, shared x label) SR (top) and SPL (bottom) vs the budget k -- history visual tokens
                              averaged over all decoder layers, in frames' worth -- one column per
-                             model, one plain line with markers per protocol (means only; the CIs and
+                             model, one plain line with markers per protocol (pyramiddrop, hybrid,
+                             uniform = uniform random below the cut + visual-blind above it; means only; the CIs and
                              paired tests are in results/summary.csv and results/paired.csv); the
                              dotted line is the model unpruned with its full context (Exp 1's
                              r1_full / uninavid_full, from paper_results/ctx_ablation)
@@ -12,6 +13,11 @@ defaults; writes to paper_results/hybrid_prune/figures/:
                              the budget is met), one panel per model
   memory_tradeoff.{pdf,png}  LongNav-R1 only: SR and SPL vs ALL resident KV slots (layer mean, text
                              included), points labelled by k
+
+  <figure>_<protocol>.{pdf,png}  the same three figures once per protocol other than pyramiddrop
+                             (_hybrid, _uniform), each showing ONLY PyramidDrop and that protocol, which
+                             is labelled "Protocol" (red) -- one standalone figure set per protocol.
+                             Written for every protocol that has aggregated arms; --no-split skips them.
 
 --budget last_stage draws the first, superseded run (k bounded the last scheduled stage only) from
 results_last_stage/ into figures_last_stage/; its budget_met panel shows how far off k those arms sat.
@@ -23,7 +29,7 @@ paper_results/info_horizon_mp3d/results/horizon.csv).
 Arms not aggregated yet are skipped (and listed on the console); partial arms are drawn with
 hollow markers and annotated with their episode count. Needs matplotlib, so run in the vln env:
 
-    /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot.py [--dataset mp3d]
+    /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot.py [--dataset mp3d] [--protocols ...]
 """
 from __future__ import annotations
 
@@ -36,10 +42,13 @@ import matplotlib.pyplot as plt
 HERE = Path(__file__).resolve().parent
 RESULTS_ROOT = HERE.parents[1] / "paper_results/hybrid_prune"
 MODELS = ("LongNav-R1", "Uni-NaVid")
-PROTOCOLS = {  # pyramiddrop keeps its colour from paper/token_prune
+ALL_PROTOCOLS = {  # pyramiddrop keeps its colour from paper/token_prune
     "pyramiddrop": dict(color="tab:green", label="PyramidDrop"),
     "hybrid": dict(color="tab:red", label="Protocol"),
+    "uniform": dict(color="tab:blue", label="Uniform + blind"),
 }
+PROTOCOLS = dict(ALL_PROTOCOLS)  # narrowed by --protocols
+BASELINE = "pyramiddrop"  # drawn in every per-protocol figure set
 # unpruned full-context arms of the context ablation (Exp 1), drawn as the dashed reference
 FULL_CONTEXT = {"LongNav-R1": "r1_full", "Uni-NaVid": "uninavid_full"}
 FULL_SUMMARY = HERE.parents[1] / "paper_results/ctx_ablation/results/summary.csv"
@@ -47,6 +56,7 @@ FULL_SUMMARY = HERE.parents[1] / "paper_results/ctx_ablation/results/summary.csv
 FULL_CONTEXT_MP3D = {"LongNav-R1": "r1_ref", "Uni-NaVid": "uninavid_ref"}
 FULL_SUMMARY_MP3D = HERE.parents[1] / "paper_results/info_horizon_mp3d/results/horizon.csv"
 PANELS = {"sr": "Success rate", "spl": "SPL"}
+CURVES_RC = {"font.size": 13, "axes.titlesize": 14, "axes.labelsize": 14}  # protocol_curves text sizes
 Y_TOP = {"hm3d": {"sr": 1.02, "spl": 0.6}, "mp3d": {"sr": 0.75, "spl": 0.4}}  # protocol_curves y-limits per dataset
 K_TICKS = {"model": [2, 4, 8, 16], "last_stage": [1, 4, 8, 16]}
 DIRS = {"model": ("results", "figures"), "last_stage": ("results_last_stage", "figures_last_stage")}
@@ -81,47 +91,49 @@ def mark_partial(ax, rows, x_col, metric, color):
                         textcoords="offset points", color=color)
 
 
-def figure_curves(summary, full, out: Path, ticks, full_arms=FULL_CONTEXT, arm_col="arm", y_top=Y_TOP["hm3d"]):
-    fig, axes = plt.subplots(2, 2, figsize=(6.5, 4.4), sharex=True)
-    missing = []
-    for col, model in enumerate(MODELS):
-        ref = next((r for r in full if r[arm_col] == full_arms[model]), None)
-        for row, (metric, title) in enumerate(PANELS.items()):
-            ax = axes[row][col]
-            if ref is not None:
-                ax.axhline(fl(ref[metric]), color="gray", linestyle=":", linewidth=1.6, label="Unpruned")
-            for protocol, style in PROTOCOLS.items():
-                rows = series(summary, model, protocol, "k")
-                if not rows:
-                    missing.append(f"{model}/{protocol}")
-                    continue
-                x = [fl(r["k"]) for r in rows]
-                ax.plot(x, [fl(r[metric]) for r in rows], color=style["color"], linewidth=1, marker="o",
-                        markersize=4, label=style["label"])
-                mark_partial(ax, rows, "k", metric, style["color"])
-            ax.set_xticks(ticks)
-            ax.set_xlim(0, 17)
-            ax.set_ylim(0, y_top[metric])
-            ax.grid(True, alpha=0.3)
-            if row == 0:
-                ax.set_title(model, fontsize=9)
-            if col == 0:
-                ax.set_ylabel(title)
-            if row == 1:
-                ax.set_xlabel("budget k (frames' worth)")
-    handles, names = axes[0][0].get_legend_handles_labels()
-    if handles:
-        fig.legend(handles, names, loc="upper center", ncol=3, fontsize=7, frameon=False)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
-    save(fig, out / "protocol_curves")
+def figure_curves(summary, full, out: Path, ticks, full_arms=FULL_CONTEXT, arm_col="arm", y_top=Y_TOP["hm3d"],
+                  styles=None, suffix=""):
+    with plt.rc_context(CURVES_RC):  # large text (paper figure); one shared x label, legend on top
+        fig, axes = plt.subplots(2, 2, figsize=(7.0, 4.8), sharex=True)
+        missing = []
+        for col, model in enumerate(MODELS):
+            ref = next((r for r in full if r[arm_col] == full_arms[model]), None)
+            for row, (metric, title) in enumerate(PANELS.items()):
+                ax = axes[row][col]
+                if ref is not None:
+                    ax.axhline(fl(ref[metric]), color="gray", linestyle=":", linewidth=1.6, label="Unpruned")
+                for protocol, style in (styles or PROTOCOLS).items():
+                    rows = series(summary, model, protocol, "k")
+                    if not rows:
+                        missing.append(f"{model}/{protocol}")
+                        continue
+                    x = [fl(r["k"]) for r in rows]
+                    ax.plot(x, [fl(r[metric]) for r in rows], color=style["color"], linewidth=1, marker="o",
+                            markersize=4, label=style["label"])
+                    mark_partial(ax, rows, "k", metric, style["color"])
+                ax.set_xticks(ticks)
+                ax.set_xlim(0, 17)
+                ax.set_ylim(0, y_top[metric])
+                ax.grid(True, alpha=0.3)
+                if row == 0:
+                    ax.set_title(model)
+                if col == 0:
+                    ax.set_ylabel(title)
+        handles, names = axes[0][0].get_legend_handles_labels()
+        if handles:
+            fig.legend(handles, names, loc="upper center", ncol=len(handles), fontsize=12, frameon=False,
+                       handlelength=1.6, columnspacing=1.0)
+        fig.supxlabel("budget k (frames' worth)", fontsize=14)
+        fig.tight_layout(rect=(0, 0, 1, 0.93))
+    save(fig, out / f"protocol_curves{suffix}")
     return sorted(set(missing))
 
 
-def figure_budget_met(summary, out: Path, ticks):
+def figure_budget_met(summary, out: Path, ticks, styles=None, suffix=""):
     fig, axes = plt.subplots(1, 2, figsize=(6.5, 2.8))
     for ax, model in zip(axes, MODELS):
         top = max(ticks)
-        for protocol, style in PROTOCOLS.items():
+        for protocol, style in (styles or PROTOCOLS).items():
             rows = [r for r in series(summary, model, protocol, "k") if fl(r["held_frames"]) == fl(r["held_frames"])]
             if not rows:
                 continue
@@ -137,17 +149,17 @@ def figure_budget_met(summary, out: Path, ticks):
         ax.grid(True, alpha=0.3)
     axes[0].set_ylabel("held, mean over layers\n(frames' worth)")
     handles, names = axes[0].get_legend_handles_labels()
-    fig.legend(handles, names, loc="upper center", ncol=3, fontsize=7, frameon=False)
+    fig.legend(handles, names, loc="upper center", ncol=len(handles), fontsize=7, frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 0.92))
-    save(fig, out / "budget_met")
+    save(fig, out / f"budget_met{suffix}")
 
 
-def figure_memory(summary, out: Path):
+def figure_memory(summary, out: Path, styles=None, suffix=""):
     model = MODELS[0]
     fig, axes = plt.subplots(1, 2, figsize=(6.5, 2.8))
     drawn = False
     for ax, (metric, title) in zip(axes, PANELS.items()):
-        for protocol, style in PROTOCOLS.items():
+        for protocol, style in (styles or PROTOCOLS).items():
             rows = [r for r in series(summary, model, protocol, "kv_len_mean") if fl(r["kv_len_mean"]) == fl(r["kv_len_mean"])]
             if not rows:
                 continue
@@ -160,16 +172,16 @@ def figure_memory(summary, out: Path):
                             textcoords="offset points", color=style["color"])
             mark_partial(ax, rows, "kv_len_mean", metric, style["color"])
         ax.set_ylim(0, 1.02 if metric == "sr" else 0.6)
-        ax.set_xlabel("all resident KV slots, text incl. (layer mean)")
+        ax.set_xlabel("all resident KV slots,\ntext incl. (layer mean)")
         ax.set_ylabel(title)
         ax.grid(True, alpha=0.3)
     if not drawn:
         plt.close(fig)
         return
     handles, names = axes[0].get_legend_handles_labels()
-    fig.legend(handles, names, loc="upper center", ncol=2, fontsize=7, frameon=False)
+    fig.legend(handles, names, loc="upper center", ncol=len(handles), fontsize=7, frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 0.92))
-    save(fig, out / "memory_tradeoff")
+    save(fig, out / f"memory_tradeoff{suffix}")
 
 
 def save(fig, stem: Path):
@@ -185,7 +197,13 @@ def main():
     ap.add_argument("--dataset", choices=("hm3d", "mp3d"), default="hm3d")
     ap.add_argument("--results", type=Path, default=None)
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--protocols", nargs="+", choices=list(ALL_PROTOCOLS), default=list(ALL_PROTOCOLS),
+                    help="protocols to draw (default: all; an arm not aggregated is skipped anyway)")
+    ap.add_argument("--no-split", action="store_true",
+                    help="skip the per-protocol figure sets (<figure>_<protocol>: PyramidDrop vs that protocol)")
     args = ap.parse_args()
+    PROTOCOLS.clear()
+    PROTOCOLS.update({p: ALL_PROTOCOLS[p] for p in ALL_PROTOCOLS if p in args.protocols})
     root = RESULTS_ROOT if args.dataset == "hm3d" else RESULTS_ROOT.with_name("hybrid_prune_mp3d")
     results = args.results or root / DIRS[args.budget][0]
     out = args.out or root / DIRS[args.budget][1]
@@ -193,13 +211,28 @@ def main():
     if not summary:
         return
     out.mkdir(parents=True, exist_ok=True)
+    ticks = K_TICKS[args.budget]
     if args.dataset == "mp3d":
-        missing = figure_curves(summary, load_rows(FULL_SUMMARY_MP3D), out, K_TICKS[args.budget],
-                                FULL_CONTEXT_MP3D, "blind_arm", Y_TOP["mp3d"])
+        full, curve_kw = load_rows(FULL_SUMMARY_MP3D), dict(full_arms=FULL_CONTEXT_MP3D, arm_col="blind_arm",
+                                                             y_top=Y_TOP["mp3d"])
     else:
-        missing = figure_curves(summary, load_rows(FULL_SUMMARY), out, K_TICKS[args.budget])
-    figure_budget_met(summary, out, K_TICKS[args.budget])
-    figure_memory(summary, out)
+        full, curve_kw = load_rows(FULL_SUMMARY), {}
+
+    def draw(styles=None, suffix=""):
+        missing = figure_curves(summary, full, out, ticks, styles=styles, suffix=suffix, **curve_kw)
+        figure_budget_met(summary, out, ticks, styles=styles, suffix=suffix)
+        figure_memory(summary, out, styles=styles, suffix=suffix)
+        return missing
+
+    missing = draw()  # every selected protocol in one figure
+    if not args.no_split:
+        # One standalone set per protocol: PyramidDrop vs that protocol, which is called "Protocol".
+        present = {r["protocol"] for r in summary}
+        for protocol in PROTOCOLS:
+            if protocol == BASELINE or protocol not in present:
+                continue
+            styles = {BASELINE: ALL_PROTOCOLS[BASELINE], protocol: dict(color="tab:red", label="Protocol")}
+            draw(styles, suffix=f"_{protocol}")
     if missing:
         print("[missing] " + ", ".join(missing))
 

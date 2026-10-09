@@ -6,9 +6,9 @@ runs/<arm>/episodes/*.json (+ the per-inference stage counts in prune/<label>.js
 
   results/per_episode.csv  one row per (arm, episode): success, spl, n_steps and the memory columns
   results/summary.csv      one row per arm: means with 95% bootstrap CIs and the memory columns
-  results/paired.csv       hybrid - pyramiddrop at each (model, k): paired delta, bootstrap CI and
-                           sign-flip p on SR, SPL and steps
-  results/table.tex        booktabs table (stars = hybrid vs pyramiddrop at the same k)
+  results/paired.csv       <protocol> - pyramiddrop at each (model, k) for every other protocol (hybrid,
+                           uniform): paired delta, bootstrap CI and sign-flip p on SR, SPL and steps
+  results/table.tex        booktabs table (stars = that row vs pyramiddrop at the same k)
 
 Budget. k bounds the history visual tokens AVERAGED OVER ALL DECODER LAYERS, in frames' worth
 (--budget model, the experiment; arms <model>_<protocol>_mp<k>: whole-model budget, schedule anchored
@@ -27,9 +27,10 @@ at a time on one GPU, so it is not comparable across arms.
 Arms not run yet are reported and left out (--strict makes that an error); an incomplete arm is
 an error unless --skip-partial (drop it) or --allow-partial (keep it, flagged partial=1) is
 given. --status prints per-arm progress. --dataset mp3d aggregates the MP3D replicate
-(paper_results/hybrid_prune_mp3d/, mp3d_100_seed17.json). Runs in longnav_vlm:
+(paper_results/hybrid_prune_mp3d/, mp3d_100_seed17.json); it has no uniform arms, so pass
+--protocols pyramiddrop hybrid there. Runs in longnav_vlm:
 
-    python paper/hybrid_prune/aggregate.py [--dataset mp3d] [--allow-partial]
+    python paper/hybrid_prune/aggregate.py [--dataset mp3d --protocols pyramiddrop hybrid] [--allow-partial]
 """
 from __future__ import annotations
 
@@ -53,11 +54,14 @@ DATASETS = {  # dataset -> results root, manifest
     "mp3d": (ROOT / "paper_results/hybrid_prune_mp3d", ROOT / "src/longnav/conf/episode_jsons/mp3d_100_seed17.json"),
 }
 MODELS = {"r1": "LongNav-R1", "uninavid": "Uni-NaVid"}
-PROTOCOLS = ("pyramiddrop", "hybrid")
+ALL_PROTOCOLS = ("pyramiddrop", "hybrid", "uniform")  # pyramiddrop first: the others are paired against it
+PROTOCOLS = ALL_PROTOCOLS
+BASELINE = "pyramiddrop"
 # budget scope -> arm tag, budgets, output dir, R1 layers per band (unpruned layers first)
 BUDGETS = {
     "model": dict(tag="mp", k_list=(16, 8, 4, 2), out="results",
-                  r1_bands={"pyramiddrop": (0, 7, 7, 7, 7), "hybrid": (0, 7, 7, 6, 8)}, uninavid_unpruned=0),
+                  r1_bands={"pyramiddrop": (0, 7, 7, 7, 7), "hybrid": (0, 7, 7, 6, 8), "uniform": (0, 18, 10)},
+                  uninavid_unpruned=0),
     "last_stage": dict(tag="b", k_list=(16, 8, 4, 1), out="results_last_stage",
                        r1_bands={"pyramiddrop": (7, 7, 7, 7), "hybrid": (7, 7, 6, 8)}, uninavid_unpruned=8),
 }
@@ -102,8 +106,9 @@ def nanmean(values):
 
 def uninavid_stage_stats(run_dir: Path):
     """{label: {stage_kept_<s>, attended_tokens}}: per-episode means over inferences of the history
-    tokens each stage's layers attend to, and their layer-mean (layers below the first stage see
-    the whole history)."""
+    tokens each stage's layers attend to, and their layer-mean. The whole-model arms record that mean
+    (held_tokens, layer widths from the pruner's own stage layout); older records assume equal-width
+    stages, with the layers below the first stage seeing the whole history."""
     out = {}
     for path in sorted((run_dir / "prune").glob("*.jsonl")):
         per_stage, attended, label = [], [], path.stem
@@ -114,10 +119,12 @@ def uninavid_stage_stats(run_dir: Path):
                 kept = rec.get("stage_kept")
                 if kept is None:
                     continue
-                # Layers below the first stage (none under a whole-model budget) see every history row.
+                per_stage.append(kept)
+                if rec.get("held_tokens") is not None:
+                    attended.append(float(rec["held_tokens"]))
+                    continue
                 unpruned = BUDGET["uninavid_unpruned"]
                 width = (UNINAVID_LAYERS - unpruned) // len(kept)
-                per_stage.append(kept)
                 attended.append((unpruned * sum(rec["n_tokens"]) + width * sum(kept)) / UNINAVID_LAYERS)
         if per_stage:
             mean = np.mean(np.asarray(per_stage, dtype=float), axis=0)
@@ -202,9 +209,9 @@ def fmt(value, digits=3):
 
 
 def write_table(path: Path, summary, paired):
-    """Rows = model x protocol, columns = k; stars on the hybrid row (vs pyramiddrop, same k)."""
+    """Rows = model x protocol, columns = k; stars on every non-baseline row (vs pyramiddrop, same k)."""
     by_arm = {r["arm"]: r for r in summary}
-    p_of = {(r["model"], r["k"], r["metric"]): r["p"] for r in paired}
+    p_of = {(r["protocol"], r["model"], r["k"], r["metric"]): r["p"] for r in paired}
     lines = [r"\begin{tabular}{ll" + "cc" * len(K_LIST) + "}", r"\toprule",
              " & & " + " & ".join(rf"\multicolumn{{2}}{{c}}{{$k={k}$}}" for k in K_LIST) + r" \\",
              "Model & Protocol & " + " & ".join("SR & SPL" for _ in K_LIST) + r" \\", r"\midrule"]
@@ -217,7 +224,7 @@ def write_table(path: Path, summary, paired):
                     if rec is None:
                         cells.append("--")
                         continue
-                    mark = stars(fnum(p_of.get((name, k, metric)))) if protocol == "hybrid" else ""
+                    mark = stars(fnum(p_of.get((protocol, name, k, metric)))) if protocol != BASELINE else ""
                     cells.append(f"{rec[col]:.2f}" + (f"$^{{{mark}}}$" if mark else ""))
             lines.append(f"{name if protocol == PROTOCOLS[0] else ''} & {protocol} & " + " & ".join(cells) + r" \\")
             mem = [fmt(by_arm.get(f"{model}_{protocol}_{BUDGET['tag']}{k}", {}).get("held_frames"), 1) for k in K_LIST]
@@ -225,7 +232,7 @@ def write_table(path: Path, summary, paired):
         lines.append(r"\midrule" if model != list(MODELS)[-1] else r"\bottomrule")
     lines += [r"\end{tabular}",
               "% held: history visual tokens averaged over all decoder layers, in frames' worth (the budget is k). "
-              "Stars: paired sign-flip test, hybrid vs pyramiddrop at the same k "
+              f"Stars: paired sign-flip test, that row vs {BASELINE} at the same k "
               "(* p<0.05, ** p<0.01, *** p<0.001)."]
     path.write_text("\n".join(lines) + "\n")
 
@@ -239,15 +246,20 @@ def main():
     ap.add_argument("--runs-root", type=Path, default=None, help="default: <results root>/runs")
     ap.add_argument("--out", type=Path, default=None, help="default: results/ or results_last_stage/")
     ap.add_argument("--manifest", type=Path, default=None, help="default: the dataset's 100-episode manifest")
+    ap.add_argument("--protocols", nargs="+", choices=ALL_PROTOCOLS, default=list(ALL_PROTOCOLS),
+                    help="protocols to aggregate (default: all; the MP3D replicate has no uniform arms)")
     ap.add_argument("--status", action="store_true", help="print per-arm progress and exit")
     ap.add_argument("--strict", action="store_true", help="every arm must exist and be complete")
     group = ap.add_mutually_exclusive_group()
     group.add_argument("--skip-partial", action="store_true", help="drop incomplete arms")
     group.add_argument("--allow-partial", action="store_true", help="keep incomplete arms, flagged partial=1")
     args = ap.parse_args()
-    global BUDGET, K_LIST
+    global BUDGET, K_LIST, PROTOCOLS
     BUDGET = BUDGETS[args.budget]
     K_LIST = BUDGET["k_list"]
+    PROTOCOLS = tuple(p for p in ALL_PROTOCOLS if p in args.protocols)
+    if BASELINE not in PROTOCOLS:
+        sys.exit(f"--protocols must include {BASELINE}, the protocol the others are paired against")
     results_root, manifest = DATASETS[args.dataset]
     args.runs_root = args.runs_root or results_root / "runs"
     args.manifest = args.manifest or manifest
@@ -287,28 +299,33 @@ def main():
         summary.append(rec)
 
     paired = []
-    for model, name in MODELS.items():
-        for k in K_LIST:
-            a, b = (runs.get(f"{model}_{p}_{BUDGET['tag']}{k}") for p in ("hybrid", "pyramiddrop"))
-            if a is None or b is None:
-                continue
-            for metric in METRICS:
-                d = paired_delta(a[0], b[0], metric)  # hybrid - pyramiddrop on the shared episodes
-                paired.append({"model": name, "k": k, "metric": metric, **d, "partial": int(a[4] or b[4])})
+    for protocol in PROTOCOLS:
+        if protocol == BASELINE:
+            continue
+        for model, name in MODELS.items():
+            for k in K_LIST:
+                a, b = (runs.get(f"{model}_{p}_{BUDGET['tag']}{k}") for p in (protocol, BASELINE))
+                if a is None or b is None:
+                    continue
+                for metric in METRICS:
+                    d = paired_delta(a[0], b[0], metric)  # protocol - pyramiddrop on the shared episodes
+                    paired.append({"protocol": protocol, "model": name, "k": k, "metric": metric, **d,
+                                   "partial": int(a[4] or b[4])})
 
     write_csv(args.out / "per_episode.csv", episodes, EP_COLS)
     write_csv(args.out / "summary.csv", summary)
-    write_csv(args.out / "paired.csv", paired, ["model", "k", "metric", "delta", "lo", "hi", "p", "n", "partial"])
+    write_csv(args.out / "paired.csv", paired,
+              ["protocol", "model", "k", "metric", "delta", "lo", "hi", "p", "n", "partial"])
     write_table(args.out / "table.tex", summary, paired)
 
     print(f"\n{'arm':<26}{'n':>4}{'SR':>7}{'SPL':>8}{'steps':>8}{'held (frames)':>15}{'kv slots':>10}")
     for rec in summary:
         print(f"{rec['arm']:<26}{rec['n']:>4}{rec['sr']:>7.2f}{rec['spl']:>8.3f}{rec['steps']:>8.1f}"
               f"{fmt(rec['held_frames'], 2):>15}{fmt(rec['kv_len_mean'], 0):>10}")
-    print("\nhybrid - pyramiddrop (paired):")
+    print(f"\n<protocol> - {BASELINE} (paired):")
     for r in paired:
         if r["metric"] != "n_steps":
-            print(f"  {r['model']:<11} k={r['k']:<3}{r['metric']:<8} {r['delta']:+.3f} "
+            print(f"  {r['protocol']:<12}{r['model']:<11} k={r['k']:<3}{r['metric']:<8} {r['delta']:+.3f} "
                   f"[{r['lo']:+.3f}, {r['hi']:+.3f}]  p={r['p']:.4f}  n={r['n']}")
     print(f"\nwrote {args.out}")
 

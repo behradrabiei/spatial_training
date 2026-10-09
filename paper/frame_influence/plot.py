@@ -5,11 +5,11 @@ question the experiment answers (the first in two renderings):
 
   influence_vs_age        How fast does a single frame's influence decay with age? Episode-
                           balanced mean KL vs age (log y, age 0 = the current frame) with +-1 SEM
-                          across episodes.
+                          across episodes. Large text, legend row on top.
   influence_vs_age_box    The same data as box plots: at every other age, the distribution across
                           episodes of each episode's mean influence (the values the curve above
                           averages), one box per model.
-  influence_vs_age_box_split  The same boxes, one panel per model side by side (shared y).
+  influence_vs_age_box_split  The same boxes, one panel per model side by side (shared y); large text.
   influence_rank_heatmap  Is a frame's importance stable over time? For one episode per model,
                           rows are decisions, columns frames, colour the frame's rank by raw
                           influence within that decision among frames above the model's noise
@@ -47,6 +47,7 @@ STYLE = {  # one color per model; the leak-free LongNav-R1 variant is dashed (sa
 MAX_AGE_PLOT = 30  # the curves have plateaued by then
 MARK_EVERY = 2  # markers on every other age keep the curves legible
 NOISE_FACTOR = 2.0  # rank heatmap: a frame is above a decision's noise if > this multiple of the row median
+LARGE_RC = {"font.size": 13, "axes.titlesize": 14, "axes.labelsize": 14}  # paper-figure text sizes
 FIGURES = ("influence_vs_age", "influence_vs_age_box", "influence_vs_age_box_split", "influence_rank_heatmap")
 
 
@@ -63,8 +64,9 @@ def fl(x):
         return float("nan")
 
 
-def save(fig, out: Path):
-    fig.tight_layout()
+def save(fig, out: Path, layout=True):
+    if layout:
+        fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(out.with_suffix(f".{ext}"), dpi=300)
     print("wrote", out.with_suffix(".pdf"), out.with_suffix(".png"))
@@ -99,27 +101,31 @@ def figure_age(age_rows, steps, out):
     marked age: the uncertainty of the mean (figure_age_box shows the spread of the episodes
     themselves). Age 0 is the current frame, balanced the same way from steps.csv. No title, and
     the models' numerical floors are left to the caption."""
-    fig, ax = plt.subplots(figsize=(6.0, 3.6))
-    for m in models_in(age_rows):
-        rs = sorted((r for r in age_rows if r["model"] == m and 1 <= int(r["age"]) <= MAX_AGE_PLOT), key=lambda r: int(r["age"]))
-        age = [int(r["age"]) for r in rs]; mean = [fl(r["balanced_mean"]) for r in rs]; sem = [fl(r["balanced_sem"]) for r in rs]
-        # age 0: per-episode mean of the current frame's influence, then mean and SEM over episodes
-        ep_means = age0_episode_means(steps, m)
-        if len(ep_means):
-            age, mean = [0] + age, [float(ep_means.mean())] + mean
-            sem = [float(ep_means.std(ddof=1) / math.sqrt(len(ep_means))) if len(ep_means) > 1 else 0.0] + sem
-        mean, sem = np.array(mean), np.nan_to_num(np.array(sem))
-        lower = np.minimum(sem, mean - 1e-7)  # keep the lower end positive on the log axis
-        style = dict(STYLE[m], markersize=3)  # smaller than the shared default so the error bars read
-        ax.errorbar(age, mean, yerr=[lower, sem], label=m, markevery=MARK_EVERY, errorevery=MARK_EVERY,
-                    elinewidth=1.2, capsize=2.5, capthick=1.2, **style)
-    ax.set_yscale("log")
-    ax.set_xlim(-1, MAX_AGE_PLOT + 0.5)
-    ax.set_xlabel("Frame age (steps)")
-    ax.set_ylabel("Influence (nats)")
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=7, loc="upper right")
-    save(fig, out)
+    with plt.rc_context(LARGE_RC):  # paper figure: large text, legend row on top
+        fig, ax = plt.subplots(figsize=(6.0, 3.8))
+        for m in models_in(age_rows):
+            rs = sorted((r for r in age_rows if r["model"] == m and 1 <= int(r["age"]) <= MAX_AGE_PLOT), key=lambda r: int(r["age"]))
+            age = [int(r["age"]) for r in rs]; mean = [fl(r["balanced_mean"]) for r in rs]; sem = [fl(r["balanced_sem"]) for r in rs]
+            # age 0: per-episode mean of the current frame's influence, then mean and SEM over episodes
+            ep_means = age0_episode_means(steps, m)
+            if len(ep_means):
+                age, mean = [0] + age, [float(ep_means.mean())] + mean
+                sem = [float(ep_means.std(ddof=1) / math.sqrt(len(ep_means))) if len(ep_means) > 1 else 0.0] + sem
+            mean, sem = np.array(mean), np.nan_to_num(np.array(sem))
+            lower = np.minimum(sem, mean - 1e-7)  # keep the lower end positive on the log axis
+            style = dict(STYLE[m], markersize=3)  # smaller than the shared default so the error bars read
+            ax.errorbar(age, mean, yerr=[lower, sem], label=m, markevery=MARK_EVERY, errorevery=MARK_EVERY,
+                        elinewidth=1.2, capsize=2.5, capthick=1.2, **style)
+        ax.set_yscale("log")
+        ax.set_xlim(-1, MAX_AGE_PLOT + 0.5)
+        ax.set_xlabel("Frame age (steps)")
+        ax.set_ylabel("Influence (nats)")
+        ax.grid(True, alpha=0.3)
+        handles, labels = ax.get_legend_handles_labels()
+        fig.legend(handles, labels, loc="upper center", ncol=len(labels), fontsize=12, frameon=False,
+                   bbox_to_anchor=(0.5, 1.0), handlelength=1.6, columnspacing=1.2)
+        fig.tight_layout(rect=(0, 0, 1, 0.9))
+    save(fig, out, layout=False)
 
 
 def age_box_data(rows, steps, m):
@@ -188,12 +194,15 @@ def figure_age_box_split(rows, steps, out):
     """The same boxes as figure_age_box, one panel per model stacked horizontally with a shared
     log y-axis, so each model's spread is read on its own without interleaving."""
     models = models_in(rows)
-    fig, axes = plt.subplots(1, len(models), figsize=(3.2 * len(models) + 0.6, 3.4), sharey=True, squeeze=False)
-    for i, (ax, m) in enumerate(zip(axes[0], models)):
-        draw_age_box(ax, age_box_data(rows, steps, m), m)
-        finish_age_box(ax, ylabel=(i == 0))
-        ax.set_title(m, fontsize=9)
-    save(fig, out)
+    with plt.rc_context(LARGE_RC):  # paper figure: large text, one shared x label
+        fig, axes = plt.subplots(1, len(models), figsize=(3.2 * len(models) + 0.6, 3.6), sharey=True, squeeze=False)
+        for i, (ax, m) in enumerate(zip(axes[0], models)):
+            draw_age_box(ax, age_box_data(rows, steps, m), m)
+            finish_age_box(ax, xlabel=False, ylabel=(i == 0))
+            ax.set_title(m)
+        fig.supxlabel("Frame age (steps)", fontsize=14)
+        fig.tight_layout()
+    save(fig, out, layout=False)
 
 
 def figure_rank_heatmap(rows, steps, summary, episode, out):

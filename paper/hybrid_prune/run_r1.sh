@@ -4,8 +4,10 @@
 #   bash paper/hybrid_prune/run_r1.sh                                  # every arm
 #   ARMS="r1_hybrid_b8 r1_pyramiddrop_b8" bash paper/hybrid_prune/run_r1.sh
 #
-# Arm names: r1_<protocol>_<mp|m|b><k>, protocol in {hybrid, pyramiddrop}, k = frames' worth of history
-# visual tokens.
+# Arm names: r1_<protocol>_<mp|m|b><k>, protocol in {hybrid, pyramiddrop, uniform}, k = frames' worth of
+# history visual tokens. uniform (mp only): K=32 frame cut, one uniform random draw at layer 0 (layers
+# 0-17 hold the same slots) and visual-blind from layer 18 on (no visual token, the current frame's
+# included, reaches layers 18-27).
 #   mp  the experiment: WHOLE-MODEL budget (k bounds the history visual slots averaged over all 28
 #       layers; a stage at layer 0 is added and the schedule's ratio is solved each step), schedule
 #       anchored at what the cache holds now (kv_prune_schedule_anchor=pool)
@@ -51,13 +53,14 @@ K_LIST="${K_LIST:-8 4 16 2}"
 
 if [[ -z "${ARMS:-}" ]]; then
   ARMS=""
-  for K in $K_LIST; do ARMS+=" r1_hybrid_mp${K} r1_pyramiddrop_mp${K}"; done
+  for K in $K_LIST; do ARMS+=" r1_hybrid_mp${K} r1_pyramiddrop_mp${K} r1_uniform_mp${K}"; done
 fi
 
 protocol_overrides() {  # <protocol> <mp|m|b> -> Hydra overrides on top of +experiment=paper_hybrid
   case "$1$2" in
     hybridmp)      echo "vlm.kv_prune_stages=[0,7,14,20] vlm.kv_prune_stage_importance=[attn,attn,attn,random] vlm.kv_prune_tail_budget_frames=1 vlm.kv_prune_budget_scope=model vlm.kv_prune_schedule_anchor=pool" ;;
     pyramiddropmp) echo "vlm.context_frames=null vlm.context_cut=header vlm.kv_prune_stages=[0,7,14,21] vlm.kv_prune_budget_scope=model vlm.kv_prune_schedule_anchor=pool" ;;
+    uniformmp)     echo "vlm.kv_prune_stages=[0,18] vlm.kv_prune_stage_importance=[random,random] vlm.kv_prune_visual_blind=true vlm.kv_prune_budget_scope=model vlm.kv_prune_schedule_anchor=pool" ;;
     hybridm)      echo "vlm.kv_prune_stages=[0,7,14,20] vlm.kv_prune_stage_importance=[attn,attn,attn,random] vlm.kv_prune_tail_budget_frames=1 vlm.kv_prune_budget_scope=model" ;;
     pyramiddropm) echo "vlm.context_frames=null vlm.context_cut=header vlm.kv_prune_stages=[0,7,14,21] vlm.kv_prune_budget_scope=model" ;;
     hybridb)      echo "vlm.kv_prune_stages=[7,14,20] vlm.kv_prune_stage_importance=[attn,attn,random] vlm.kv_prune_tail_budget_frames=1" ;;
@@ -67,11 +70,11 @@ protocol_overrides() {  # <protocol> <mp|m|b> -> Hydra overrides on top of +expe
 }
 
 for ARM in $ARMS; do
-  if [[ "$ARM" =~ ^r1_(hybrid|pyramiddrop)_(mp|m|b)([0-9]+)$ ]]; then
+  if [[ "$ARM" =~ ^r1_(hybrid|pyramiddrop|uniform)_(mp|m|b)([0-9]+)$ ]]; then
     read -r -a OVERRIDES <<< "$(protocol_overrides "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}")"
     OVERRIDES+=("vlm.kv_prune_budget_frames=${BASH_REMATCH[3]}")
   else
-    echo "Unknown arm '$ARM' (expected r1_<hybrid|pyramiddrop>_<mp|m|b><k>)" >&2
+    echo "Unknown arm '$ARM' (expected r1_<hybrid|pyramiddrop|uniform>_<mp|m|b><k>; uniform is mp only)" >&2
     exit 2
   fi
 

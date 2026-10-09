@@ -1,5 +1,10 @@
-# Raw run output is tracked (configs, launch logs, per-episode JSONL/JSON summaries) so the
-# paper's numbers are reproducible from the repo; the bulky per-step artifacts are not.
+# Keep new raw experiment output local; commit curated results/ and figures/ instead.
+# Previously committed run files remain tracked by Git.
+**/runs/
+**/runs_aborted/
+**/.locks/
+
+# Bulky per-step artifacts outside the raw run directories.
 **/rollout/*/
 **/traces/
 **/*.mp4

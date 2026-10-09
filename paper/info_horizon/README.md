@@ -82,6 +82,7 @@ python paper/info_horizon/aggregate.py             # results/horizon.csv, probe_
 /home/brabiei/miniconda3/envs/vln/bin/python paper/info_horizon/plot.py   # figures/information_kl.{pdf,png}     keep-one-in / leave-one-out KL vs L (probe episodes)
 figures/information_perf.{pdf,png}   SR / SPL of the blind rollouts vs L (100 episodes)
 ```
+(plus the single-panel figures `information_kl_{keep,leave}` and `information_perf_{sr,spl}`)
 Both scripts skip complete arms and resume unfinished ones; `ARMS="..."` runs a subset.
 `aggregate.py --allow-partial` for interim looks. Smokes: `python tests/horizon_probe_smoke.py`
 (GPU) and `PYTHONPATH=baselines:baselines/Uni-NaVid baselines/.envs/uninavid-hm3d/bin/python
@@ -98,4 +99,5 @@ results/probe_steps.csv      every (curve, episode, step, layer) probe value
 results/table.tex, summary.json
 figures/information_kl.{pdf,png}     keep-one-in / leave-one-out KL vs L (probe episodes)
 figures/information_perf.{pdf,png}   SR / SPL of the blind rollouts vs L (100 episodes)
+figures/information_{kl_keep,kl_leave,perf_sr,perf_spl}.{pdf,png}   each panel on its own
 ```

@@ -1,4 +1,4 @@
-"""Smoke test for the two protocols of paper/hybrid_prune.
+"""Smoke test for the protocols of paper/hybrid_prune (hybrid, no-window PyramidDrop, uniform).
 
 Hybrid: K-frame window (frame cut) + PyramidDrop-like attention stages below the information
 horizon + a random last stage with its own, aggressive budget (kv_prune_stage_importance,
@@ -18,9 +18,15 @@ context. Four things have to hold:
      it once pruning binds), the master cache compacts with stage 0, stages stay nested; both
      with the window + random tail (hybrid) and without a window (PyramidDrop).
   4. Validation -- the constructor refuses malformed stage knobs.
-  5. GPU -- every arm runs with finite probabilities, per-layer lengths equal to each stage's
+  5. Uniform (CPU) -- stages [0, L] + kv_prune_visual_blind: the last stage is blind and holds no
+     visual slot from the first frame on; every layer below L holds the same, uniformly drawn set
+     (min(pool, round(n_layers * cap / L)) slots -- the whole-model budget spread over L layers);
+     the master cache compacts with it; the draw depends on (seed, label, step) only.
+  6. GPU -- every arm runs with finite probabilities, per-layer lengths equal to each stage's
      alive count, a synced embed DB and the rows of its attention stages only; the whole-model
-     arms hold at most k frames' worth.
+     arms hold at most k frames' worth. The uniform arm additionally hides every visual column
+     (the current frame's included) on each blind layer's attention and differs from the
+     history-only variant (tail budget 0, no blind) that holds the identical cache.
 
 Run inside longnav_vlm:
     python tests/vtp_hybrid_smoke.py
@@ -278,18 +284,130 @@ def check_validation():
         "model scope without a budget": dict(kv_prune_stages=[0, 7, 14, 20], kv_prune_budget_scope="model",
                                              kv_prune_budget_frames=None),
         "tail without stages": dict(kv_prune_tail_budget_frames=1.0),
+        "blind with an explicit tail": dict(kv_prune_stages=[0, 18], kv_prune_stage_importance=["random", "random"],
+                                            kv_prune_visual_blind=True, kv_prune_tail_budget_frames=1.0),
+        "blind with one stage": dict(kv_prune_stages=[18], kv_prune_visual_blind=True),
+        "tail below zero": dict(kv_prune_stages=[0, 18], kv_prune_tail_budget_frames=-1.0),
     }
     for name, cfg in bad.items():
         try:
             VLMWorker(model_id=MODEL_ID, **{**base, **cfg})
         except ValueError as exc:
             ok = any(knob in str(exc) for knob in ("kv_prune_stage_importance", "kv_prune_tail_budget_frames",
-                                                    "kv_prune_budget_scope", "kv_prune_schedule_anchor"))
+                                                    "kv_prune_budget_scope", "kv_prune_schedule_anchor",
+                                                    "kv_prune_visual_blind"))
             print(f"  {name}: refused ({'ours' if ok else 'OTHER: ' + str(exc)[:60]})")
             if not ok:
                 failures.append(f"{name}: refused for another reason: {exc}")
         else:
             failures.append(f"{name}: accepted")
+    good = {
+        "uniform (blind last stage)": dict(UNIFORM_ARM, _blind=True),
+        "history-only tail 0": dict(kv_prune_stages=[0, 18], kv_prune_stage_importance=["random", "random"],
+                                    kv_prune_tail_budget_frames=0.0, kv_prune_budget_scope="model",
+                                    kv_prune_schedule_anchor="pool", _blind=False),
+    }
+    for name, cfg in good.items():
+        cfg = dict(cfg)
+        blind = cfg.pop("_blind")
+        try:
+            worker = VLMWorker(model_id=MODEL_ID, **{**base, **cfg})
+        except ValueError as exc:
+            failures.append(f"{name}: refused: {exc}")
+            continue
+        print(f"  {name}: accepted (blind last stage: {worker._blind_stage})")
+        if worker._blind_stage != blind:
+            failures.append(f"{name}: _blind_stage is {worker._blind_stage}")
+    return failures
+
+
+# --- check 5: uniform protocol (CPU) ------------------------------------------------------
+UNIFORM_STAGES = [range(0, 5), range(5, 8)]  # cut at layer 5 of 8 (the arm cuts at 18 of 28)
+UNIFORM_ARM = dict(kv_prune_stages=[0, 18], kv_prune_stage_importance=["random", "random"],
+                   kv_prune_visual_blind=True, kv_prune_budget_scope="model", kv_prune_schedule_anchor="pool")
+
+
+def uniform_worker(window, k, label="scene_0"):
+    worker = prune_worker(window, n_layers=8, stages=UNIFORM_STAGES, importance="attn",
+                          kv_prune_budget_frames=float(k), kv_prune_stages=[0, 5],
+                          kv_prune_stage_importance=["random", "random"], kv_prune_visual_blind=True,
+                          _blind_stage=True, kv_prune_budget_scope="model", kv_prune_schedule_anchor="pool",
+                          kv_prune_seed_per_step=True, kv_prune_log_masks=False, _episode_label=label)
+    # No attention stage: no decision row is captured; the blind layers are the last stage's.
+    worker._reindex_state.configure(pruned_layers=None, score_layers=(), n_layers=8, stages=UNIFORM_STAGES,
+                                    blind_layers=UNIFORM_STAGES[-1])
+    return worker
+
+
+def drive_uniform(worker, window, k, failures=None, verbose=False):
+    """Feed LONG_COUNTS; returns stage 0's visual ids per turn."""
+    n_layers, cut = 8, UNIFORM_STAGES[-1].start
+    next_id, turn_of, kept = 0, {}, []
+    for turn, n_vis in enumerate(LONG_COUNTS):
+        n, vis = visual_chunk(PREFIX if turn == 0 else LEAD, n_vis)
+        ids = torch.arange(next_id, next_id + n)
+        next_id += n
+        new_vis = set(ids[vis].tolist())
+        turn_of.update({i: turn for i in new_vis})
+        layers = worker.past_key_values.layers if worker.past_key_values is not None else None
+        before = set() if layers is None else set(layers[0].ids()) & set(turn_of)
+        feed(worker, ids, vis_row=vis, lead=0 if turn == 0 else LEAD)
+        ps, st = worker._kv_prune_state, worker._reindex_state
+        first_keep = max(0, ps.n_turns - window)
+        scope = LONG_COUNTS[first_keep:ps.n_turns]
+        h, total = len(scope), sum(scope)
+        cap = None if h <= k else int(round(k * total / h))
+        pool = {i for i in before if turn_of[i] >= first_keep} | new_vis  # stage 0's survivors + the entering frame
+        expect0 = len(pool) if cap is None else min(len(pool), int(round(n_layers * cap / cut)))
+        alive = [st.stage_alive(s) for s in range(2)]
+        vis_alive = [int((ps.is_visual & a).sum()) for a in alive]
+        lengths = worker._kv_lengths()
+        layers = worker.past_key_values.layers
+        kept.append(sorted(set(layers[0].ids()) & set(turn_of)))
+        held = cut * vis_alive[0] / n_layers
+        if verbose:
+            print(f"  turn {turn}: {h} frames in scope, budget {cap}, pool {len(pool)}, visual per stage {vis_alive} "
+                  f"(expect [{expect0}, 0]), layer lengths {lengths}, whole-model {held:.1f} slots "
+                  f"({worker._prune_visual_model_frames:.2f} frames)")
+        if failures is None:
+            continue
+        if vis_alive != [expect0, 0]:
+            failures.append(f"turn {turn}: visual per stage {vis_alive}, expected [{expect0}, 0]")
+        if lengths[:cut] != [st.master_len()] * cut or len(set(lengths[cut:])) != 1:
+            failures.append(f"turn {turn}: layers below the cut must equal the master ({st.master_len()}) and the "
+                            f"blind layers each other, got {lengths}")
+        text_alive = int((~ps.is_visual & alive[1]).sum())
+        if lengths[cut] != text_alive or text_alive != int((~ps.is_visual & alive[0]).sum()):
+            failures.append(f"turn {turn}: blind layers hold {lengths[cut]} slots, expected the {text_alive} text slots")
+        if not bool(alive[0].all()) or worker.past_image_embeds[0].shape[0] != vis_alive[0]:
+            failures.append(f"turn {turn}: the master cache did not compact with stage 0")
+        if abs(worker._prune_visual_model - held) > 1e-9:
+            failures.append(f"turn {turn}: logged whole-model mean {worker._prune_visual_model} vs {held}")
+        if worker._prune_stage_visual != vis_alive:
+            failures.append(f"turn {turn}: logged stage counts {worker._prune_stage_visual} vs {vis_alive}")
+        if cap is not None:
+            if held > cap + 1:
+                failures.append(f"turn {turn}: whole-model mean {held:.1f} exceeds the budget {cap}")
+            if len(pool) >= expect0 and abs(held - cap) > 1:
+                failures.append(f"turn {turn}: budget binds but the whole-model mean {held:.1f} misses {cap}")
+    return kept
+
+
+def check_uniform(window=5, k=2):
+    failures = []
+    base = drive_uniform(uniform_worker(window, k), window, k, failures=failures, verbose=True)
+    same = drive_uniform(uniform_worker(window, k), window, k)
+    other = drive_uniform(uniform_worker(window, k, label="scene_1"), window, k)
+    print(f"  random draw: reproducible {base == same}, label-dependent {base != other}")
+    if base != same:
+        failures.append("the uniform draw is not reproducible for the same (seed, label, step)")
+    if base == other:
+        failures.append("the uniform draw does not depend on the episode label")
+    # The solver: one scheduled stage over L layers, a 0 tail over the rest.
+    if model_budgets(6200, 1600, [18], tail=(10, 0)) != [int(round(28 * 1600 / 18))]:
+        failures.append(f"model_budgets with a 0 tail: {model_budgets(6200, 1600, [18], tail=(10, 0))}")
+    if model_budgets(3000, 3000, [18], tail=(10, 0)) != [3000]:
+        failures.append("model_budgets with a 0 tail must cap at the pool")
     return failures
 
 
@@ -308,6 +426,8 @@ ARMS = {
                    **COMMON),
     "pyramiddrop_flat": dict(context_frames=None, kv_prune_budget_frames=1.0, kv_prune_stages=[7, 14, 21],
                              **{**COMMON, "context_cut": "header", "kv_prune_log_masks": False}),
+    "uniform_model": dict(context_frames=5, kv_prune_budget_frames=2.0, **UNIFORM_ARM,
+                          **{**COMMON, "kv_prune_log_masks": False}),
 }
 
 
@@ -349,7 +469,63 @@ def check_gpu(images):
             tail = int(round(sum(ps.visual_per_turn[-h:]) / h))
             if not 0 < stage_vis[-1] <= tail:
                 failures.append(f"hybrid: the random stage holds {stage_vis[-1]} visual slots, budget {tail}")
+        if name == "uniform_model":
+            if st.blind_layers != range(18, 28):
+                failures.append(f"uniform: blind layers {st.blind_layers}, expected range(18, 28)")
+            if stage_vis[-1] != 0 or lens[18] != lens[27] or lens[18] != int((~ps.is_visual & st.stage_alive(1)).sum()):
+                failures.append(f"uniform: the blind layers hold {stage_vis[-1]} visual slots / {lens[18]}..{lens[27]} total")
+            if len(set(lens[:18])) != 1:
+                failures.append(f"uniform: layers below the cut differ in length: {lens[:18]}")
         release(worker)
+    failures += check_uniform_gpu(images)
+    return failures
+
+
+def check_uniform_gpu(images):
+    """The blind cut is real: every blind layer's attention hides all visual columns of its key axis
+    (the current frame's included, history holds none), and the decision differs from the
+    history-only variant (tail budget 0, nothing hidden) that holds the identical cache."""
+    import longnav.utils.pre_rope as pre_rope
+    failures, hidden = [], []
+    original = pre_rope.hide_columns
+
+    def counting(mask, hide, q, n_keys):
+        hidden.append((int(hide.sum()), int(n_keys), q))
+        return original(mask, hide, q, n_keys)
+
+    cfg = dict(context_frames=5, kv_prune_budget_frames=2.0, **{**COMMON, "kv_prune_log_masks": False})
+    pre_rope.hide_columns = counting
+    try:
+        blind = VLMWorker(model_id=MODEL_ID, attn_impl="sdpa", dtype="bfloat16", use_sparse=True,
+                          kv_prune_importance="attn", **cfg, **UNIFORM_ARM)
+        probs_b, _, lens_b = run_logged(blind, images)
+        alive_b = [a.clone() for a in blind._reindex_state._alive]
+        n_vis_last = int(blind._kv_prune_state.visual_per_turn[-1])
+        release(blind)
+    finally:
+        pre_rope.hide_columns = original
+    hist = VLMWorker(model_id=MODEL_ID, attn_impl="sdpa", dtype="bfloat16", use_sparse=True,
+                     kv_prune_importance="attn", **cfg, kv_prune_stages=[0, 18],
+                     kv_prune_stage_importance=["random", "random"], kv_prune_tail_budget_frames=0.0,
+                     kv_prune_budget_scope="model", kv_prune_schedule_anchor="pool")
+    probs_h, _, lens_h = run_logged(hist, images)
+    alive_h = [a.clone() for a in hist._reindex_state._alive]
+    release(hist)
+    n_blind_layers, n_steps = 10, len(images)
+    per_step = len(hidden) // n_steps if n_steps else 0
+    gap = max(float(np.abs(a - b).max()) for a, b in zip(probs_b, probs_h))
+    print(f"  uniform vs history-only: hide_columns called {len(hidden)}x ({per_step}/step), last step hid "
+          f"{sorted({h for h, _, _ in hidden[-n_blind_layers:]})} of {n_vis_last} visual slots; caches identical "
+          f"{lens_b == lens_h and all(torch.equal(a, b) for a, b in zip(alive_b, alive_h))}; max |dp| {gap:.4f}")
+    if per_step != n_blind_layers or len(hidden) != n_blind_layers * n_steps:
+        failures.append(f"uniform: hide_columns ran {len(hidden)} times for {n_steps} steps, expected {n_blind_layers}/step")
+    if any(h != n_vis_last for h, _, _ in hidden[-n_blind_layers:]):
+        failures.append(f"uniform: the last step's blind layers hid {[h for h, _, _ in hidden[-n_blind_layers:]]} "
+                        f"columns, expected the current frame's {n_vis_last} visual slots on each")
+    if lens_b != lens_h or not all(torch.equal(a, b) for a, b in zip(alive_b, alive_h)):
+        failures.append("uniform: the blind arm and the history-only variant hold different caches")
+    if gap == 0.0:
+        failures.append("uniform: hiding the current frame on the blind layers left every probability bit-identical")
     return failures
 
 
@@ -363,17 +539,19 @@ def main():
     failures += check_model_budget()
     print("check 4: constructor refusals")
     failures += check_validation()
+    print("check 5: uniform protocol (random below the cut, blind above it)")
+    failures += check_uniform()
     if torch.cuda.is_available() and "--cpu" not in sys.argv:
-        print("check 5: GPU arms")
+        print("check 6: GPU arms")
         failures += check_gpu(make_images(N_STEPS))
     else:
-        print("check 5 skipped (no GPU)")
+        print("check 6 skipped (no GPU)")
     if failures:
         print("\nFAIL:")
         for f in failures:
             print("  -", f)
         sys.exit(1)
-    print("\nPASS: hybrid stages, staged flat, whole-model budget, refusals, GPU arms")
+    print("\nPASS: hybrid stages, staged flat, whole-model budget, refusals, uniform, GPU arms")
 
 
 if __name__ == "__main__":

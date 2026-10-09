@@ -10,6 +10,13 @@
 #                  vlm.kv_prune_tail_budget_frames=1
 #   pyramiddrop  PyramidDrop with NO window (full episode context):
 #                  vlm.context_frames=null vlm.context_cut=header 'vlm.kv_prune_stages=[7,14,21]'
+#   uniform      (Exp 7b) K=32 frame cut; ONE uniform random draw at layer 0 (layers 0-17 hold the same
+#                slots) and a visual-blind cut from layer 18 (no visual token, the current frame's
+#                included, reaches layers 18-27; they hold no visual slot):
+#                  'vlm.kv_prune_stages=[0,18]' 'vlm.kv_prune_stage_importance=[random,random]'
+#                  vlm.kv_prune_visual_blind=true vlm.kv_prune_budget_scope=model vlm.kv_prune_schedule_anchor=pool
+#   (the experiment's arms add vlm.kv_prune_budget_scope=model vlm.kv_prune_schedule_anchor=pool and a
+#   stage at layer 0 to hybrid/pyramiddrop too; see paper/hybrid_prune/run_r1.sh)
 #
 # Launch from the repo root (see paper/hybrid_prune/run_r1.sh):
 #   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \

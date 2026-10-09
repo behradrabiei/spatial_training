@@ -1,0 +1,49 @@
+{
+ "arms": {
+  "LongNav-R1": {
+   "arm": "r1_selector_probe",
+   "episodes_done": 10,
+   "missing": [],
+   "extra": []
+  },
+  "Uni-NaVid": {
+   "arm": "uninavid_selector_probe",
+   "episodes_done": 10,
+   "missing": [],
+   "extra": []
+  }
+ },
+ "checks": {
+  "LongNav-R1": {
+   "trajectory_vs_r1_full": [
+    "h1zeeAwLh9Z_0: success=1.0 steps=96 vs reference success=1.0 steps=51",
+    "a8BtkwhxdRV_2: success=1.0 steps=37 vs reference success=1.0 steps=81",
+    "VBzV5z6i1WS_1: success=1.0 steps=45 vs reference success=1.0 steps=46",
+    "Nfvxx8J5NCo_1: success=1.0 steps=28 vs reference success=1.0 steps=30",
+    "Dd4bFSTQ8gi_1: success=0.0 steps=24 vs reference success=0.0 steps=45",
+    "zt1RVoi7PcG_0: success=1.0 steps=72 vs reference success=1.0 steps=74",
+    "wcojb4TFT35_0: success=1.0 steps=67 vs reference success=0.0 steps=500",
+    "k1cupFYWXJ6_0: success=0.0 steps=51 vs reference success=1.0 steps=113",
+    "q5QZSEeHe5g_0: success=1.0 steps=21 vs reference success=1.0 steps=22"
+   ],
+   "consistency": "ok",
+   "n_bad": 0,
+   "decisions": 486,
+   "decisions_valid": 486,
+   "decisions_per_budget": {
+    "4": 446,
+    "8": 406,
+    "16": 326,
+    "32": 189
+   }
+  },
+  "Uni-NaVid": {
+   "trajectory_vs_uninavid_probe": "match",
+   "consistency": "ok",
+   "n_bad": 0,
+   "decisions": 416,
+   "decisions_valid": 416
+  }
+ },
+ "showcase": "n_frames > 32 and max total keep_all (the frame's keep-one-in mass)"
+}

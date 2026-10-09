@@ -1,0 +1,10 @@
+\begin{tabular}{lcccccc}
+\toprule
+method & $\rho$ vs keep-one-in KL, LongNav-R1 & $\rho$ vs keep-one-in KL, Uni-NaVid & KL share / token share, $k{=}4$ (LongNav-R1) & KL share / token share, $k{=}8$ (LongNav-R1) & KL share / token share, $k{=}16$ (LongNav-R1) & KL share / token share, $k{=}32$ (LongNav-R1) \\
+\midrule
+Random & -0.001 & -0.006 & 1.01 & 1.02 & 1.01 & 1.01 \\
+FastV & -0.021 & 0.183 & 1.01 & 1.02 & 1.01 & 1.00 \\
+DivPrune & -0.062 & -0.024 & 0.82 & 0.88 & 0.95 & 1.00 \\
+DART & -0.148 & 0.008 & 0.42 & 0.53 & 0.63 & 0.76 \\
+\bottomrule
+\end{tabular}

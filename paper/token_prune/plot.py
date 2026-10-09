@@ -12,7 +12,8 @@ defaults; writes to paper_results/token_prune/figures/:
 --variant flat draws the flat variant (README "Flat variant": full context / 64 frames, every
 method at layer 0) from paper_results/token_prune_flat/: the four methods only, plain lines with
 markers -- no recency curve, no error bars -- at k = 4, 8, 16, 32, plus the unpruned identity arm
-(full context / 64 frames) as a dotted reference line.
+(full context / 64 frames) as a dotted reference line. Its budget_curves figure is drawn in the
+hybrid_prune protocol_curves style: smaller canvas so the text reads larger, legend across the top.
 
 Series whose arms have not been aggregated yet are skipped (and listed on the console); partial
 arms are drawn with hollow markers and annotated with their episode count. Needs matplotlib, so
@@ -149,25 +150,37 @@ def draw_flat_panel(ax, summary, model, metric, show_legend):
     return missing
 
 
-def figure_budget(summary, out: Path, draw_panel=None):
+def figure_budget(summary, out: Path, draw_panel=None, legend_top=False):
+    """legend_top: the protocol_curves layout (hybrid_prune) -- 7.0x4.8 canvas, large text, one
+    legend row across the top instead of the in-panel legend, one shared x label (two per-column
+    labels collide at this font size)."""
     draw_panel = draw_panel or draw_budget_panel
-    fig, axes = plt.subplots(2, 2, figsize=(7.5, 5.5), sharex=True)
-    missing = {}
-    for col, model in enumerate(MODELS):
-        for row, metric in enumerate(PANELS):
-            ax = axes[row][col]
-            m = draw_panel(ax, summary, model, metric, show_legend=(row == 0 and col == 0))
-            missing.setdefault(model, m)
-            if row == 0:
-                ax.set_title(model)
-            if col == 0:
-                ax.set_ylabel(PANELS[metric])
-            if row == 1:
-                ax.set_xlabel("history tokens kept (frames' worth)")
-    for model, m in missing.items():
-        if m:
-            print(f"[budget_curves] {model}: no data yet for {', '.join(m)}")
-    save(fig, out)
+    rc = {"font.size": 13, "axes.titlesize": 14, "axes.labelsize": 14} if legend_top else {}
+    with plt.rc_context(rc):
+        fig, axes = plt.subplots(2, 2, figsize=(7.0, 4.8) if legend_top else (7.5, 5.5), sharex=True)
+        missing = {}
+        for col, model in enumerate(MODELS):
+            for row, metric in enumerate(PANELS):
+                ax = axes[row][col]
+                m = draw_panel(ax, summary, model, metric, show_legend=(row == 0 and col == 0 and not legend_top))
+                missing.setdefault(model, m)
+                if row == 0:
+                    ax.set_title(model)
+                if col == 0:
+                    ax.set_ylabel(PANELS[metric])
+                if row == 1 and not legend_top:
+                    ax.set_xlabel("history tokens kept (frames' worth)")
+        rect = None
+        if legend_top:
+            handles, names = axes[0][0].get_legend_handles_labels()
+            fig.legend(handles, names, loc="upper center", ncol=len(handles), fontsize=12, frameon=False,
+                       handlelength=1.6, columnspacing=1.0)
+            fig.supxlabel("history tokens kept (frames' worth)", fontsize=14)
+            rect = (0, 0, 1, 0.93)
+        for model, m in missing.items():
+            if m:
+                print(f"[budget_curves] {model}: no data yet for {', '.join(m)}")
+        save(fig, out, rect=rect)
 
 
 def figure_retention(retention, k: int, out: Path):
@@ -198,8 +211,8 @@ def figure_retention(retention, k: int, out: Path):
     save(fig, out)
 
 
-def save(fig, out: Path):
-    fig.tight_layout()
+def save(fig, out: Path, rect=None):
+    fig.tight_layout(rect=rect) if rect else fig.tight_layout()
     for ext in ("pdf", "png"):
         fig.savefig(out.with_suffix(f".{ext}"), dpi=300)
     print("wrote", out.with_suffix(".pdf"), out.with_suffix(".png"))
@@ -221,7 +234,8 @@ def main() -> None:
     summary = load_rows(args.results / "summary.csv")
     if summary:
         figure_budget(summary, args.out / "budget_curves",
-                      draw_panel=draw_flat_panel if args.variant == "flat" else None)
+                      draw_panel=draw_flat_panel if args.variant == "flat" else None,
+                      legend_top=args.variant == "flat")
     # The flat variant logs no LongNav-R1 keep masks (full context), so it has no retention figure.
     retention = load_rows(args.results / "retention.csv") if args.variant == "window" else []
     if retention:

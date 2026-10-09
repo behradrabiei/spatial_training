@@ -7,6 +7,7 @@ figures to paper_results/info_horizon[_mp3d]/figures/, one per data source:
   information_perf.{pdf,png}  SR and SPL of the visual-blind rollouts, 100 episodes; dotted
                               line = unblinded reference
   information_kl_keep / information_kl_leave.{pdf,png}  the two KL panels as standalone figures
+  information_perf_sr / information_perf_spl.{pdf,png}  the two SR/SPL panels as standalone figures
 against the decoder layer L (visual tokens hidden from L on). Curves: LongNav-R1 red solid,
 LongNav-R1 (leak-free re-prefill, optional arm) red dashed, Uni-NaVid blue solid; the SR/SPL
 figure carries one LongNav-R1 curve (the blind rollout is leak-free by construction). Means
@@ -37,6 +38,9 @@ FIGURES = {  # the KL panels come from the probe episodes, SR/SPL from the 100-e
     # the two KL panels again as standalone single-panel figures
     "information_kl_keep": (("keep_one_mean", "Keep-one-in KL (nats)"),),
     "information_kl_leave": (("leave_one_mean", "Leave-one-out KL (nats)"),),
+    # and the two SR/SPL panels likewise
+    "information_perf_sr": (("sr", "SR"),),
+    "information_perf_spl": (("spl", "SPL"),),
 }
 
 

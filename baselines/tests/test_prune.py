@@ -15,6 +15,7 @@ from uninavid_hm3d.prune import (
     N_PER_FRAME,
     NAV_TOKENS,
     STAGES,
+    UNIFORM_BLIND_LAYER,
     PruneState,
     TokenPruner,
     describe,
@@ -599,7 +600,8 @@ class FlatHookTests(unittest.TestCase):
     def test_defaults_are_unchanged_and_bad_layers_refused(self):
         self.assertEqual(STAGES, {"fastv": ((1, 2),), "dart": ((1, 2),),
                                   "pyramiddrop": ((7, 8), (15, 16), (23, 24)),
-                                  "hybrid": ((7, 8), (15, 16), (None, 24))})
+                                  "hybrid": ((7, 8), (15, 16), (None, 24)),
+                                  "uniform": ((0, 0), (None, 20))})
         self.assertEqual(TokenPruner("fastv", 1, IMAGE).stages, ((1, 2),))
         self.assertFalse(TokenPruner("dart", 1, IMAGE).flat)
         old = describe("fastv", 8, 17, 8)
@@ -609,7 +611,7 @@ class FlatHookTests(unittest.TestCase):
         self.assertEqual((flat["placement"], flat["first_hidden_layer"], flat["stages"], flat["prune_layer"],
                           flat["removal"]), ("layer0-prepass", 0, [[0, 0]], 0, "rows"))
         self.assertEqual(describe("random", 8, 17, 8, 0)["removal"], "rows")
-        for method, layer in (("pyramiddrop", 0), ("hybrid", 0), ("fastv", 2)):
+        for method, layer in (("pyramiddrop", 0), ("hybrid", 0), ("uniform", 0), ("fastv", 2)):
             with self.assertRaises(ValueError):
                 TokenPruner(method, 4, IMAGE, layer=layer)
             with self.assertRaises(ValueError):
@@ -763,6 +765,103 @@ class WholeModelBudgetTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             parse_args(["--prune-method", "fastv", "--prune-k", "8", "--context-frames", "32",
                         "--prune-budget-scope", "model"])
+
+
+class UniformProtocolTests(WholeModelBudgetTests):
+    """method='uniform' (paper/hybrid_prune): an input-level uniform draw at stage 0 (rows removed, so
+    layers 0..19 all hold the same tokens) and a BLIND stage from layer 20 -- every history column
+    plus the current frame's group and 64 fine tokens hidden; budget solved over the whole model."""
+
+    def test_solver_with_a_zero_tail(self):
+        self.assertEqual(model_stage_budgets(124, 32, [20], tail=(12, 0)), [51])  # 32 * 32 / 20 = 51.2
+        self.assertEqual(model_stage_budgets(20, 32, [20], tail=(12, 0)), [20])  # under budget
+        self.assertEqual(model_stage_budgets(124, 8, [20], tail=(12, 0)), [13])
+
+    def test_guards_and_describe(self):
+        with self.assertRaises(ValueError):
+            TokenPruner("uniform", 2, IMAGE)  # last-stage scope has no meaning below a blind cut
+        with self.assertRaises(ValueError):
+            describe("uniform", 8, 17, 8, None, "last_stage")
+        pruner = TokenPruner("uniform", 2, IMAGE, scope="model", anchor="pool")
+        self.assertEqual(pruner.stages, ((0, 0), (None, UNIFORM_BLIND_LAYER)))  # no second layer-0 stage
+        self.assertTrue(pruner.prepass and pruner.whole and pruner.blind_stage)
+        d = describe("uniform", 8, 17, 8, None, "model", "pool")
+        self.assertEqual((d["stages"], d["stage_selectors"], d["tail_budget_tokens"], d["blind_layer"], d["seed"],
+                          d["removal"], d["schedule_anchor"]),
+                         ([[0, 0], [None, 20]], ["random", "blind"], 0, 20, 17, "rows at layer 0, columns after", "pool"))
+        args = parse_args(["--prune-method", "uniform", "--prune-k", "8", "--context-frames", "32",
+                           "--prune-budget-scope", "model", "--prune-schedule-anchor", "pool"])
+        self.assertEqual(args.prune_method, "uniform")
+        for argv in (["--prune-method", "uniform", "--prune-k", "8", "--context-frames", "32"],
+                     ["--prune-method", "uniform", "--prune-k", "8", "--context-frames", "32",
+                      "--prune-budget-scope", "model", "--prune-layer", "0"]):
+            with self.assertRaises(SystemExit):
+                parse_args(argv)
+
+    def expected_blind_columns(self, d0, history):
+        """Columns of every surviving history token, the current frame's group and the fine tokens."""
+        frames = list(range(6))
+        kept = {f: [t for t in range(4) if (f, t) not in d0] for f in frames}
+        groups = [f for f in frames if kept[f]]
+        spans = history_columns(self.placeholder, [len(kept[f]) for f in groups])
+        cols = self.columns_after_prepass(frames, d0, [tok for tok in history if tok not in d0]
+                                          + [(5, t) for t in range(4)])
+        nav = spans[-1][1] + 2
+        return cols | set(range(nav, nav + NAV_TOKENS))
+
+    def test_uniform_arm(self):
+        model, pruner = make_pruner("uniform", k=2, n_frames=6, scope="model", anchor="pool")  # pool 20, B' = 8
+        result_list, sent, mask, record = run_whole(model, pruner, self.ids, 5, self.nav, self.tab)
+        budgets = model_stage_budgets(20, 8, [20], tail=(12, 0)) + [0]
+        self.assertEqual(budgets, [13, 0])
+        self.assertEqual(record["stage_budgets"], budgets)
+        self.assertEqual(record["stage_kept"], budgets)
+        self.assertAlmostEqual(record["held_tokens"], 20 * 13 / 32)
+        self.assertEqual(sum(record["n_kept"]), 13)  # reported at the stage below the blind cut
+        d = pruner.state.deleted
+        history = [(f, t) for f in range(5) for t in range(4)]
+        # Stage 0: the seeded uniform draw, rows removed before the prefill (no layer-0 pre-pass forward).
+        draw = select_random(20, 13, torch.Generator().manual_seed(selection_seed(17, "scene_0", 5)))
+        self.assertEqual(set(history) - d[0], {history[i] for i in draw.tolist()})
+        self.assertEqual(d[1], set(history))  # the blind stage holds no history token
+        groups = [g for g in ([model.state.feat_cache[f][[t for t in range(4) if (f, t) not in d[0]]]
+                               for f in range(6)]) if g.shape[0]]
+        self.assertTrue(torch.equal(sent["inputs_embeds"][0], assemble(self.ids, groups, self.nav, self.tab)))
+        self.assertEqual(sum(result_list), 4 * 6 - 7)
+        layers = model.state.layers
+        self.assertEqual(len(layers[0].calls), 2)  # prefill + decode only
+        for i in range(20):
+            self.assertIs(layers[i].calls[0][1], mask)  # every layer below the cut: the same rows, nothing hidden
+            self.assertIs(layers[i].calls[1][1], layers[0].calls[1][1])
+        want = self.expected_blind_columns(d[0], history)
+        self.assertEqual(len(want), 13 + 4 + NAV_TOKENS)
+        for i in range(20, 32):
+            self.assertEqual(self.hidden_columns(layers[i].calls[0][1]), want)
+            dec = layers[i].calls[1][1]
+            self.assertEqual(set(torch.nonzero(dec[0, 0, 0] == torch.finfo(dec.dtype).min).flatten().tolist()), want)
+        other_model, other = make_pruner("uniform", k=2, n_frames=6, seed=18, scope="model", anchor="pool")
+        run_whole(other_model, other, self.ids, 5, self.nav, self.tab)
+        self.assertNotEqual(other.state.deleted[0], d[0])
+        # Persistence: rows deleted at stage 0 never come back; the blind stage stays empty.
+        first = set(d[0])
+        model.state.feat_cache = torch.cat([model.state.feat_cache[2:], torch.randn(2, N_PER_FRAME, C)])
+        pruner.state.advance(4, [6, 7])
+        result_list, _, _, record = run_whole(model, pruner, self.ids, 7, self.nav, self.tab)
+        self.assertTrue({t for t in first if t[0] >= 2} <= pruner.state.deleted[0])
+        # Stage 0 selects inside the input hook, so this step's draw is gone from the prompt too.
+        self.assertEqual(sum(result_list), 4 * 6 - len(pruner.state.deleted[0]))
+        self.assertEqual(record["stage_kept"], [13, 0])
+        self.assertLessEqual(record["held_tokens"], 8 + 1)
+
+    def test_first_inference_without_history_hides_the_current_frame(self):
+        model, pruner = make_pruner("uniform", k=2, n_frames=1, scope="model", anchor="pool")
+        result_list, _, mask, record = run_whole(model, pruner, self.ids, 0, self.nav, self.tab)
+        self.assertEqual((result_list, record["stage_kept"], record["held_tokens"]), ([4], [0, 0], 0.0))
+        layers = model.state.layers
+        self.assertIs(layers[19].calls[0][1], mask)
+        spans = history_columns(self.placeholder, [4])
+        want = set(range(*spans[-1])) | set(range(spans[-1][1] + 2, spans[-1][1] + 2 + NAV_TOKENS))
+        self.assertEqual(self.hidden_columns(layers[20].calls[0][1]), want)
 
 
 class DescribeAndCliTests(unittest.TestCase):

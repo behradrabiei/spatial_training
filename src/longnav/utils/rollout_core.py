@@ -192,6 +192,12 @@ class EpisodeRolloutMixin:
                     vlm_logs["mean/kv_visual_new"] = row.get("n_cur_tokens", 0)
                     vlm_logs |= {"max/horizon_probe_count": self._horizon_probe_count,
                                  "max/horizon_probe_latency": self._horizon_probe_latency}
+                if getattr(self, "selector_probe", False):
+                    # paper/selector_kl: per visual token of the current frame, the flat selectors'
+                    # layer-0 criteria and the leaky per-token KLs (raw rows in sequence.json as
+                    # sup/selector_*; no '/' in the names).
+                    from longnav.utils.selector_probe import log_rows
+                    vlm_logs |= log_rows(self)
                 if getattr(self, "context_window_mode", None) == "prune":
                     vlm_logs |= {
                         "mean/prune_score_latency": self._prune_score_latency,
@@ -612,6 +618,11 @@ def collect_rollouts(
             sim, init_state_ref = ready_sims.popleft()
             ep_ref = vlm.run_episode.remote(sim, init_state_ref)
             active_episodes[ep_ref] = dispatch_counter,vlm,sim
+            try:  # name the episode in flight (the sim logs it only when it ends)
+                _label = ray.get(init_state_ref)[-1].get("info", {}).get("episode_label", "?")
+                print(f"[dispatch] episode {dispatch_counter}: {_label}", flush=True)
+            except Exception:
+                pass
             dispatch_counter +=1
             total_potential +=1
 

@@ -2,7 +2,8 @@
 """Figures for the context-window ablation (run aggregate.py first). Plain matplotlib
 defaults; writes to paper_results/ctx_ablation/figures/:
 
-  ctx_ablation.{pdf,png}         SR and SPL vs K, side by side, means only (CIs in summary.csv)
+  ctx_ablation.{pdf,png}         SR and SPL vs K, side by side, means only (CIs in summary.csv);
+                                 large text, legend on top, shared x label
   ctx_leakage.{pdf,png}          LongNav-R1 KV eviction minus leak-free recompute at matched K, means only
 
 Needs matplotlib, so run in the vln env:
@@ -20,6 +21,7 @@ import matplotlib.pyplot as plt
 HERE = Path(__file__).resolve().parent
 RESULTS_ROOT = HERE.parents[1] / "paper_results/ctx_ablation"
 K_ORDER = ["1", "4", "8", "16", "32", "full"]
+LARGE_RC = {"font.size": 13, "axes.titlesize": 14, "axes.labelsize": 14}  # ctx_ablation text sizes
 PANELS = {"sr": "Success rate", "spl": "SPL", "steps": "Steps per episode"}
 SERIES = {  # arm-name template, plot style (both LongNav-R1 variants share a color; recompute is dashed)
     "r1_evict": (lambda k: "r1_full" if k == "full" else f"r1_evict_k{k}",
@@ -66,16 +68,21 @@ def finish(ax, metric, n_ticks=len(K_ORDER)):
 
 
 def figure_metrics(summary, metrics, figsize, out):
-    fig, axes = plt.subplots(1, len(metrics), figsize=figsize)
-    for ax, metric in zip(axes, metrics):
-        for name in SERIES:
-            draw(ax, summary, name, metric)
-        finish(ax, metric)
-    # One legend row above both panels: every corner of the panels has data in it.
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=len(labels), fontsize=7, frameon=False,
-               bbox_to_anchor=(0.5, 1.0))
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    """Paper figure: large text (LARGE_RC, as hybrid_prune's protocol_curves), one legend row
+    across the top, one shared x label."""
+    with plt.rc_context(LARGE_RC):
+        fig, axes = plt.subplots(1, len(metrics), figsize=figsize)
+        for ax, metric in zip(axes, metrics):
+            for name in SERIES:
+                draw(ax, summary, name, metric)
+            finish(ax, metric)
+            ax.set_xlabel("")
+        # One legend row above both panels: every corner of the panels has data in it.
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="upper center", ncol=len(labels), fontsize=12, frameon=False,
+                   bbox_to_anchor=(0.5, 1.0), handlelength=1.6, columnspacing=1.0)
+        fig.supxlabel("Frames in context K", fontsize=14)
+        fig.tight_layout(rect=(0, 0, 1, 0.9))
     for ext in ("pdf", "png"):
         fig.savefig(out.with_suffix(f".{ext}"), dpi=300)
     print("wrote", out.with_suffix(".pdf"), out.with_suffix(".png"))
@@ -107,7 +114,7 @@ def main() -> None:
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     summary = load_summary(args.summary)
-    figure_metrics(summary, ["sr", "spl"], (6.5, 2.8), args.out / "ctx_ablation")
+    figure_metrics(summary, ["sr", "spl"], (7.0, 3.4), args.out / "ctx_ablation")
     figure_leakage(summary, args.out / "ctx_leakage")
 
 

@@ -1,0 +1,67 @@
+# @package _global_
+# Paper protocol for the selector-criterion vs keep-one-in KL probe of LongNav-R1
+# (paper/selector_kl/README.md).
+#
+# The flat token-pruning variant's pool (paper_prune_flat: full episode context, every visual slot
+# incl. the current frame's a candidate) with NOTHING ever pruned and the sparse filter DISABLED
+# (sparse_threshold=2.0, as paper_token_info): every patch of every frame is a token, so the
+# per-token maps cover the whole grid. Off the checkpoint's training regime; the trajectory
+# therefore differs from r1_full's.
+# After every decision the worker records, for each visual token of the current frame, the
+# layer-0 criterion of every flat selector applied one-shot to the whole cache -- FastV's
+# layer-0 decision-row attention, DivPrune's greedy position, DART's and random's keep rank at
+# k in {4, 8, 16, 32} frames' worth -- next to the token's leaky no-history keep-one-in KL at layer 0
+# (keep_all: KL(P_only k, every other visual token hidden || P_no visual); past action text stays) (longnav.utils.selector_probe; rows in sequence.json as sup/selector_*), plus each
+# diversity method's continuous per-token criterion (DivPrune: nearest-neighbour cosine distance
+# in the pool; DART: dissimilarity to its pivots). The decision itself is never touched.
+#
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_selector_probe +resources=single task.run_name=r1_selector_probe
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper_selector_nohist"  # own project: earlier attempts (sparse-on; keep_cur) logged under longnav_paper / longnav_paper_selector
+  output_dir: ./paper_results/selector_kl/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_10_short.json  # the seed-17 ten minus Nfvxx8J5NCo_2 (298 steps with the filter off; every other one is <= 96) + yr17PDCnDDW_0, the first random.Random(17) draw from the <150-step remainder of the 100 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # required by the substrate (visual slot bookkeeping, embed DB)
+  sparse_threshold: 2.0  # filter OFF: every patch is stored, so the maps cover the full 15x20 grid (as paper_token_info)
+  context_frames: null  # full episode context: nothing is ever evicted by age
+  context_window: null
+  context_cut: header  # inert without a window
+  context_window_mode: prune  # the flat variant's substrate; the leaky KL arm replays against it
+  token_info_probe: true  # decision-token inputs for the per-token replays
+  selector_probe: true
+  selector_probe_budgets: [4, 8, 16, 32]  # frames' worth, the flat sweep's k
+  selector_probe_measures: [keep_all]  # keep-one-in with NO visual history (as the horizon probe): only token k visible among every visual token, reference = no visual tokens
+  horizon_probe_layers: []
+  kv_budget: 1000000000  # unreachable: the pool is the unpruned cache
+  kv_prune_importance: random  # identity at this budget; the probe arms the captures itself
+  kv_prune_candidate_scope: visual  # prefix and every text/action token are never candidates
+  kv_prune_recent_turns: 0  # the just-decided frame is a candidate (flat variant)
+  kv_prune_ema_beta: 0.0
+  kv_prune_granularity: slot
+  kv_prune_layer_start: 0  # every layer in play; FastV scored at layer 0 (kv_prune_score_layer forced to 0)
+  kv_prune_seed: 17
+  kv_prune_seed_per_step: true  # the random control's draw depends on (seed, episode label, step) only
+  kv_prune_log_masks: false
+  kv_prune_log_influence: false
+  kv_prune_log_layer_influence: false
+  kv_prune_log_keep_one: false
+  influence_recompute: false

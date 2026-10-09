@@ -104,3 +104,14 @@ installed or required.
 Each run records the source revisions, dependency versions, label checksum,
 effective inference settings, raw model outputs, chosen actions, timing, and
 Habitat metrics in its result directory.
+
+Per-step trace (`traces/<label>.jsonl`, one line per env step). On inference
+steps (`inference: true`) the record also carries the cost of that LLM call, added
+for the cost benchmark of `paper/hybrid_prune` (2026-09-23): `inference_seconds`
+(wall time of `model.generate`), `prompt_tokens` (the tokens the LLM prefilled —
+instruction plus the visual history kept — read by a forward pre-hook on decoder
+layer 0 that keeps the *last* multi-token forward of the call, so a pruning
+pre-pass over the unpruned prompt is not what is counted), `cuda_peak_bytes`
+(`torch.cuda.max_memory_allocated()` over the call, after a reset) and
+`cuda_allocated_bytes` (resident after the call: weights + the per-frame feature
+cache). Runs from before that date have `null` in the three new fields.

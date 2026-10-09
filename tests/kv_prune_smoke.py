@@ -144,6 +144,7 @@ def bare_worker(mode, window, budget=WIDE_BUDGET, importance="random", recent_tu
     worker.kv_prune_log_layer_influence = False
     worker.kv_prune_layer_influence_starts = ()
     worker.kv_prune_visual_blind = False
+    worker._blind_stage = False
     worker.kv_prune_log_keep_one = False
     worker._n_fake_layers = n_layers
     worker.context_window = window

@@ -65,13 +65,18 @@ N_PER_FRAME = 4
 NAV_TOKENS = 64
 LENGTH_THRESHOLD = 64
 SIMILARITY_THRESHOLD = 0.985
-METHODS = ("identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid")
+METHODS = ("identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform")
 INPUT_LEVEL = ("random", "divprune")
+UNIFORM_BLIND_LAYER = 20  # uniform: first visual-blind decoder layer (LongNav-R1 cuts at 18 of 28)
 # (scoring layer, first hidden layer) per stage; LLaMA-7B has 32 decoder layers. A stage without
-# a scoring layer is a random stage, drawn when its first hidden layer runs.
+# a scoring layer is a random stage, drawn when its first hidden layer runs. 'uniform'
+# (paper/hybrid_prune): stage 0 is an input-level uniform draw whose rows leave the prompt (every
+# layer below the cut holds the same tokens), stage 1 a BLIND stage from UNIFORM_BLIND_LAYER on --
+# budget 0 for the history, and the current frame's group + fine tokens hidden as well.
 STAGES = {"fastv": ((1, 2),), "dart": ((1, 2),), "pyramiddrop": ((7, 8), (15, 16), (23, 24)),
-          "hybrid": ((7, 8), (15, 16), (None, 24))}
-STAGED = ("pyramiddrop", "hybrid")  # the stages are the method: no layer-0 variant
+          "hybrid": ((7, 8), (15, 16), (None, 24)), "uniform": ((0, 0), (None, UNIFORM_BLIND_LAYER))}
+STAGED = ("pyramiddrop", "hybrid", "uniform")  # the stages are the method: no layer-0 variant
+BLIND_STAGE = ("uniform",)  # staged methods whose last stage is visual-blind (whole-model budget only)
 TAIL_FRAMES = 1  # hybrid: frames' worth kept by the random last stage
 N_LAYERS = 32
 SCOPES = ("last_stage", "model")
@@ -283,7 +288,10 @@ def check_scope(method: str, scope: str, layer: int | None = None) -> bool:
     if scope not in SCOPES:
         raise ValueError(f"budget scope must be one of {SCOPES}, got {scope!r}")
     if scope == "model" and (method not in STAGED or layer is not None):
-        raise ValueError("a whole-model budget needs a staged method (pyramiddrop, hybrid) and no prune layer")
+        raise ValueError("a whole-model budget needs a staged method (pyramiddrop, hybrid, uniform) and no prune layer")
+    if method in BLIND_STAGE and scope != "model":
+        raise ValueError(f"{method} spreads a whole-model budget over the layers below its blind cut; "
+                         "it needs budget scope 'model'")
     return scope == "model"
 
 
@@ -296,7 +304,7 @@ def describe(method: str, k: int | None, seed: int, n_pivots: int, layer: int | 
     flat = check_layer(method, layer)
     whole = check_scope(method, scope, layer)
     stages = ((0, 0),) if flat else STAGES.get(method)
-    if whole:
+    if whole and method not in BLIND_STAGE:  # a blind-stage method's stage 0 IS the layer-0 stage
         stages = (PREPASS_STAGE,) + stages
     return {
         "method": method,
@@ -308,10 +316,12 @@ def describe(method: str, k: int | None, seed: int, n_pivots: int, layer: int | 
         "first_hidden_layer": None if stages is None else stages[0][1],
         "stages": None if stages is None else [list(s) for s in stages],
         "pivots": n_pivots if method == "dart" else None,
-        "seed": seed if method in ("random", "hybrid") else None,
+        "seed": seed if method in ("random", "hybrid", "uniform") else None,
         "query": "last prompt token, mean over heads" if method in ("fastv", "pyramiddrop", "hybrid") else None,
-        "stage_selectors": None if method != "hybrid" else ["random" if sc is None else "attn" for sc, _ in stages],
-        "tail_budget_tokens": TAIL_FRAMES * N_PER_FRAME if method == "hybrid" else None,
+        "stage_selectors": ["random", "blind"] if method in BLIND_STAGE else None if method != "hybrid"
+        else ["random" if sc is None else "attn" for sc, _ in stages],
+        "tail_budget_tokens": TAIL_FRAMES * N_PER_FRAME if method == "hybrid" else 0 if method in BLIND_STAGE else None,
+        "blind_layer": UNIFORM_BLIND_LAYER if method in BLIND_STAGE else None,
         "prune_layer": layer,
         "removal": None if method == "identity" else "rows" if method in INPUT_LEVEL or flat
         else "rows at layer 0, columns after" if whole else "columns",
@@ -344,8 +354,9 @@ class TokenPruner:
         self.whole = check_scope(method, scope, layer)  # whole-model budget: pre-pass stage + the method's own
         self.prepass = self.flat or self.whole
         self.stages = () if self.flat else STAGES.get(method, ())
-        if self.whole:
+        if self.whole and method not in BLIND_STAGE:
             self.stages = (PREPASS_STAGE,) + self.stages
+        self.blind_stage = method in BLIND_STAGE  # the last stage hides every visual column
         self.n_stages = max(len(self.stages), 1)
         self.state = PruneState(self.n_stages)
         self.label = ""
@@ -370,6 +381,7 @@ class TokenPruner:
         self._col: dict[Token, int] | None = None  # flat: prompt column of every surviving history token
         self._sep: dict[int, int] = {}  # flat: column of the separator closing each history group
         self._prompt_len: int | None = None
+        self._blind_cols: torch.Tensor | None = None  # blind stage: the current frame's group + fine tokens
         self._budgets: list[int] = []
         self._widths: list[int] | None = None
         self._n_pool = 0
@@ -394,16 +406,18 @@ class TokenPruner:
         v0 = len(self.state.history) * N_PER_FRAME
         if self.anchor == "pool":
             v0 = self._n_pool  # what stage 0 can draw from now: its survivors + the new history frames
-        tailed = self.method == "hybrid"  # the random stage has its own budget, outside the schedule
+        # hybrid: the random stage has its own budget, outside the schedule; a blind last stage keeps 0.
+        tailed = self.method == "hybrid" or self.blind_stage
+        tail_tokens = 0 if self.blind_stage else TAIL_FRAMES * N_PER_FRAME
         n_sched = self.n_stages - (1 if tailed else 0)
         if self.whole:
             starts = [hide for _, hide in self.stages] + [N_LAYERS]
             widths = [b - a for a, b in zip(starts[:-1], starts[1:])]
             sched = model_stage_budgets(v0, self.budget, widths[:n_sched],
-                                        tail=(widths[-1], TAIL_FRAMES * N_PER_FRAME) if tailed else None)
+                                        tail=(widths[-1], tail_tokens) if tailed else None)
         else:
             sched = stage_budgets(v0, self.budget, n_sched)
-        self._budgets = sched + ([min(TAIL_FRAMES * N_PER_FRAME, sched[-1])] if tailed else [])
+        self._budgets = sched + ([min(tail_tokens, sched[-1])] if tailed else [])
         self._widths = widths if self.whole else None
         self._refresh_hide()
 
@@ -413,7 +427,9 @@ class TokenPruner:
             raise RuntimeError("finish() called without begin_inference()")
         if not all(self._selected):
             raise RuntimeError("the pruning hook did not run on every stage; is it installed?")
-        deepest = self.n_stages - 1
+        # Per-frame retention at the deepest stage -- for a blind last stage (always empty) the
+        # stage below it, i.e. what the layers below the cut hold.
+        deepest = self.n_stages - (2 if self.blind_stage else 1)
         record = {
             "step": self._step,
             "frames": list(self.state.history),
@@ -462,6 +478,8 @@ class TokenPruner:
                         hide[self._col[tok]] = True
                 elif tok[0] in rows:
                     hide[self._spans[rows[tok[0]]][0] + tok[1]] = True
+            if self.blind_stage and s == self.n_stages - 1 and self._blind_cols is not None:
+                hide |= self._blind_cols
             self._hide[s] = hide
 
     def _columns(self, pool: Sequence[Token]) -> torch.Tensor:
@@ -540,7 +558,7 @@ class TokenPruner:
         def flat(pool: Sequence[Token]) -> torch.Tensor:
             return torch.tensor([rows[f] * N_PER_FRAME + t for f, t in pool], dtype=torch.long)
 
-        if self.method == "random":
+        if self.method in ("random", "uniform"):
             generator = torch.Generator().manual_seed(selection_seed(self.seed, self.label, self._step))
             self._select(0, lambda pool: select_random(len(pool), self._budgets[0], generator))
         elif self.method == "divprune":
@@ -564,6 +582,17 @@ class TokenPruner:
                 if group < len(result_list) - 1:
                     self._sep[f] = spans[group][1]
                 group += 1
+            if self.blind_stage:
+                # The blind layers hide the current frame too: its history group (the last span)
+                # and the 64 fine tokens that follow </video_special> <image_special>.
+                cols = torch.zeros(self._prompt_len, dtype=torch.bool)
+                a, b = spans[-1]
+                cols[a:b] = True
+                cols[b + 2:b + 2 + NAV_TOKENS] = True
+                if b + 2 + NAV_TOKENS > self._prompt_len:
+                    raise RuntimeError("fine-token span overruns the prompt; layout arithmetic is inconsistent")
+                self._blind_cols = cols
+            self._refresh_hide()
         return tokens[keep.to(tokens.device)], result_list
 
     def _wrap_prefill(self, model: Any) -> None:

@@ -44,18 +44,18 @@ read -r -a EVAL_EXTRA <<< "${EVAL_EXTRA:-}"
 
 if [[ -z "${ARMS:-}" ]]; then
   ARMS=""
-  for K in $K_LIST; do ARMS+=" uninavid_hybrid_mp${K} uninavid_pyramiddrop_mp${K}"; done
+  for K in $K_LIST; do ARMS+=" uninavid_hybrid_mp${K} uninavid_pyramiddrop_mp${K} uninavid_uniform_mp${K}"; done
 fi
 
 for ARM in $ARMS; do
-  if [[ "$ARM" =~ ^uninavid_(hybrid|pyramiddrop)_(mp|m|b)([0-9]+)$ ]]; then
+  if [[ "$ARM" =~ ^uninavid_(hybrid|pyramiddrop|uniform)_(mp|m|b)([0-9]+)$ ]]; then
     FRAMES=32; [[ "${BASH_REMATCH[1]}" == "pyramiddrop" ]] && FRAMES=64
     EXTRA=(--context-frames "$FRAMES" --prune-method "${BASH_REMATCH[1]}" --prune-k "${BASH_REMATCH[3]}"
            --sampling-seed "$SAMPLING_SEED")
     [[ "${BASH_REMATCH[2]}" != "b" ]] && EXTRA+=(--prune-budget-scope model)
     [[ "${BASH_REMATCH[2]}" == "mp" ]] && EXTRA+=(--prune-schedule-anchor pool)
   else
-    echo "Unknown arm '$ARM' (expected uninavid_<hybrid|pyramiddrop>_<mp|m|b><k>)" >&2
+    echo "Unknown arm '$ARM' (expected uninavid_<hybrid|pyramiddrop|uniform>_<mp|m|b><k>; uniform is mp only)" >&2
     exit 2
   fi
 

@@ -128,6 +128,16 @@ class VLMConfig:
     # evict mode, leaky decision replay in prune mode; 1 + 3 * len(layers) forwards per step.
     # Requires token_info_probe. Rows land raw in sequence.json as sup/horizon_*.
     horizon_probe_layers: List[int] = field(default_factory=list)
+    # paper/selector_kl: after every decision, for each visual token of the current frame, the
+    # layer-0 criterion of every flat-variant selector (FastV decision-row attention, DivPrune greedy
+    # position, DART and random keep rank at each frames'-worth budget) next to the leaky
+    # keep-one-in / leave-one-out KL at layer 0 (longnav.utils.selector_probe). Nothing is pruned;
+    # requires token_info_probe, context_window_mode='prune', kv_prune_candidate_scope='visual',
+    # kv_prune_recent_turns=0, kv_prune_layer_start=0, no stages / frame budget; forces
+    # kv_prune_score_layer=0. Rows land raw in sequence.json as sup/selector_*. 3 + 2N replays/step.
+    selector_probe: bool = False
+    selector_probe_budgets: List[int] = field(default_factory=lambda: [4, 8, 16, 32])  # frames' worth
+    selector_probe_measures: List[str] = field(default_factory=lambda: ["keep_cur", "leave"])
     # --- layer-selective pruning ("When Token Pruning is Worse than Random", CVPR'26, arXiv
     # 2512.07580): the budget applies only to decoder layers [layer_start, layer_end); the other
     # layers keep the window-only cache, so memory savings scale with the fraction of layers
@@ -145,7 +155,10 @@ class VLMConfig:
     # Visual-blind arm (hypothesis test for the information horizon): on decoder layers
     # [layer_start, layer_end) no query may attend to ANY visual slot -- cached history and the
     # current frame alike -- and visual slots are dropped from those layers' caches after each
-    # step. Text and the frame window are untouched; kv_budget / importance are ignored.
+    # step. Text and the frame window are untouched; kv_budget / importance are ignored. Together
+    # with kv_prune_stages it blinds the LAST stage instead (paper/hybrid_prune 'uniform' arm):
+    # that stage's layers hide every visual column and hold no visual slot -- an implicit
+    # kv_prune_tail_budget_frames of 0, so leave that unset; the stage's selector entry is ignored.
     kv_prune_visual_blind: bool = False
     # --- layer-influence diagnostic (tools/layer_influence.py): per step, KL(P_t || P_t with the
     # visual slots hidden from layers >= i) for each probe layer i, once for history-only visual
@@ -177,7 +190,9 @@ class VLMConfig:
     # draw among the previous stage's survivors; None = every stage 'attn'). With
     # kv_prune_tail_budget_frames=j the LAST stage keeps j frames' worth on its own (from the
     # second frame on, whatever k is) and the geometric schedule spans the stages before it, ending
-    # at kv_prune_budget_frames. Hybrid arm: stages=[7,14,20], [attn,attn,random], tail 1.
+    # at kv_prune_budget_frames; j=0 empties the last stage's visual history (its layers still see
+    # the current frame -- kv_prune_visual_blind hides that too). Hybrid arm: stages=[7,14,20],
+    # [attn,attn,random], tail 1; uniform arm: stages=[0,18], [random,random], visual_blind.
     kv_prune_stage_importance: Optional[List[str]] = None
     # What kv_prune_budget_frames bounds under kv_prune_stages: 'last_stage' (PyramidDrop's own
     # reading, Exp 4: the deepest scheduled stage holds k frames' worth) or 'model' (the history

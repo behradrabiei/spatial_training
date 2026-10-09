@@ -1,0 +1,10 @@
+{
+ "episode_label": "wcojb4TFT35_0",
+ "step": 61,
+ "n_frames": 62,
+ "n_cur": 300,
+ "total_keep_one": 10.13525033122896,
+ "text_all_kl": 0.465413,
+ "action": 1,
+ "rule": "n_frames > 32 and max total keep_all (the frame's keep-one-in mass)"
+}

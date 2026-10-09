@@ -676,6 +676,44 @@ class LayerProbePolicy(UniNaVidPolicy):
         return decision
 
 
+class SelectorProbePolicy(UniNaVidPolicy):
+    """UniNaVidPolicy whose decisions are untouched, plus the per-token selector-criterion /
+    keep-one-in probe of ``selector_probe.SelectorProbe`` after every inference (record under
+    ``"selector"``, ``None`` on buffered steps). paper/selector_kl."""
+
+    def __init__(self, *args: Any, probe_batch: int, **kwargs: Any) -> None:
+        self.probe = None
+        self.last_selector: dict[str, Any] | None = None
+        super().__init__(*args, **kwargs)
+        if self.context_window is not None or self.no_visual_tokens or self.current_frame_only_64:
+            raise ValueError("the selector probe needs the full, unmodified visual context")
+        from uninavid_hm3d.selector_probe import SelectorProbe
+
+        self.probe = SelectorProbe(self.model, self.tokenizer, image_token_index=self.image_token_index,
+                                   batch=probe_batch)
+        self.probe.install()
+
+    def reset(self, episode_label: str | None = None) -> None:
+        super().reset(episode_label)
+        self.last_selector = None
+        if self.probe is not None:
+            self.probe.reset(episode_label or "")
+
+    def _generate(
+        self, input_ids: torch.Tensor, images: list[torch.Tensor], stopping: Any
+    ) -> torch.Tensor:
+        self.probe.begin_inference(input_ids)
+        output_ids = super()._generate(input_ids, images, stopping)
+        self.last_selector = self.probe.run(input_ids)
+        return output_ids
+
+    def act(self, rgb: np.ndarray, instruction: str) -> dict[str, Any]:
+        self.last_selector = None
+        decision = super().act(rgb, instruction)
+        decision["selector"] = self.last_selector
+        return decision
+
+
 def make_config(args: argparse.Namespace) -> Any:
     from habitat.config import read_write
     from habitat.config.default import get_config
@@ -850,6 +888,8 @@ def write_manifest(args: argparse.Namespace, labels: list[str]) -> None:
                                 getattr(args, "prune_schedule_anchor", "original")),
         "layer_blind": {"blind_layer": args.blind_layer},
         "layer_probe": {"enabled": bool(args.layer_probe), "layers": list(args.probe_layers)},
+        "selector_probe": {"enabled": bool(getattr(args, "selector_probe", False)),
+                           "probe_batch": args.probe_batch, "seed": 17, "pivots": 8},
         "packages": package_versions(
             [
                 "torch",
@@ -907,6 +947,11 @@ def run_episode(
         horizon_path = args.output / "horizon" / f"{label}.jsonl"
         horizon_path.parent.mkdir(parents=True, exist_ok=True)
         horizon_tmp = horizon_path.with_name(f".{horizon_path.name}.{os.getpid()}.tmp")
+    selector_path = selector_tmp = None
+    if getattr(args, "selector_probe", False):
+        selector_path = args.output / "selector" / f"{label}.jsonl"
+        selector_path.parent.mkdir(parents=True, exist_ok=True)
+        selector_tmp = selector_path.with_name(f".{selector_path.name}.{os.getpid()}.tmp")
     video_path = args.output / "videos" / f"{label}.mp4"
     video_writer = None
     if args.video:
@@ -930,6 +975,9 @@ def run_episode(
     horizon_records = 0
     horizon_probes = 0
     horizon_seconds = 0.0
+    selector_records = 0
+    selector_probes = 0
+    selector_seconds = 0.0
     started = time.perf_counter()
     try:
         with ExitStack() as stack:
@@ -947,6 +995,11 @@ def run_episode(
             horizon_stream = (
                 stack.enter_context(horizon_tmp.open("w", encoding="utf-8"))
                 if horizon_tmp is not None
+                else None
+            )
+            selector_stream = (
+                stack.enter_context(selector_tmp.open("w", encoding="utf-8"))
+                if selector_tmp is not None
                 else None
             )
             while not env.episode_over:
@@ -1049,6 +1102,34 @@ def run_episode(
                     )
                     horizon_stream.flush()
 
+                selector = decision.get("selector")
+                if selector_stream is not None and selector is not None:
+                    if selector["n_frames"] != steps + 1:
+                        raise RuntimeError(
+                            f"selector record covers {selector['n_frames']} frames at env step {steps}"
+                        )
+                    selector_records += 1
+                    selector_probes += int(selector["n_probes"])
+                    selector_seconds += float(selector["probe_seconds"])
+                    selector_stream.write(
+                        json.dumps(
+                            json_value(
+                                {
+                                    "step": steps,
+                                    "episode_label": label,
+                                    "action": decision["action"],
+                                    "parsed_actions": decision["parsed_actions"],
+                                    "distance_to_goal": before.get("distance_to_goal"),
+                                    **selector,
+                                }
+                            ),
+                            sort_keys=True,
+                            allow_nan=False,
+                        )
+                        + "\n"
+                    )
+                    selector_stream.flush()
+
                 if video_writer is not None:
                     video_writer.write(
                         annotate_frame(
@@ -1073,6 +1154,8 @@ def run_episode(
             os.replace(prune_tmp, prune_path)
         if horizon_tmp is not None:
             os.replace(horizon_tmp, horizon_path)
+        if selector_tmp is not None:
+            os.replace(selector_tmp, selector_path)
     finally:
         if video_writer is not None:
             video_writer.release()
@@ -1105,6 +1188,10 @@ def run_episode(
         "horizon_records": horizon_records,
         "horizon_probes": horizon_probes,
         "horizon_seconds": horizon_seconds,
+        "selector": str(selector_path) if selector_path is not None else None,
+        "selector_records": selector_records,
+        "selector_probes": selector_probes,
+        "selector_seconds": selector_seconds,
         "blind_layer": getattr(args, "blind_layer", None),
     }
 
@@ -1209,11 +1296,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--prune-method",
-        choices=["identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid"],
+        choices=["identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform"],
         default="identity",
         help=(
             "Persistent pruning of the history tokens under the context window "
-            "(paper/token_prune); identity installs nothing"
+            "(paper/token_prune); identity installs nothing. uniform (paper/hybrid_prune): a uniform "
+            "layer-0 draw below decoder layer 20 and every visual token hidden from layer 20 on; "
+            "needs --prune-budget-scope model"
         ),
     )
     parser.add_argument(
@@ -1265,6 +1354,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="0,4,8,12,16,18,20,22,24,28",
         help="Comma-separated first hidden layers L probed by --layer-probe",
     )
+    parser.add_argument(
+        "--selector-probe",
+        action="store_true",
+        help=(
+            "After each inference, score the current frame's visual tokens (4-token group + 64 "
+            "fine tokens): layer-0 FastV attention, DivPrune nearest-neighbour distance, DART "
+            "pivot dissimilarity, a seeded random control, and each token's no-history "
+            "keep-one-in KL; writes selector/<label>.jsonl (paper/selector_kl); decisions are "
+            "untouched; full context only; --probe-batch sets the masked forwards per pass"
+        ),
+    )
     args = parser.parse_args(argv)
     try:
         args.probe_layers = sorted({int(k) for k in args.probe_layers.split(",") if k.strip()})
@@ -1279,11 +1379,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         or args.current_frame_only_64
     )
     if args.blind_layer is not None and (
-        visual_flags or args.layer_probe or args.frame_influence or args.prune_method != "identity"
+        visual_flags or args.layer_probe or args.selector_probe or args.frame_influence
+        or args.prune_method != "identity"
     ):
         parser.error("--blind-layer needs the full visual context and no other ablation flag")
-    if args.layer_probe and (visual_flags or args.frame_influence or args.prune_method != "identity"):
+    if args.layer_probe and (
+        visual_flags or args.selector_probe or args.frame_influence or args.prune_method != "identity"
+    ):
         parser.error("--layer-probe needs the full visual context and no other ablation flag")
+    if args.selector_probe and (visual_flags or args.frame_influence or args.prune_method != "identity"):
+        parser.error("--selector-probe needs the full visual context and no other ablation flag")
     if args.prune_method != "identity":
         if args.prune_k is None:
             parser.error("--prune-method needs --prune-k")
@@ -1292,11 +1397,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         if args.frame_influence or args.no_visual_tokens or args.current_frame_only_64:
             parser.error("--prune-method is incompatible with --frame-influence, --no-visual-tokens "
                          "and --current-frame-only-64")
-        if args.prune_schedule_anchor == "pool" and args.prune_method not in ("pyramiddrop", "hybrid"):
-            parser.error("--prune-schedule-anchor pool needs a staged method (pyramiddrop, hybrid)")
-        if args.prune_budget_scope == "model" and args.prune_method not in ("pyramiddrop", "hybrid"):
-            parser.error("--prune-budget-scope model needs a staged method (pyramiddrop, hybrid)")
-        if args.prune_layer is not None and args.prune_method in ("pyramiddrop", "hybrid"):
+        staged = ("pyramiddrop", "hybrid", "uniform")
+        if args.prune_schedule_anchor == "pool" and args.prune_method not in staged:
+            parser.error("--prune-schedule-anchor pool needs a staged method (pyramiddrop, hybrid, uniform)")
+        if args.prune_budget_scope == "model" and args.prune_method not in staged:
+            parser.error("--prune-budget-scope model needs a staged method (pyramiddrop, hybrid, uniform)")
+        if args.prune_method == "uniform" and args.prune_budget_scope != "model":
+            parser.error("--prune-method uniform needs --prune-budget-scope model")
+        if args.prune_layer is not None and args.prune_method in staged:
             parser.error(f"--prune-layer has no {args.prune_method} variant (its stages are the method)")
         frames = args.context_frames if args.context_frames is not None else args.context_window + 1
         if frames > 64:
@@ -1408,6 +1516,9 @@ def main() -> None:
     elif args.layer_probe:
         policy = LayerProbePolicy(args.model_path, probe_layers=tuple(args.probe_layers), **policy_kwargs)
         atomic_json(args.output / "horizon" / "meta.json", policy.probe.describe())
+    elif args.selector_probe:
+        policy = SelectorProbePolicy(args.model_path, probe_batch=args.probe_batch, **policy_kwargs)
+        atomic_json(args.output / "selector" / "meta.json", policy.probe.describe())
     else:
         policy = UniNaVidPolicy(args.model_path, **policy_kwargs)
     print(

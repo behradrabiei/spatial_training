@@ -47,8 +47,9 @@ BASE_OVERRIDES = ["+checkpoint=longnav", "+dataset=hm3d_v2_val", "+experiment=pa
 DEFAULT_EPISODE = "VBzV5z6i1WS_1"  # fallback when no survey has been run
 
 
-def compose_config(extra_overrides=()):
-    """The resolved RLConfig, exactly as longnav.scripts.eval would see it."""
+def compose_config(extra_overrides=(), experiment="paper_token_info"):
+    """The resolved RLConfig, exactly as longnav.scripts.eval would see it (``experiment`` swaps
+    the +experiment preset; paper/selector_kl re-drives its showcase episode this way)."""
     from hydra import compose, initialize_config_dir
     from longnav.conf.register_configs import register_configs
 
@@ -56,8 +57,9 @@ def compose_config(extra_overrides=()):
         # ${read_text:...} resolves relative to the cwd outside a Hydra app
         os.chdir(ROOT)
     register_configs()
+    overrides = [o if not o.startswith("+experiment=") else f"+experiment={experiment}" for o in BASE_OVERRIDES]
     with initialize_config_dir(config_dir=str(ROOT / "src/longnav/config"), version_base=None):
-        return compose(config_name="rl_config", overrides=BASE_OVERRIDES + list(extra_overrides))
+        return compose(config_name="rl_config", overrides=overrides + list(extra_overrides))
 
 
 def build_worker(cfg, resolved, mode):
