@@ -1,0 +1,63 @@
+"""Rebuild retained paper outputs in an isolated mirror; never overwrite paper_results.
+
+Example: python tools/reproduce_paper.py --name baseline --source .cleanup_archive/before-codebase-cleanup/baseline-code
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--name', required=True)
+    ap.add_argument('--source', type=Path, default=ROOT)
+    args = ap.parse_args()
+    manifest = json.loads((ROOT / 'paper_results/protected_inputs.json').read_text())
+    mirror = ROOT / '.cleanup_archive/before-codebase-cleanup/validation' / args.name
+    mirror.mkdir(parents=True, exist_ok=False)
+    for name in ('paper', 'src'):
+        shutil.copytree(args.source / name, mirror / name, ignore=shutil.ignore_patterns('__pycache__'))
+    for entry in manifest['files']:
+        rel = Path(entry['path'])
+        if rel.parts[0] == 'src':
+            continue
+        dst = mirror / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        # Writers may regenerate these outputs. Everything else is a read-only input.
+        if 'results' in rel.parts or 'figures' in rel.parts:
+            shutil.copy2(ROOT / rel, dst)
+        else:
+            dst.symlink_to(ROOT / rel)
+    commands = [c for study in manifest['studies'].values() for c in study['commands']]
+    # Keep dependencies first: other studies read context-ablation results.
+    commands.sort(key=lambda c: (0 if 'ctx_ablation' in c[1] else 1))
+    for bench in ('cost_bench', 'cost_bench_seed17', 'cost_bench_100'):
+        for protocol in (('hybrid', 'uniform') if bench == 'cost_bench_100' else ('hybrid',)):
+            commands.append(['python', 'paper/hybrid_prune/plot_cost.py', '--bench',
+                             'paper_results/hybrid_prune/runs/' + bench, '--name', bench,
+                             '--protocol', protocol])
+    env = dict(os.environ, PYTHONPATH=str(mirror / 'src'), PYTHONDONTWRITEBYTECODE='1', MPLBACKEND='Agg')
+    report = []
+    for i, cmd in enumerate(commands):
+        plot = 'plot' in Path(cmd[1]).stem or Path(cmd[1]).name == 'horizon.py'
+        python = Path('/home/brabiei/miniconda3/envs') / ('vln' if plot else 'longnav_vlm') / 'bin/python'
+        log = mirror / f'command-{i:02d}.log'
+        with log.open('w') as stream:
+            proc = subprocess.run([str(python), *cmd[1:]], cwd=mirror, env=env, stdout=stream, stderr=subprocess.STDOUT)
+        report.append({'command': cmd, 'exit_code': proc.returncode, 'log': str(log.relative_to(ROOT))})
+        (mirror / 'report.json').write_text(json.dumps(report, indent=2))
+        print(f'{i + 1}/{len(commands)} exit={proc.returncode}: {" ".join(cmd[1:])}', flush=True)
+    print('Report:', mirror / 'report.json')
+    if any(r['exit_code'] for r in report):
+        raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    main()

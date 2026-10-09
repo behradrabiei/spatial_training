@@ -16,3 +16,4 @@ venv/
 .coverage
 htmlcov/
 *.egg-info/
+.cleanup_archive/

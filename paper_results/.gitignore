@@ -1,8 +1,9 @@
-# Keep new raw experiment output local; commit curated results/ and figures/ instead.
-# Previously committed run files remain tracked by Git.
-**/runs/
+# Compact configs, episode summaries, and pruning records are scientific inputs.
+# Large per-step inputs stay local and are inventoried in protected_inputs.json.
 **/runs_aborted/
 **/.locks/
+**/*.log
+**/*.lock
 
 # Bulky per-step artifacts outside the raw run directories.
 **/rollout/*/
@@ -11,6 +12,8 @@
 **/*.jpg
 **/wandb/
 **/frames/
+**/selector/
+**/horizon/
 # Chained launch logs (Ray/progress noise, several MB each; each arm's launch.log is kept) and
 # derived files over GitHub's 100 MB limit (aggregate.py rebuilds masks.parquet from the runs).
 **/driver.log
