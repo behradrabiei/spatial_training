@@ -56,7 +56,6 @@ vlm:
   kv_prune_candidate_scope: visual  # prefix and every text/action token are never candidates
   kv_prune_recent_turns: 0  # the just-decided frame is a candidate (flat variant)
   kv_prune_ema_beta: 0.0
-  kv_prune_granularity: slot
   kv_prune_layer_start: 0  # every layer in play; FastV scored at layer 0 (kv_prune_score_layer forced to 0)
   kv_prune_seed: 17
   kv_prune_seed_per_step: true  # the random control's draw depends on (seed, episode label, step) only

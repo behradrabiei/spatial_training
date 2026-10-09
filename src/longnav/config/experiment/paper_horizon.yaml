@@ -42,7 +42,6 @@ vlm:
   context_window_mode: prune
   kv_budget: null  # no budget: the blind is the only intervention
   kv_prune_importance: random
-  kv_prune_granularity: slot
   kv_prune_candidate_scope: all
   kv_prune_recent_turns: 2
   kv_prune_seed: 17

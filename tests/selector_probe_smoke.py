@@ -39,7 +39,7 @@ from longnav.utils.kv_prune import divprune_select, frame_budget, random_select,
 MODEL_ID = "Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800"
 N_STEPS = 5
 BUDGETS = (1, 2, 3)  # frames' worth: k=1 binds from the 2nd frame on, k=3 from the 4th
-MEASURES = ("keep_all",)
+MEASURES = ("keep_cur", "leave", "keep_all")
 PROB_TOL = 1e-6
 START = [
     {"role": "user", "content": [{"type": "text", "text": "Find the chair."}]},
@@ -54,7 +54,7 @@ TURN = [
 BASE = dict(model_id=MODEL_ID, attn_impl="sdpa", dtype="bfloat16", use_sparse=True, sparse_threshold=0.95,
             context_window=None, context_window_mode="prune", kv_budget=10 ** 9,
             kv_prune_candidate_scope="visual", kv_prune_recent_turns=0, kv_prune_layer_start=0,
-            kv_prune_granularity="slot", kv_prune_seed=17, token_info_probe=True)
+            kv_prune_seed=17, token_info_probe=True)
 
 
 def make_worker(kind):

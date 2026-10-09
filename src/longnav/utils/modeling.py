@@ -390,19 +390,9 @@ class Qwen3VLSparseForConditionalGeneration(Qwen3VLForConditionalGeneration):
         logits_to_keep: Union[int, torch.Tensor] = 0,
         **kwargs
     ) :
-        r"""
-        labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
-            Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
-            config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
-            (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
-        image_grid_thw (`torch.LongTensor` of shape `(num_images, 3)`, *optional*):
-            The temporal, height and width of feature shape of each image in LLM.
-        video_grid_thw (`torch.LongTensor` of shape `(num_videos, 3)`, *optional*):
-            The temporal, height and width of feature shape of each video in LLM.
-
-        Example:
-            TODO: Add example
-        """
+        """Infer logits and expose post-filter inputs for context replay and diagnostics."""
+        if labels is not None:
+            raise ValueError("This model wrapper supports inference only; labels are not accepted")
         outputs = self.model(
             input_ids=input_ids,
             pixel_values=pixel_values,
@@ -419,24 +409,19 @@ class Qwen3VLSparseForConditionalGeneration(Qwen3VLForConditionalGeneration):
 
         hidden_states = outputs[0]
 
-        # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
+        # Compute only requested logits in the existing model precision.
         slice_indices = slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) else logits_to_keep
         logits = self.lm_head(hidden_states[:, slice_indices, :])
 
-        loss = None
-        if labels is not None and self.model.language_model.seq_keep_mask is not None:
-            labels = labels[:,self.model.language_model.seq_keep_mask]
-            loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.text_config.vocab_size)
-    
         return ModelOutput({
-            "loss":loss,
+            "loss": None,
             "logits": logits,
             "past_key_values": outputs.past_key_values,
             "rope_deltas": outputs.rope_deltas,
             "seq_keep_mask": self.model.language_model.seq_keep_mask,
             "vis_keep_mask": self.model.language_model.vis_keep_mask,
-            "last_hidden_state": hidden_states, # need this for Value Head
-            # cache for RL.
+            "last_hidden_state": hidden_states,
+            # Post-filter inputs used by context recomputation and paper probes.
             "inputs_embeds": self.model.language_model.inputs_embeds,
             "deepstack_visual_embeds": self.model.language_model.deepstack_visual_embeds,
             "visual_pos_masks": self.model.language_model.visual_pos_masks,

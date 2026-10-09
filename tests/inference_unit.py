@@ -21,6 +21,24 @@ class NoTrainingImports(importlib.abc.MetaPathFinder):
 
 
 class ConfigTests(unittest.TestCase):
+    def test_removed_options_are_rejected(self):
+        from longnav.utils.vlm_worker import VLMWorker
+        for method in ('stratified', 'diversity', 'grid', 'voxel', 'voxel_stratified',
+                       'kl', 'keep_one', 'fisher', 'fisher_diversity'):
+            with self.subTest(method=method), self.assertRaisesRegex(ValueError, 'kv_prune_importance'):
+                VLMWorker(load_model=False, kv_prune_importance=method)
+        for key, value in [('kv_prune_merge', True), ('kv_prune_granularity', 'turn'),
+                           ('kv_prune_fisher_pool_factor', 3.0), ('save_outputs', True)]:
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'removed'):
+                normalize_inference_config(OmegaConf.create({'vlm': {key: value}}))
+
+    def test_in_process_bootstrap_resolves_prompt(self):
+        from longnav.utils.factories import ExpBootstrapper
+        boot = ExpBootstrapper(InferenceConfig())
+        self.assertNotIn('${', boot.resolved_dict['rollout']['system_prompt'])
+        self.assertEqual(boot.resolved_dict['rollout']['convo_start_template'][0]['content'][0]['text'],
+                         boot.resolved_dict['rollout']['system_prompt'])
+
     def test_legacy_checkpoint(self):
         cfg = OmegaConf.structured(InferenceConfig)
         cfg.training.checkpoint = '/tmp/adapter'

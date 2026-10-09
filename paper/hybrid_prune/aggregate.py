@@ -13,9 +13,7 @@ runs/<arm>/episodes/*.json (+ the per-inference stage counts in prune/<label>.js
 Budget. k bounds the history visual tokens AVERAGED OVER ALL DECODER LAYERS, in frames' worth
 (--budget model, the experiment; arms <model>_<protocol>_mp<k>: whole-model budget, schedule anchored
 at what the cache holds). held_frames is what each arm
-actually held by that measure -- it must sit at (or, early in an episode, under) k. The first
-run bounded the last scheduled stage only (--budget last_stage, arms ..._b<k>, written to
-results_last_stage/); its held_frames shows how far from k those arms really were.
+actually held by that measure -- it must sit at (or, early in an episode, under) k. The superseded unmatched-budget runs are archived.
 
 Other memory columns: LongNav-R1 -- kv_len_mean (ALL resident KV slots, text included, layer
 mean), kv_len_master (the longest layer), stage_visual_<s> (history visual slots on each stage's
@@ -27,8 +25,7 @@ at a time on one GPU, so it is not comparable across arms.
 Arms not run yet are reported and left out (--strict makes that an error); an incomplete arm is
 an error unless --skip-partial (drop it) or --allow-partial (keep it, flagged partial=1) is
 given. --status prints per-arm progress. --dataset mp3d aggregates the MP3D replicate
-(paper_results/hybrid_prune_mp3d/, mp3d_100_seed17.json); it has no uniform arms, so pass
---protocols pyramiddrop hybrid there. Runs in longnav_vlm:
+(paper_results/hybrid_prune_mp3d/, mp3d_100_seed17.json); all three protocols are available on both datasets. Runs in longnav_vlm:
 
     python paper/hybrid_prune/aggregate.py [--dataset mp3d --protocols pyramiddrop hybrid] [--allow-partial]
 """
@@ -62,8 +59,7 @@ BUDGETS = {
     "model": dict(tag="mp", k_list=(16, 8, 4, 2), out="results",
                   r1_bands={"pyramiddrop": (0, 7, 7, 7, 7), "hybrid": (0, 7, 7, 6, 8), "uniform": (0, 18, 10)},
                   uninavid_unpruned=0),
-    "last_stage": dict(tag="b", k_list=(16, 8, 4, 1), out="results_last_stage",
-                       r1_bands={"pyramiddrop": (7, 7, 7, 7), "hybrid": (7, 7, 6, 8)}, uninavid_unpruned=8),
+
 }
 BUDGET = BUDGETS["model"]
 K_LIST = BUDGET["k_list"]
@@ -240,14 +236,14 @@ def write_table(path: Path, summary, paired):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--budget", choices=list(BUDGETS), default="model",
-                    help="which run to aggregate: the whole-model budget (default) or the first, last-stage one")
+                    help="which run to aggregate: the whole-model budget")
     ap.add_argument("--dataset", choices=list(DATASETS), default="hm3d",
                     help="hm3d (default) or the MP3D replicate in paper_results/hybrid_prune_mp3d/")
     ap.add_argument("--runs-root", type=Path, default=None, help="default: <results root>/runs")
-    ap.add_argument("--out", type=Path, default=None, help="default: results/ or results_last_stage/")
+    ap.add_argument("--out", type=Path, default=None, help="default: results/")
     ap.add_argument("--manifest", type=Path, default=None, help="default: the dataset's 100-episode manifest")
     ap.add_argument("--protocols", nargs="+", choices=ALL_PROTOCOLS, default=list(ALL_PROTOCOLS),
-                    help="protocols to aggregate (default: all; the MP3D replicate has no uniform arms)")
+                    help="protocols to aggregate (default: all three protocols)")
     ap.add_argument("--status", action="store_true", help="print per-arm progress and exit")
     ap.add_argument("--strict", action="store_true", help="every arm must exist and be complete")
     group = ap.add_mutually_exclusive_group()

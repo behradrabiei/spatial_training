@@ -37,7 +37,7 @@ from longnav.utils.kv_prune import accumulate_decision_row, fold_decision_row
 from longnav.utils.pre_rope import ReindexState, hide_columns, mask_for_layer
 from longnav.utils.vlm_worker import VLMWorker
 
-from kv_prune_smoke import (  # noqa: E402  (tests/ is run as a script directory)
+from prune_fixtures import (  # noqa: E402  (tests/ is run as a script directory)
     FIDELITY_TOL, DIVERGENCE_MARGIN, MODEL_ID, N_STEPS, NARROW_BUDGET, PARITY_PREFIX,
     PARITY_TURNS, PARITY_WINDOW, START, TURN, WIDE_BUDGET, FakeCache, bare_worker, feed_turn,
     make_images, release, run_probs,
@@ -484,7 +484,7 @@ def check_gpu_arms(images):
 
 def check_gpu_replay(images):
     failures = []
-    worker = build_layer_worker(NARROW_BUDGET, GPU_LAYER_START, importance="fisher")
+    worker = build_layer_worker(NARROW_BUDGET, GPU_LAYER_START, importance="random", kv_prune_log_influence=True)
     n_layers = len(worker.language_model.layers)
     for step, image in enumerate(images):
         original, _, _ = worker.infer_probs(START if step == 0 else TURN, [image])
@@ -529,28 +529,7 @@ def check_gpu_replay(images):
           f"{float(np.abs(deep_probs - base_probs).max()):.4f} / "
           f"{float(np.abs(noop_probs - base_probs).max()):.6f}")
 
-    fisher = worker._score_fisher_slots(empty)
-    if fisher.numel() != master or not bool(torch.isfinite(fisher).all()):
-        failures.append("Fisher scores are not master-length and finite")
-    dead = ~st.alive
-    if bool(dead.any()) and float(fisher[dead].abs().max()) > 0:
-        failures.append("Fisher assigned a nonzero score to a slot the pruned layers do not hold")
     release(worker)
-
-    for method in ("kl", "fisher"):
-        worker = build_layer_worker(NARROW_BUDGET, GPU_LAYER_START, importance=method)
-        replays = 0
-        for step, image in enumerate(images):
-            probs, _, _ = worker.infer_probs(START if step == 0 else TURN, [image])
-            replays += worker._prune_replay_count
-            if not np.all(np.isfinite(probs)):
-                failures.append(f"[{method}] non-finite probabilities")
-        failures += lengths_ok(worker, NARROW_BUDGET, range(GPU_LAYER_START, n_layers), method)
-        if not worker._kv_prune_state.n_budget_dropped or not replays:
-            failures.append(f"[{method}] never pruned or never replayed")
-        print(f"  {method} at layer_start={GPU_LAYER_START}: kv layers 0/{n_layers - 1} hold "
-              f"{worker._kv_lengths()[0]}/{worker._kv_lengths()[-1]}, replays={replays}")
-        release(worker)
     return failures
 
 
@@ -613,26 +592,9 @@ def check_gpu_visual_blind(images):
 
 
 def check_gpu_keep_one(images):
-    """keep_one selector prunes to budget (uniform and layer-selective); the keep-one /
+    """The keep-one /
     leave-one diagnostic rows are well-formed and agree on a single-frame cache."""
     failures = []
-    for layer_start in (0, GPU_LAYER_START):
-        worker = build_layer_worker(NARROW_BUDGET, layer_start, importance="keep_one")
-        n_layers = len(worker.language_model.layers)
-        replays = 0
-        for step, image in enumerate(images):
-            probs, _, _ = worker.infer_probs(START if step == 0 else TURN, [image])
-            replays += worker._prune_replay_count
-            if not np.all(np.isfinite(probs)):
-                failures.append(f"[keep_one l{layer_start}] non-finite probabilities")
-        pruned = range(layer_start, n_layers)
-        failures += lengths_ok(worker, NARROW_BUDGET, pruned, f"keep_one l{layer_start}")
-        if not worker._kv_prune_state.n_budget_dropped or not replays:
-            failures.append(f"[keep_one l{layer_start}] never pruned or never replayed")
-        print(f"  keep_one at layer_start={layer_start}: kv layers 0/{n_layers - 1} hold "
-              f"{worker._kv_lengths()[0]}/{worker._kv_lengths()[-1]}, replays={replays}")
-        release(worker)
-
     starts = (0, GPU_LAYER_START, 28)
     worker = build_layer_worker(WIDE_BUDGET, kv_prune_log_keep_one=True,
                                 kv_prune_layer_influence_starts=starts)
@@ -712,7 +674,7 @@ def main():
     failures += check_gpu_layer_influence(images)
     print("=== 9. real model: visual-blind arm ===")
     failures += check_gpu_visual_blind(images)
-    print("=== 10. real model: keep_one selector and keep-one / leave-one diagnostic ===")
+    print("=== 10. real model: keep-one / leave-one diagnostic ===")
     failures += check_gpu_keep_one(images)
     if failures:
         print("\nFAILED:")

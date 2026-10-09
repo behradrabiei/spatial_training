@@ -43,7 +43,7 @@ def normalize_inference_config(config):
     cfg['adapter'] = adapter
     for key in ('master_addr', 'master_port'):
         cfg.get('resources', {}).pop(key, None)
-    defaults = {'kv_prune_merge': False, 'kv_prune_granularity': 'slot',
+    defaults = {'save_outputs': False, 'kv_prune_merge': False, 'kv_prune_granularity': 'slot',
                 'kv_prune_fisher_pool_factor': 2.0, 'kv_prune_voxel_cap': 1,
                 'kv_prune_voxel_scale': 2, 'kv_prune_voxel_2d': True}
     for key, default in defaults.items():

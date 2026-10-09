@@ -19,8 +19,7 @@ defaults; writes to paper_results/hybrid_prune/figures/:
                              is labelled "Protocol" (red) -- one standalone figure set per protocol.
                              Written for every protocol that has aggregated arms; --no-split skips them.
 
---budget last_stage draws the first, superseded run (k bounded the last scheduled stage only) from
-results_last_stage/ into figures_last_stage/; its budget_met panel shows how far off k those arms sat.
+Superseded unmatched-budget figures are archived.
 
 --dataset mp3d draws the MP3D replicate (paper_results/hybrid_prune_mp3d/); its dotted reference is
 the unpruned full-context arm of the MP3D information-horizon run (r1_ref / uninavid_ref in
@@ -58,8 +57,8 @@ FULL_SUMMARY_MP3D = HERE.parents[1] / "paper_results/info_horizon_mp3d/results/h
 PANELS = {"sr": "Success rate", "spl": "SPL"}
 CURVES_RC = {"font.size": 13, "axes.titlesize": 14, "axes.labelsize": 14}  # protocol_curves text sizes
 Y_TOP = {"hm3d": {"sr": 1.02, "spl": 0.6}, "mp3d": {"sr": 0.75, "spl": 0.4}}  # protocol_curves y-limits per dataset
-K_TICKS = {"model": [2, 4, 8, 16], "last_stage": [1, 4, 8, 16]}
-DIRS = {"model": ("results", "figures"), "last_stage": ("results_last_stage", "figures_last_stage")}
+K_TICKS = {"model": [2, 4, 8, 16]}
+DIRS = {"model": ("results", "figures")}
 
 
 def load_rows(path: Path) -> list[dict]:

@@ -26,7 +26,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ctx_frames_smoke import LEAD, PREFIX  # noqa: E402
 from ctx_recompute_smoke import make_images, release, run_probs  # noqa: E402
-from kv_prune_smoke import MODEL_ID, N_STEPS, START, TURN  # noqa: E402
+from prune_fixtures import MODEL_ID, N_STEPS, START, TURN  # noqa: E402
 from vtp_prune_smoke import feed, prune_worker, visual_chunk  # noqa: E402
 from longnav.utils.kv_prune import KVPruneState, frame_budget  # noqa: E402
 from longnav.utils.vlm_worker import VLMWorker  # noqa: E402

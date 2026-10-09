@@ -109,8 +109,7 @@ class EpisodeRolloutMixin:
             # Ray automatically waits for initial_state_ref to be ready before starting this task,
             # but we call ray.get to access the data.
             # 'auto' keeps the legacy behaviour (attached patch coords => bev position ids);
-            # 'standard' keeps stock mRoPE and only forwards the coords to the KV-prune
-            # voxel selectors (see VLMWorker._turn_voxel_rows).
+            # 'standard' keeps stock mRoPE even when the sim supplies patch coordinates.
             pos_id_mode = self.rollout_config.get("pos_id_mode", "auto")
             pos_id_kwargs={
                 "mode": "standard"

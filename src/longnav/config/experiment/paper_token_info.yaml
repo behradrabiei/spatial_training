@@ -46,7 +46,6 @@ vlm:
   context_window_mode: prune  # leaky arm substrate; the driver overrides to 'evict' for the leak-free arm
   kv_budget: 1000000000  # unreachable: nothing is pruned
   kv_prune_importance: random  # no decision-row capture on the live forwards
-  kv_prune_granularity: slot
   kv_prune_candidate_scope: all
   kv_prune_recent_turns: 2
   kv_prune_seed: 17

@@ -40,8 +40,7 @@ def make_worker(mode, layers=()):
     kw = dict(model_id=MODEL_ID, attn_impl="sdpa", dtype="bfloat16", use_sparse=True, context_window=None,
               context_window_mode=mode, token_info_probe=bool(layers), horizon_probe_layers=layers)
     if mode == "prune":
-        kw |= dict(kv_budget=10 ** 9, kv_prune_importance="random", kv_prune_granularity="slot",
-                   kv_prune_candidate_scope="all", kv_prune_recent_turns=2, kv_prune_seed=17)
+        kw |= dict(kv_budget=10 ** 9, kv_prune_importance="random", kv_prune_candidate_scope="all", kv_prune_recent_turns=2, kv_prune_seed=17)
     return VLMWorker(**kw)
 
 

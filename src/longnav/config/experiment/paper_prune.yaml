@@ -48,7 +48,6 @@ vlm:
   kv_prune_candidate_scope: visual  # prefix and every text/action token are never candidates
   kv_prune_recent_turns: 0  # the just-decided turn's frame is history once its action is read
   kv_prune_ema_beta: 0.0  # rank by the current step's score only (no EMA)
-  kv_prune_granularity: slot
   kv_prune_seed: 17
   kv_prune_seed_per_step: true  # random draws depend on (seed, episode label, step) only
   kv_prune_log_masks: true  # per-step keep masks into sequence.json (sup/vtp_*)

@@ -46,7 +46,6 @@ vlm:
   context_window_mode: prune  # replay substrate only; the budget below is never reached
   kv_budget: 1000000000
   kv_prune_importance: random
-  kv_prune_granularity: slot
   kv_prune_candidate_scope: all
   kv_prune_recent_turns: 2
   kv_prune_seed: 17

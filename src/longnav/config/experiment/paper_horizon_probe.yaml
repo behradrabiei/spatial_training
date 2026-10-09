@@ -50,7 +50,6 @@ vlm:
   # prune-substrate fields for the leaky arm (ignored in evict mode): nothing is ever pruned
   kv_budget: 1000000000  # unreachable
   kv_prune_importance: random  # no decision-row capture on the live forwards
-  kv_prune_granularity: slot
   kv_prune_candidate_scope: all
   kv_prune_recent_turns: 2
   kv_prune_seed: 17

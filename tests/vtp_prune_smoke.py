@@ -33,7 +33,7 @@ import torch.nn.functional as F
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ctx_frames_smoke import LEAD, PREFIX, TURNS, drive, parity_worker  # noqa: E402
 from ctx_recompute_smoke import make_images, release, run_probs  # noqa: E402
-from kv_prune_smoke import MODEL_ID, N_STEPS, FakeCache, bare_worker  # noqa: E402
+from prune_fixtures import MODEL_ID, N_STEPS, FakeCache, bare_worker  # noqa: E402
 from longnav.utils.kv_prune import (  # noqa: E402
     dart_select, divprune_select, pyramid_budgets, step_seed,
 )
@@ -305,7 +305,7 @@ def build(**kwargs):
 def run_logged(worker, images):
     probs, logs, lengths = [], [], []
     for idx, image in enumerate(images):
-        from kv_prune_smoke import START, TURN
+        from prune_fixtures import START, TURN
         p, _, _ = worker.infer_probs(START if idx == 0 else TURN, [image])
         probs.append(np.asarray(p))
         logs.append(dict(worker._vtp_log))

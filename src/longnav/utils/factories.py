@@ -133,7 +133,7 @@ class WandbFactory:
         
         RemoteLogger = ray.remote(WandbLoggerActor).options(
             num_cpus=0, 
-            runtime_env={"conda": res_cfg.vlm_conda_env}
+            runtime_env={"conda": res_cfg.vlm_conda_env} if res_cfg.vlm_conda_env else {}
         )
         import wandb
         api = wandb.Api()
@@ -171,20 +171,11 @@ class WandbFactory:
 
 class ExpBootstrapper:
     def __init__(self, cfg: InferenceConfig):
+        # Register the prompt resolver for in-process callers as well as Hydra entrypoints.
+        from longnav.conf import register_configs  # noqa: F401
         cfg = normalize_inference_config(cfg)
-        # Resolve all interpolations (Stage 1)
-        # This turns ${read_text:...} into actual file content
-        try:
-            self.resolved_dict = OmegaConf.to_container(cfg, resolve=True)
-        except Exception as e:
-            print(f"⚠️ Failed to resolve config interpolations: {e}")
-            try:
-                from dataclasses import asdict
-                self.resolved_dict = asdict(cfg)
-            except Exception as e:
-                print(f"⚠️ Failed to convert config to dict: {e}")
-                self.resolved_dict = {}
-        self.typed_cfg = cfg 
+        self.resolved_dict = OmegaConf.to_container(cfg, resolve=True)
+        self.typed_cfg = cfg
 
     def setup_cluster(self):
         res = self.typed_cfg.resources
