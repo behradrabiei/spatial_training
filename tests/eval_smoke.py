@@ -4,7 +4,7 @@ from longnav.env.env_base import DummyEnvActor
 from longnav.utils.rollout_core import collect_rollouts
 import ray
 
-cfg = RLConfig()
+cfg = InferenceConfig()
 cfg.resources.osm_gb=28
 cfg.resources.vlm_conda_env=None
 cfg.vlm.attn_impl = "sdpa"
@@ -17,7 +17,7 @@ cfg.rollout.convo_start_template=[
 bootstrapper = ExpBootstrapper(cfg)
 bootstrapper.setup_cluster()
 
-vlms = bootstrapper.bootstrap_vlms_rl(training=False) 
+vlms = bootstrapper.bootstrap_vlms_infer() 
 sims = [ray.remote(DummyEnvActor).remote() for _ in range(2)]
 
 rollout_list,result_list,log_list = collect_rollouts(sims,vlms,get_shard_iterator(0),16,{"return_inputs":False,"eval":True}) #

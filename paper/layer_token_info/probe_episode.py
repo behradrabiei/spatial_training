@@ -48,7 +48,7 @@ DEFAULT_EPISODE = "VBzV5z6i1WS_1"  # fallback when no survey has been run
 
 
 def compose_config(extra_overrides=(), experiment="paper_token_info"):
-    """The resolved RLConfig, exactly as longnav.scripts.eval would see it (``experiment`` swaps
+    """The resolved InferenceConfig, exactly as longnav.scripts.eval would see it (``experiment`` swaps
     the +experiment preset; paper/selector_kl re-drives its showcase episode this way)."""
     from hydra import compose, initialize_config_dir
     from longnav.conf.register_configs import register_configs
@@ -59,23 +59,22 @@ def compose_config(extra_overrides=(), experiment="paper_token_info"):
     register_configs()
     overrides = [o if not o.startswith("+experiment=") else f"+experiment={experiment}" for o in BASE_OVERRIDES]
     with initialize_config_dir(config_dir=str(ROOT / "src/longnav/config"), version_base=None):
-        return compose(config_name="rl_config", overrides=overrides + list(extra_overrides))
+        return compose(config_name="inference_config", overrides=overrides + list(extra_overrides))
 
 
 def build_worker(cfg, resolved, mode):
-    """LongNav-R1 in-process: base model + LoRA adapter, as bootstrap_vlms_rl(training=False)."""
+    """LongNav-R1 in-process: base model + LoRA adapter, as bootstrap_vlms_infer()."""
     from longnav.utils.factories import get_base_model, resolve_checkpoint_path
-    from longnav.utils.rollout_core import RLActor
+    from longnav.utils.rollout_core import InferenceWorker
 
     vlm = dict(resolved["vlm"])
     vlm["context_window_mode"] = mode
-    ckpt = resolve_checkpoint_path(cfg.training.checkpoint)
+    ckpt = resolve_checkpoint_path(cfg.adapter.path)
     base = get_base_model(ckpt)
     if base is not None:
         vlm["model_id"] = base
-    worker = RLActor(rollout_config=dict(resolved["rollout"]), **vlm)
-    worker._setup_peft(cfg.training)
-    worker.load_checkpoint(ckpt, False, False)
+    worker = InferenceWorker(rollout_config=dict(resolved["rollout"]), **vlm)
+    worker.load_adapter(ckpt, cfg.adapter.peft_config)
     return worker
 
 

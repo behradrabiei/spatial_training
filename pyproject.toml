@@ -16,7 +16,6 @@ classifiers = [
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
 dependencies = [
-    "datasets",
     "torch==2.8.0",
     "transformers<5.0",
     "ray[default]==2.53.0",
@@ -25,12 +24,9 @@ dependencies = [
     "pillow",
     "opencv-python",
     "torchvision",
-    "torch",
     "peft",
     "wandb",
-    "tensordict",
     "huggingface-hub",
-    "codetiming"
 ]
 [project.urls]
 #Homepage = ""

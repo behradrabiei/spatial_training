@@ -3,9 +3,8 @@ from collections import deque
 from typing import List, Dict, Any, Iterator, Optional, Tuple
 from string import Template
 from PIL import Image
-from longnav.utils.vlm_worker import VLMWorker,VLMTrainingMixin
+from longnav.utils.vlm_worker import VLMWorker
 import numpy as np
-from longnav.utils.tensor_utils import TensorPacker
 import time 
 
 def select_action(
@@ -96,7 +95,7 @@ class EpisodeRolloutMixin:
              stacked["rewards"] = stacked["rewards"].astype(np.float32)    
         return stacked
     
-    def run_episode(self,env_handle, initial_state_ref,collect_trajectory=False,compute_value=False):
+    def run_episode(self,env_handle, initial_state_ref,collect_trajectory=False):
         """
         Returns:
         - is_exhausted: Whether the sim ran out of episodes
@@ -301,11 +300,6 @@ class EpisodeRolloutMixin:
                         # "distance_to_goal": state_dict['info']['distance_to_goal'],
                         **state_dict['info'],
                     }
-                    if compute_value:
-                        import torch
-                        # Compute value estimate for the current state
-                        with torch.no_grad():
-                            trajectory_dict["values"] = self._compute_value(outputs).cpu().numpy()
                     trajectory_buffer.append(trajectory_dict)
                 messages = substitute_convo_template(self.rollout_config['convo_turn_template'],{"action":self.rollout_config['action_space'][action_id]})
                 # print(f"sim step{step_count}")
@@ -341,226 +335,47 @@ class RolloutWorker(VLMWorker, EpisodeRolloutMixin):
         vlm_kwargs["attn3d_layers"] = rollout_config.get("attn3d_layers", [-1])
         VLMWorker.__init__(self, **vlm_kwargs)
         import os
-        np.random.seed(os.getpid())
         # 2. Initialize the Mixin State
         # Since the Mixin's __init__ was just setting this variable, we can do it here directly
         # effectively bypassing the need for cooperative inheritance in the parents.
         self.rollout_config = rollout_config
 
-class RLWorker(RolloutWorker,VLMTrainingMixin):
-    def __init__(self, rollout_config: Dict[str, Any], **vlm_kwargs):
-        """
-        Combines VLM inference, RL Data Collection, and Training capabilities.
-        """
-        # 1. Initialize VLM (Heavy weights)
-        vlm_kwargs["visualize_attention"] = rollout_config.get("visualize_attention", False)
-        vlm_kwargs["visualize_attention_heads"] = rollout_config.get("visualize_attention_heads", False)
-        vlm_kwargs["visualize_attention_3d"] = rollout_config.get("visualize_attention_3d", False)
-        vlm_kwargs["attn3d_layers"] = rollout_config.get("attn3d_layers", [-1])
-        VLMWorker.__init__(self, **vlm_kwargs)
-        
-        # 2. Initialize Rollout Config
-        self.rollout_config = rollout_config
-        
-    def run_episode(self,env_handle,initial_state_ref,rtn_inputs = False):
-        '''
-        Returns:
-        - is_exhausted: Whether the sim ran out of episodes
-        - final_info: The final info dict from the sim (contains success, spl, etc.)
-        - trajectory: If collect_trajectory is True, returns the collected trajectory in columnar format (dict of numpy arrays).    
-        - inputs: optional, full input for model forward pass.
-        
-        '''
-        self.rl_seq_inputs = None
-        self.rl_embeds_inputs = None
-        self.rl_trajectory = None
-        if rtn_inputs:
-            self.save_pixels = True #need pixels to reconstruct sequence inputs.
-        else:
-            self.save_pixels = False
-        is_exhausted,result,trajectory = super().run_episode(env_handle, initial_state_ref,collect_trajectory=True,compute_value=False)
-        self.rl_trajectory = trajectory
-        inputs,embeds = None,None
-
-        if rtn_inputs:
-            inputs = self._pack_inputs()
-            self.rl_seq_inputs = inputs
-        return is_exhausted,result,trajectory,inputs
-
-    def postprocess_episode(self,eval=False):
-        '''
-        clears the internal state and returns the processed trajectory and model inputs.
-        - trajectory includes: 
-            - rollout logprobs (for rollout correction)
-            - old logprobs (calculated from same weights as rollout model but with full forward pass instead of kv cache)
-        If eval is True, skips forward passes and just returns raw trajectory
-        '''
-        model_inputs = None
-
-        if not eval: # skip logprobs calculation during eval for speed.
-            embeds = self._pack_embeds()
-            self.rl_embeds_inputs = embeds
-            values = None
-            import torch
-            with torch.no_grad():
-                if self.rl_embeds_inputs is not None:
-                    logits,values = self._forward_embeds(self.rl_embeds_inputs,self.rl_algo_config.use_value)
-                    model_inputs = self.rl_embeds_inputs
-                elif self.rl_seq_inputs is not None:
-                    logits,values = self._forward_seq(self.rl_seq_inputs,self.rl_algo_config.use_value)
-                    model_inputs = self.rl_seq_inputs
-                else:
-                    raise ValueError("No stored model inputs found for postprocessing.")
-                logprobs = self._calculate_action_logprobs(logits).squeeze().float().cpu()
-                if logprobs.dim() == 1:
-                    logprobs = logprobs.unsqueeze(0) # ensure batch dim
-                self.rl_trajectory['old_logprobs'] = logprobs.numpy()
-                if values is not None:
-                    self.rl_trajectory['values'] = values.squeeze().float().cpu().numpy()
-
-            if self.rl_algo_config.use_ref:
-                with torch.no_grad():
-                    self.unmerge_adapter()
-                    with self.model.disable_adapter():
-                        if self.rl_embeds_inputs is not None:
-                            logits,values = self._forward_embeds(self.rl_embeds_inputs,False)
-                        elif self.rl_seq_inputs is not None:
-                            logits,values = self._forward_seq(self.rl_seq_inputs)
-                        ref_logprobs = self._calculate_action_logprobs(logits).squeeze().float().cpu()
-                        if ref_logprobs.dim() == 1:
-                            ref_logprobs = ref_logprobs.unsqueeze(0) # ensure batch dim
-                        self.rl_trajectory['ref_logprobs'] = ref_logprobs.numpy()
-
-        return self.rl_trajectory,model_inputs    
     
-class RLActor(RLWorker):
-    def run_episode(self,env_handle,initial_state_ref):
-        is_exhausted,state_dict,_,_ = super().run_episode(env_handle, initial_state_ref)
-        return is_exhausted,state_dict
-    
-    def postprocess_episode(self,return_inputs = True,eval=False):
-        trajectory,model_inputs = super().postprocess_episode(eval=eval)
-        if return_inputs:
-            inputs_tensors,inputs_metadata = TensorPacker.pack(model_inputs)
-            return trajectory,inputs_tensors,inputs_metadata
-        else: return trajectory,None,None
-
-    def train_rl_step(self, embeds_inputs_np, embeds_inputs_meta,traj_batch):
-        embeds_inputs = TensorPacker.unpack(embeds_inputs_np,embeds_inputs_meta,device=self.accelerator.device)
-        actions = traj_batch['actions']
-        old_log_prob = traj_batch['old_log_prob']
-        advantages = traj_batch['advantages']
-        returns = traj_batch['returns']
-        old_values = traj_batch.get('values',None)
-        rollout_log_probs = traj_batch.get('rollout_logprobs',None)
-        ref_logprobs = traj_batch.get('ref_logprobs',None)
-    
-        return super().train_rl_step(embeds_inputs, actions, old_log_prob, advantages, returns, old_values, rollout_log_probs,ref_logprobs)
-    
-    def train_dagger_step(self, embeds_inputs_np, embeds_inputs_meta, traj_batch):
-        """
-        Pure DAgger (Behavior Cloning) Step.
-        """
-        embeds_inputs = TensorPacker.unpack(embeds_inputs_np, embeds_inputs_meta, device=self.accelerator.device)
         
-        # 1. Prepare Data
-        # Ensure we have the mask (default to all valid tokens if not provided)
-        dagger_mask = traj_batch.get('dagger_mask', traj_batch.get('response_mask', None))
-        if dagger_mask is None:
-            import torch
-             # Fallback: Create a ones mask matching action shape
-            dagger_mask = torch.ones_like(traj_batch['actions'], dtype=torch.bool)
+class InferenceWorker(RolloutWorker):
+    """Stateful model inference with the actor interface used by collect_rollouts."""
 
-        expert_actions = traj_batch['oracle_actions']
-        # Robustness: Handle One-Hot vs Indices
-        # If input is (B, S, A) probabilities, convert to (B, S) indices
-        if expert_actions.dim() > 2:
-            expert_actions = expert_actions.argmax(dim=-1)
+    def load_adapter(self, path, peft_config=None):
+        from longnav.utils.checkpoints import load_adapter
+        load_adapter(self, path, peft_config)
 
-        # 2. Dispatch
-        return super().generic_train_step(
-            embeds_inputs=embeds_inputs,
-            loss_fn_names=['bc'],
-            loss_kwargs_list={
-                'bc': {
-                    'expert_actions': expert_actions,
-                    'dagger_mask': dagger_mask
-                }
-            }
-        )
+    def run_episode(self, env_handle, initial_state_ref):
+        self.save_pixels = False
+        exhausted, result, self.trajectory = super().run_episode(
+            env_handle, initial_state_ref, collect_trajectory=True)
+        return exhausted, result
 
-    def train_dagrl_step(self, embeds_inputs_np, embeds_inputs_meta, traj_batch,rl_weight=1.0,bc_weight=0.1):
-        """
-        Hybrid Step: PPO + DAgger.
-        Assumes the driver has populated 'response_mask' (for PPO) and 
-        'dagger_mask' (for BC) to separate the data.
-        """
-        embeds_inputs = TensorPacker.unpack(embeds_inputs_np, embeds_inputs_meta, device=self.accelerator.device)
-        
-        # 1. Unpack RL Args
-        actions = traj_batch['actions']
-        old_log_prob = traj_batch['old_log_prob']
-        advantages = traj_batch['advantages']
-        returns = traj_batch['returns']
-        old_values = traj_batch.get('values', None)
-        rollout_log_probs = traj_batch.get('rollout_logprobs', None)
-        ref_logprobs = traj_batch.get('ref_logprobs', None)
-        
-        # The driver MUST provide this to avoid double-counting gradients
-        # (e.g. response_mask should be FALSE for DAgger samples)
-        rl_mask = traj_batch.get('response_mask') 
-        if rl_mask is None:
-            import torch
-             # Fallback (dangerous for hybrid): Assume all valid tokens are RL
-            rl_mask = torch.ones_like(actions, dtype=torch.bool)
+    def postprocess_episode(self, return_inputs=False, eval=True):
+        if return_inputs or not eval:
+            raise ValueError("Inference workers do not return training inputs or compute training log-probabilities")
+        return self.trajectory, None, None
 
-        # 2. Unpack DAgger Args
-        expert_actions = traj_batch['oracle_actions']
-        if expert_actions.dim() > 2:
-            expert_actions = expert_actions.argmax(dim=-1)
-            
-        dagger_mask = traj_batch.get('dagger_mask')
-        if dagger_mask is None:
-            import torch
-            # If missing in hybrid, assume NO DAgger (safety default)
-            dagger_mask = torch.zeros_like(actions, dtype=torch.bool)
 
-        # 3. Dispatch
-        return super().generic_train_step(
-            embeds_inputs=embeds_inputs,
-            loss_fn_names=['rl', 'bc'],
-            loss_kwargs_list={
-                'rl': {
-                    'actions': actions,
-                    'old_log_prob': old_log_prob,
-                    'advantages': advantages,
-                    'returns': returns,
-                    'old_values': old_values,
-                    'rollout_log_probs': rollout_log_probs,
-                    'ref_log_probs': ref_logprobs,
-                    'response_mask': rl_mask
-                },
-                'bc': {
-                    'expert_actions': expert_actions,
-                    'dagger_mask': dagger_mask
-                }
-            },
-            loss_weights=[rl_weight, bc_weight]
-        )
-        
 def collect_rollouts(
     env_handles: list,
     vlm_handles: list,
     shard_iterator: Iterator[list[str]],
     target_episodes: int = float('inf'),
-    postprocess_kwargs = {"return_inputs":True, "eval":False},
+    postprocess_kwargs = None,
     wandb_logger = None
 ) -> tuple[list,list,list]:
     """
-    Orchestrates the RL collection pipeline.
+    Collect inference episodes and flush logs in dispatch order.
 
     returns: trajectory buffer, result list, log list, indexed by dispatch_id
     """
+
+    postprocess_kwargs = postprocess_kwargs or {}
 
     # --- 1. Initialize Pools ---
     idle_vlms = deque(vlm_handles)
@@ -601,7 +416,7 @@ def collect_rollouts(
     def has_work():
 
         # 1. Are tasks currently running?
-        is_active = len(active_episodes) > 0 or len(pending_postproc) > 0#or len(pending_logs) > 0
+        is_active = len(active_episodes) > 0 or len(pending_postproc) > 0 or len(pending_logs) > 0
         # 2. Do we still want to launch new tasks (now or in the future)? (Resources available AND Target not met)
         potential = len(trajectory_buffer) + len(active_episodes) + len(pending_postproc)
         want_launch = (potential < target_episodes) and initial_live_sims > 0

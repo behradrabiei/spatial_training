@@ -9,8 +9,6 @@ class ResourceConfig:
     osm_gb: int = 128  # Object Store Memory in GB
     vlm_resource_tag: str = "env_a"
     sim_resource_tag: str = "env_b"
-    master_addr: str = 'localhost'
-    master_port: Optional[int] = None #port for accelerate/ddp
     num_vlms: int = 1
     num_sims: int = 1
     vlm_conda_env: Optional[str] = "longnav_vlm"
@@ -220,67 +218,8 @@ class VLMConfig:
     # under no_grad instead of inference_mode so the cache can be differentiated.
     attn_weighting: str = "raw"
 
-@dataclass 
-class PolicyLossConfig:
-    clip_cov_ratio: Optional[float] = 0.0002
-    clip_cov_ub: Optional[float] = 5.0
-    clip_cov_lb: Optional[float] = 1.0
     
-@dataclass 
-class RLAlgoConfig:
-    # generic on policy params
-    use_value: bool = False
-    value_grad_scale: float = 0.1
-    advantage_estimator: str = "reinforce_plus_plus"
-    policy_loss_name: str = "vanilla"
-    n_rollout: int = 12 # note: must be divisible by num vlms times gradient accumulation
-    n_adv: int = 256 # number of trajectories for advantage estimation, must > n_rollout
-    n_epoch: int = 2 # number of policy gradient epochs
 
-    # PPO Hyperparameters
-    clip_ratio: float = 0.2
-    clip_ratio_low: Optional[float] = None
-    clip_ratio_high: Optional[float] = None
-    clip_ratio_c: float = 3.0
-    loss_agg_mode: Optional[str] = "token-mean" #"seq-mean-token-sum" seq-mean-token-mean
-    
-    # clip cov parameters
-    policy_loss:PolicyLossConfig = field(default_factory=PolicyLossConfig)
-    # GAE Hyperparameters
-    gamma: float = 0.99
-    lam: float = 0.95
-
-    time_kernel_sigma: float = 50.0
-    time_alignment: str = "start" #or end
-    time_loto: bool = False # leave one trajectory out
-    
-    distance_kernel_sigma: float = 0.5
-    distance_clip_max: Optional[float] = 17.0
-    distance_clip_percentile: Optional[float] = 0.95
-    distance_pad_mode: Optional[str] = "replicate"
-    distance_pad_val: Optional[float] = None
-    # Value & Entropy
-    cliprange_value: float = 0.2
-    entropy_bonus: float = 0.0
-
-    # Ref KL Control
-    use_ref: bool = True
-    kl_coeff: float = 0.001
-    kl_target: float = 0.1
-
-    # # Compatibility for verl's agg_loss
-    # @property
-    # def global_batch_info(self):
-    #     # For single-worker testing, batch size is 1
-    #     return {}# "dp_size": 1, "global_batch_size": 1
-    global_batch_info: Optional[Dict[str,Any]] = field(default_factory=lambda:{})
-    # Helper to support config.get("key", default) used in loss functions
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-@dataclass
-class SFTConfig:
-    pass
 
 # --- training configs ---
 @dataclass
@@ -303,35 +242,19 @@ class HydraLoraConfig:
     modules_to_save: Optional[List[str]] = None
     use_rslora: bool = False #rank stabilized lora. should use?
 
+
 @dataclass
-class VLMTrainingConfig:
-    # checkpoints
-    checkpoint:Optional[str] = None
-    load_optim:bool = False # l
-    load_sched:bool = False
+class AdapterConfig:
+    path: Optional[str] = None
+    peft_config: Any = field(default_factory=HydraLoraConfig)
 
-    # Optimization
-    learning_rate: float = 5e-6
-    grad_accum_steps: int = 1
-    mixed_precision: Optional[str] = "no" #['no', 'fp8', 'fp16', 'bf16']
-    gradient_checkpointing: bool = True
-    total_optimization_steps: int = 100000 # used for linear LR schedule
-    warmup_steps: int = 64
-    save_step: Optional[int] = 10
 
-    # Value Head Configuration
-    value_head_learning_rate: float = 5e-4  # Often higher than Adapter LR
-    value_head_dropout: float = 0.0
-    value_head_dtype: str = "float32"  
-    # List of hidden layer sizes. Empty list [] implies a single linear layer (Linear Probe).
-    value_head_hidden_dims: List[int] = field(default_factory=lambda:[1024,512])
+@dataclass
+class LegacyCheckpointConfig:
+    """Input compatibility only; normalized away before creating workers."""
+    checkpoint: Optional[str] = None
+    peft_config: Optional[Any] = None
 
-    # PEFT: Pass the actual configuration object here (e.g., LoraConfig)
-    # Typed as Any to avoid crashing if peft isn't installed on the driver
-    peft_config: Optional[Any] = field(default_factory=HydraLoraConfig) 
-
-    rl_config:Optional[RLAlgoConfig] = field(default_factory=RLAlgoConfig) # RL Algorithm 
-    sft_config:Optional[SFTConfig] = None
 
 # --- habitat sim configs ---
 @dataclass
@@ -418,13 +341,12 @@ class RunConfig:
 # --- ROOT CONFIGs ---
 @dataclass
 class InferenceConfig:
+    adapter: AdapterConfig = field(default_factory=AdapterConfig)
+    training: LegacyCheckpointConfig = field(default_factory=LegacyCheckpointConfig)
+    hab_config_list: Optional[List] = None
     resources: ResourceConfig = field(default_factory=ResourceConfig)
     rollout: RolloutConfig = field(default_factory=RolloutConfig)
     vlm: VLMConfig = field(default_factory=VLMConfig)
     sim: HabitatConfig = field(default_factory=HabitatConfig)
     task: RunConfig = field(default_factory=RunConfig)
 
-@dataclass
-class RLConfig(InferenceConfig):
-    training: VLMTrainingConfig = field(default_factory=VLMTrainingConfig)
-    hab_config_list: Optional[List] = None
