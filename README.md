@@ -36,13 +36,13 @@ Run from the repository root with `longnav_vlm` active:
 ```bash
 python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
   +experiment=paper_ctx +resources=single task.run_name=my_eval \
-  task.wandb_project=null resources.osm_gb=10
+  task.output_dir=./dump/longnav_eval task.wandb_project=null resources.osm_gb=10
 ```
 
 `checkpoint=base`, `sft`, and `longnav` select the maintained pretrained models. Adapter settings live
 under `adapter.path` and `adapter.peft_config`. Historical `training.checkpoint` and PEFT fields are
 translated at bootstrap; conflicting settings raise an error. Historical optimizer/loss fields are
-ignored only when reading a saved configuration. Removed pruning policies and active removed knobs
+ignored when migrating legacy evaluation configurations. Removed pruning policies and active removed knobs
 raise errors.
 
 Resource presets set the number of model/simulator actors and Ray object-store size. Adjust them to
@@ -79,13 +79,13 @@ ignored `.cleanup_archive/before-codebase-cleanup/` directory.
 
 ## Code and validation
 
-- `utils/checkpoints.py`: shared pretrained model and adapter loading.
-- `utils/vlm_worker.py`: model inference and attention attribution.
-- `utils/context_cache.py`: context windows, cache eviction, and recomputation.
-- `utils/kv_prune.py`, `utils/pruning_runtime.py`: selectors and staged pruning.
-- `utils/diagnostics.py`: replay-based paper diagnostics.
-- `utils/rollout_core.py`: episode collection and Ray scheduling.
-- `env/`: Habitat metrics, stopping, rendering, and simulator interfaces.
+- [checkpoints.py](src/longnav/utils/checkpoints.py): shared pretrained model and adapter loading.
+- [vlm_worker.py](src/longnav/utils/vlm_worker.py): model inference and attention attribution.
+- [context_cache.py](src/longnav/utils/context_cache.py): context windows, cache eviction, and recomputation.
+- [kv_prune.py](src/longnav/utils/kv_prune.py) and [pruning_runtime.py](src/longnav/utils/pruning_runtime.py): selectors and staged pruning.
+- [diagnostics.py](src/longnav/utils/diagnostics.py): replay-based paper diagnostics.
+- [rollout_core.py](src/longnav/utils/rollout_core.py): episode collection and Ray scheduling.
+- [env/](src/longnav/env): Habitat metrics, stopping, rendering, and simulator interfaces.
 
 ```bash
 python tests/inference_unit.py

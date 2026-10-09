@@ -2,7 +2,7 @@
 # Uni-NaVid arms of the hybrid-pruning comparison (paper/hybrid_prune/README.md).
 #
 #   bash paper/hybrid_prune/run_uninavid.sh                            # every arm
-#   ARMS="uninavid_hybrid_b8" bash paper/hybrid_prune/run_uninavid.sh
+#   ARMS="uninavid_hybrid_mp8" bash paper/hybrid_prune/run_uninavid.sh
 #
 # Uses the isolated baseline runtime via baselines/run.sh with the official evaluator settings
 # (seed 30, temperature 0.2, 2 actions per inference, 500 steps). Arm names:
@@ -13,8 +13,8 @@
 #   hybrid       --context-frames 32 --prune-method hybrid       (attn stages 8/16, random from 24)
 #   pyramiddrop  --context-frames 64 --prune-method pyramiddrop  (stages 8/16/24; 64 frames is the
 #                widest history the pruner supports -- the long-term tier starts at 65)
-# Both protocols seed the per-call sampler (--sampling-seed 30), so the pair differs by the
-# protocol and not by sampler noise.
+#   uniform      --context-frames 32 --prune-method uniform (random at 0, blind from 20)
+# All three protocols seed the per-call sampler (--sampling-seed 30).
 #
 # DATASET=mp3d runs the MP3D replicate (objectnav_mp3d.yaml, MP3D val episodes and scenes, the seed-17
 # 100-episode manifest, data in paper_results/hybrid_prune_mp3d/).

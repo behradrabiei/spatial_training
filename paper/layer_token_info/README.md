@@ -8,6 +8,13 @@ over the image at three layers. Measured two ways (keep-one-in, leave-one-out) a
 counterfactual semantics (leaky, leak-free), i.e. four headline figures plus two supplementary
 ones.
 
+Run commands from the repository root. LongNav-R1 uses `longnav_vlm`; plots use `vln`;
+Uni-NaVid launchers use the isolated baseline runtime. To rebuild the retained tables and
+figures without overwriting published outputs, follow the
+[reproduction guide](../../paper_results/REPRODUCIBILITY.md). A Git clone alone is
+insufficient: restore required local inputs from the checksummed backup first. Ordinary
+launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
+
 ## Definitions
 
 **Episode and step.** One HM3D-v2 val episode from the seed-17 manifest
@@ -88,6 +95,9 @@ frame-level diagnostic. The survey score in `runs/survey.csv` was computed with 
 
 ## Figures (`paper_results/layer_token_info/figures/<episode>/`)
 
+Layer indices in this protocol, CLI arguments, and saved arrays are zero-based. The token-map
+figures display one-based labels: `--layers 1 12 18` is labelled 2 / 13 / 19.
+
 `token_info_<leaky|leakfree>_<keepone|leaveone|keepone_allvisual>.{pdf,png}`, one row: (a) box
 plot of the per-token KL per layer (log y, whiskers span the full range so the few hot tokens of
 a sparse map are visible; the dotted lines mark the three layers of (b)); (b) the raw current
@@ -153,11 +163,11 @@ at 16, ~1.5 h at 21, ~2 h at 26, ~2.5 h at 30. `LAYERS="1 12 18"` probes only th
 
 ## Information horizon figure (`figures/information_horizon.{pdf,png}`, the paper's Fig. 8)
 
-`horizon.py` plots, against the first layer `L` without the visual tokens, the information the
-current frame still carries when removed from `L` on (left axis) and the agent's SR / SPL when
-no query may read any visual token from `L` on (right axis, `vlm.kv_prune_visual_blind`,
-100 episodes, 95 % episode-bootstrap CIs; dashed = the unblinded reference, also drawn at
-`L = none`). The information curve is **frame-level**: the current-frame keep-one-in KL of the
+`horizon.py` draws four panels against the first layer `L` without visual tokens: current-frame
+keep-one-in KL, leave-one-out KL, and the agent's SR / SPL when no query may read any visual
+token from `L` on (`vlm.kv_prune_visual_blind`, 100 episodes). Panels show means; 95 %
+episode-bootstrap CIs are saved in `results/horizon.csv`. Dashed horizontal lines mark the
+unblinded reference, also drawn at `L = none`; this historical figure uses zero-based layers. The information curve is **frame-level**: the current-frame keep-one-in KL of the
 10-episode keep-one diagnostic (`dump/longnav_eval/keep_one_influence_w32_b10000000`,
 `vlm.kv_prune_log_keep_one`, every 4th step, probe layers 0/8/16/20/24/28, native sparse regime,
 32 past frames + current in context — the same regime as the blind arms). The purple line marks the horizon at
@@ -200,9 +210,11 @@ eight manifest episodes have frames and trajectories only.
   0.0007 at 20; SR with all visual tokens removed from L on: 0.00 at L ≤ 12, 0.35 at 16, 0.85 at
   20 and 24 vs 0.88 unblinded. Layers 18–27 can drop every visual token at no cost.
 
-Deferred (left for another day): densifying both curves of the horizon figure — blind arms at
-layers 13–19 (~50 min each below the horizon, ~15–20 min above) and the keep-one diagnostic with
-probe layers 13–20 or all 28 (~1 h / ~3 h) — so the crossing is pinned to a single layer.
+This historical windowed horizon retains its original coarse layer grid. The later
+[full-context information-horizon study](../info_horizon/README.md) supplies the separate
+blind-rollout and leak-free probe comparison. The windowed figure still reads
+`dump/longnav_eval/keep_one_influence_w32_b10000000`; this protected input must remain
+available alongside the `paper_results/layer_token_info/` inputs.
 
 ## How to run
 
@@ -210,7 +222,7 @@ probe layers 13–20 or all 28 (~1 h / ~3 h) — so the crossing is pinned to a 
 conda activate longnav_vlm
 bash paper/layer_token_info/run.sh                       # survey -> probes -> plot
 EPISODE=VBzV5z6i1WS_1 bash paper/layer_token_info/run.sh # a chosen episode
-LAYERS="0 4 8 12 16 20 24 27" bash ...                   # subset of layers while iterating
+LAYERS="0 4 8 12 16 20 24 27" bash paper/layer_token_info/run.sh # subset of layers while iterating
 ```
 
 `probe_episode.py survey` boots one habitat sim (Ray, `vln` env) and the LongNav-R1 worker

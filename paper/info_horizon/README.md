@@ -4,7 +4,15 @@ At which decoder layer does the current observation's visual information enter t
 decision, and from which layer on can the visual tokens be dropped at no cost? Two models
 (LongNav-R1, Uni-NaVid), full episode context, on the HM3D-v2 val split. This is the
 full-context, leak-free rerun of the Fig.-8-style figure in `paper/layer_token_info/horizon.py`,
-whose data came from a 32-frame window and whose KL curve was the leaky keep-one diagnostic.
+whose data came from a window of 32 past frames plus the current frame and whose KL curve
+was the leaky keep-one diagnostic.
+
+Run commands from the repository root. LongNav-R1 uses `longnav_vlm`; plots use `vln`;
+Uni-NaVid launchers use the isolated baseline runtime. To rebuild the retained tables and
+figures without overwriting published outputs, follow the
+[reproduction guide](../../paper_results/REPRODUCIBILITY.md). A Git clone alone is
+insufficient: restore required local inputs from the checksummed backup first. Ordinary
+launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
 
 ## Definitions
 
@@ -38,11 +46,15 @@ from `L` on, 100 episodes, SR / SPL vs the unblinded reference.
 | `uninavid_blind_l<L>` | Uni-NaVid | every visual column (history groups, long-term slots, fine tokens) hidden from `L` on during the live rollout (`--blind-layer L`); reference = `uninavid_ref` | yes |
 
 Layer grids: LongNav-R1 `L ∈ {8,12,14,16,18,20,24}` + none; Uni-NaVid
-`L ∈ {8,12,16,18,20,24,28}` + none (L = 0, 4 and 22 skipped: the 32-frame run had SR = 0 there and
-full context cannot help a model that never reads an image). The leak-free `r1_probe` arm is
-optional (`ARMS=r1_probe bash paper/info_horizon/run_r1.sh`) and drawn only if present. Uni-NaVid arms use `--sampling-seed 30` (as Exp 3/4),
+`L ∈ {8,12,16,18,20,24,28}` + none. These are the live blind-rollout grids;
+probe grids also include other layers. Unmeasured blind-rollout layers have no reported SR/SPL. The leak-free `r1_probe` arm is
+optional (`ARMS=r1_probe bash paper/info_horizon/run_r1.sh`) and drawn only if present. Uni-NaVid arms use `--sampling-seed 30` (as Exp 3; the token-pruning sweeps did not reseed each call),
 so `uninavid_ref` and `uninavid_probe` share trajectories with `frame_influence/uninavid_influence`.
 Separators and special tokens are never hidden in either model.
+
+Layer indices in the protocol, CLI, and CSVs are zero-based. The plotted axes use one-based
+labels; the unblinded endpoint is at 29 / 33 for LongNav-R1 / Uni-NaVid (labelled `L+1`).
+Figures show means; confidence intervals remain in `results/horizon.csv`.
 
 ## Protocol
 
@@ -76,24 +88,28 @@ Data in `paper_results/info_horizon_mp3d/`; `aggregate.py --dataset mp3d`, `plot
 ```bash
 conda activate longnav_vlm
 bash paper/info_horizon/run_uninavid.sh            # uninavid_ref, uninavid_blind_l*, uninavid_probe (~3 h)
-DATASET=mp3d bash paper/info_horizon/run_uninavid.sh   # the MP3D replicate (likewise for run_r1.sh, aggregate.py, plot.py)
+DATASET=mp3d bash paper/info_horizon/run_uninavid.sh   # MP3D; the same prefix works with run_r1.sh
 bash paper/info_horizon/run_r1.sh                  # r1_probe_leaky, r1_blind_l* (~8-12 h); ARMS=r1_probe for the leak-free probe
 python paper/info_horizon/aggregate.py             # results/horizon.csv, probe_steps.csv, table.tex
-/home/brabiei/miniconda3/envs/vln/bin/python paper/info_horizon/plot.py   # figures/information_kl.{pdf,png}     keep-one-in / leave-one-out KL vs L (probe episodes)
-figures/information_perf.{pdf,png}   SR / SPL of the blind rollouts vs L (100 episodes)
+conda run -n vln python paper/info_horizon/plot.py   # figures/information_kl.{pdf,png}     keep-one-in / leave-one-out KL vs L (probe episodes)
+# Also writes figures/information_perf.{pdf,png}: blind-rollout SR / SPL vs L
+
+# Aggregate and plot the MP3D replicate explicitly
+python paper/info_horizon/aggregate.py --dataset mp3d
+conda run -n vln python paper/info_horizon/plot.py --dataset mp3d
 ```
 (plus the single-panel figures `information_kl_{keep,leave}` and `information_perf_{sr,spl}`)
-Both scripts skip complete arms and resume unfinished ones; `ARMS="..."` runs a subset.
+Both scripts skip complete arms and resume unfinished ones; `ARMS="r1_probe r1_blind_l18"` selects a LongNav-R1 subset.
 `aggregate.py --allow-partial` for interim looks. Smokes: `python tests/horizon_probe_smoke.py`
 (GPU) and `PYTHONPATH=baselines:baselines/Uni-NaVid baselines/.envs/uninavid-hm3d/bin/python
 -m unittest baselines.tests.test_layer_blind` (CPU).
 
-## Outputs — all under `paper_results/info_horizon/` (tracked)
+## Outputs — all under `paper_results/info_horizon/`
 
 ```
-runs/<arm>/                  config.yaml, launch.log, rollout/results_* (LongNav-R1) or
+runs/<arm>/                  config.yaml, rollout/results_* (LongNav-R1) or
                              manifest.json, summary.json, episodes/*.json, horizon/*.jsonl (Uni-NaVid);
-                             per-episode rollout dirs (sequence.json) and traces are gitignored
+                             per-episode rollout dirs (sequence.json), traces, and horizon/ are gitignored but required
 results/horizon.csv          one row per (curve, layer): KL means + CIs, SR/SPL + CIs + paired deltas
 results/probe_steps.csv      every (curve, episode, step, layer) probe value
 results/table.tex, summary.json

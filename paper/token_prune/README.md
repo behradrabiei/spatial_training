@@ -6,6 +6,13 @@ to the *history* tokens of an ObjectNav VLA at a matched token budget? SR / SPL 
 history-token budget, for LongNav-R1 and Uni-NaVid, on the 100-episode HM3D-v2 val split, plus
 which frame ages each method keeps.
 
+Run commands from the repository root. LongNav-R1 uses `longnav_vlm`; plots use `vln`;
+Uni-NaVid launchers use the isolated baseline runtime. To rebuild the retained tables and
+figures without overwriting published outputs, follow the
+[reproduction guide](../../paper_results/REPRODUCIBILITY.md). A Git clone alone is
+insufficient: restore required local inputs from the checksummed backup first. Ordinary
+launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
+
 ## Definitions
 
 **Window.** The context-window ablation's `K=32` arm: the current frame plus the **31** most
@@ -101,30 +108,31 @@ nohup bash paper/token_prune/run_all.sh > /dev/null 2>&1 &     # IDENTITY_TOLERA
 
 # or per family (order: identity, k=8 for every method, then 4, 1, 16)
 conda activate longnav_vlm
-bash paper/token_prune/run_r1.sh          # ARMS="r1_identity r1_random_b8" bash ...  (~20-40 min per arm)
+bash paper/token_prune/run_r1.sh          # ~20-40 min per arm
+# A subset: ARMS="r1_identity r1_random_b8" bash paper/token_prune/run_r1.sh
 bash paper/token_prune/run_uninavid.sh    # ~11 min per arm
 
 # progress / interim numbers and figures at any time
 python paper/token_prune/aggregate.py --status
 python paper/token_prune/aggregate.py --allow-partial
-/home/brabiei/miniconda3/envs/vln/bin/python paper/token_prune/plot.py       # --k 8 for the retention figure
+conda run -n vln python paper/token_prune/plot.py       # --k 8 for the retention figure
 
 # final
 python paper/token_prune/aggregate.py --strict
-/home/brabiei/miniconda3/envs/vln/bin/python paper/token_prune/plot.py
+conda run -n vln python paper/token_prune/plot.py
 ```
 
 Do not run the two model families concurrently on one GPU (Uni-NaVid-7B alone takes ~15 GB).
 Both run scripts skip complete arms and resume partial ones (LongNav-R1 through wandb's
 `task.run_name`, Uni-NaVid through `--resume`).
 
-## Outputs — all under `paper_results/token_prune/` (tracked, per `paper_results/.gitignore`)
+## Outputs — all under `paper_results/token_prune/`
 
-- `runs/<arm>/` — raw run output. LongNav-R1: `config.yaml`, `launch.log`, `rollout/results_*`
+- `runs/<arm>/` — raw run output. LongNav-R1: `config.yaml`, `rollout/results_*`
   (per-episode JSONL, incl. `sup/mean_vtp_n_new`); the per-episode `rollout/<scene>/…` dirs with
   `sequence.json` (keep masks) stay on disk but are gitignored. Uni-NaVid: `manifest.json`,
-  `summary.json`, `episodes/*.json`, `prune/*.jsonl` + `prune/meta.json`, `launch.log`; `traces/`
-  gitignored. `driver.log` is the chained launch log.
+  `summary.json`, `episodes/*.json`, `prune/*.jsonl` + `prune/meta.json`; `traces/`
+  gitignored. New launches generate ignored `launch.log` / `driver.log` files; historical logs were archived.
 - `results/per_episode.{csv,parquet}` — one row per (arm, episode), the ctx-ablation recency and
   reference rows merged in (`method ∈ {recency, reference}`), `partial` flag.
 - `results/summary.csv` — per arm: n, SR/SPL/steps with CIs, tokens per frame, tokens kept, paired
@@ -133,8 +141,9 @@ Both run scripts skip complete arms and resume partial ones (LongNav-R1 through 
 - `results/n_tokens.csv` — `n`, mean tokens kept and kept fraction of the 31-frame window per arm.
 - `results/masks.parquet` — one row per (arm, episode, step, history frame): tokens, kept, packed
   keep bits. **Not in git** (149 MB, over GitHub's 100 MB limit; ignored in
-  `paper_results/.gitignore`): on a fresh clone run `python paper/token_prune/aggregate.py` once to
-  rebuild it from the tracked per-step records in `runs/*/prune/` before plotting
+  `paper_results/.gitignore`). Rebuilding it requires both Uni-NaVid `runs/*/prune/` records
+  and LongNav-R1 per-episode `sequence.json` traces, including ignored inputs. Restore those
+  inputs first, then use the isolated reproduction workflow above to aggregate before plotting
   `retention_by_age`. `results/retention.csv` — kept fraction vs frame age per arm with CIs.
 - `figures/budget_curves.{pdf,png}` — SR and SPL vs frames' worth, one column per model, the
   recency curve in black, the reference dashed; hollow markers = partial arms.
@@ -226,11 +235,11 @@ VARIANT=flat ARMS="r1_fastv_b8" bash paper/token_prune/run_r1.sh            # or
 # faster on one RTX 5090: two lock-coordinated workers (an R1 arm is ~6.5 GB / ~50% GPU, Uni-NaVid ~15 GB;
 # only ONE worker may hold Uni-NaVid arms). Latency columns of concurrent arms are not comparable.
 export VARIANT=flat EXTRA_OVERRIDES="resources.osm_gb=10"
-nohup bash paper/token_prune/run_worker.sh A r1_divprune_b32 r1_divprune_b16 r1_dart_b32 ... > /dev/null 2>&1 &
-nohup bash paper/token_prune/run_worker.sh B uninavid_random_b8 ... r1_random_b16 ...     > /dev/null 2>&1 &
+nohup bash paper/token_prune/run_worker.sh A r1_divprune_b32 r1_divprune_b16 r1_dart_b32 > /dev/null 2>&1 &
+nohup bash paper/token_prune/run_worker.sh B uninavid_random_b8 r1_random_b16     > /dev/null 2>&1 &
 python paper/token_prune/aggregate.py --variant flat --status              # progress
 python paper/token_prune/aggregate.py --variant flat --strict              # results/ (deltas vs same-k random, vs identity)
-/home/brabiei/miniconda3/envs/vln/bin/python paper/token_prune/plot.py --variant flat
+conda run -n vln python paper/token_prune/plot.py --variant flat
 ```
 
 Identity: `r1_identity` must reproduce the ctx ablation's `r1_full` episode for episode

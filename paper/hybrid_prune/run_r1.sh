@@ -2,7 +2,7 @@
 # LongNav-R1 arms of the hybrid-pruning comparison (paper/hybrid_prune/README.md).
 #
 #   bash paper/hybrid_prune/run_r1.sh                                  # every arm
-#   ARMS="r1_hybrid_b8 r1_pyramiddrop_b8" bash paper/hybrid_prune/run_r1.sh
+#   ARMS="r1_hybrid_mp8 r1_pyramiddrop_mp8" bash paper/hybrid_prune/run_r1.sh
 #
 # Arm names: r1_<protocol>_<mp|m|b><k>, protocol in {hybrid, pyramiddrop, uniform}, k = frames' worth of
 # history visual tokens. uniform (mp only): K=32 frame cut, one uniform random draw at layer 0 (layers

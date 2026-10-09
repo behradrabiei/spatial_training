@@ -11,6 +11,13 @@ on 10 HM3D-v2 val episodes, at every decision step `t` and for every history fra
 table is the retention-independent quantity a later experiment joins against any pruning
 method's retention log to compute captured influence.
 
+Run commands from the repository root. LongNav-R1 uses `longnav_vlm`; plots use `vln`;
+Uni-NaVid launchers use the isolated baseline runtime. To rebuild the retained tables and
+figures without overwriting published outputs, follow the
+[reproduction guide](../../paper_results/REPRODUCIBILITY.md). A Git clone alone is
+insufficient: restore required local inputs from the checksummed backup first. Ordinary
+launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
+
 ## Definitions
 
 **Evaluation set.** `src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json`: 10 labels,
@@ -141,7 +148,7 @@ the only-frame log-probs, `flip` = the frame alone moves the argmax off the no-v
 ```bash
 MEASURE=keep_one nohup bash paper/frame_influence/run_all.sh > /dev/null 2>&1 &   # Uni-NaVid (KEEP_ONE_MODE=mask|splice) then R1
 python paper/frame_influence/aggregate.py --measure keep_one
-/home/brabiei/miniconda3/envs/vln/bin/python paper/frame_influence/plot.py --measure keep_one
+conda run -n vln python paper/frame_influence/plot.py --measure keep_one
 ```
 
 **Findings (runs of 2026-09-23, R1's 500-step episode added the same evening; `paper_results/frame_influence_keepone/results/summary.json`).**
@@ -213,16 +220,27 @@ ARM=r1_influence_recompute bash paper/frame_influence/run_r1.sh     # leak-free 
 
 # aggregate (longnav_vlm) and plot (vln has matplotlib)
 python paper/frame_influence/aggregate.py
-/home/brabiei/miniconda3/envs/vln/bin/python paper/frame_influence/plot.py
+conda run -n vln python paper/frame_influence/plot.py
 ```
 
 Tests: `python tests/kl_influence_smoke.py`, `python tests/influence_recompute_smoke.py` (longnav_vlm, GPU) and
 `PYTHONPATH=baselines:baselines/Uni-NaVid baselines/.envs/uninavid-hm3d/bin/python -m unittest baselines.tests.test_influence`.
-A one-episode Uni-NaVid smoke: `bash baselines/run.sh eval --labels <one-label.json> --expected-count 1 --frame-influence --output <dir>`.
+A one-episode Uni-NaVid smoke (separate output directory):
 
-## Outputs — all under `paper_results/frame_influence/` (tracked)
+```bash
+bash baselines/run.sh eval \
+  --labels "$PWD/src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json" \
+  --expected-count 10 --limit 1 --sampling-seed 30 --frame-influence \
+  --output "$PWD/dump/uninavid_influence_smoke"
+```
 
-* `runs/r1_influence/`, `runs/r1_influence_recompute/`: `config.yaml`, `launch.log`, `rollout/results_*`; the per-episode
+The KL/keep-one probes remain supported diagnostics after cleanup; they are not selection
+policies. The inherited `VLMWorker._kl_frame_probe` and replay helpers now live in
+[diagnostics.py](../../src/longnav/utils/diagnostics.py).
+
+## Outputs — all under `paper_results/frame_influence/`
+
+* `runs/r1_influence/`, `runs/r1_influence_recompute/`: `config.yaml`, `rollout/results_*`; the per-episode
   `rollout/<scene>/<label>.../sequence.json` (with `sup/kl_influence*`) stay on disk, gitignored.
   `runs/uninavid_influence/`: `manifest.json`, `summary.json`, `episodes/*.json`,
   `influence/<label>.jsonl` (one line per inference step, tracked), `influence/meta.json`;

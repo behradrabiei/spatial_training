@@ -1,22 +1,29 @@
-# Uni-NaVid HM3D-v2 baseline
+# Uni-NaVid inference and navigation benchmarks
 
-This directory contains a standalone, inference-only Uni-NaVid evaluation on
-the 100 labels in `../dump/hm3d_v2_100_labels.json`. It does not import LongNav
-or install anything into the existing `vln` or `longnav_vlm` environments.
+This directory contains standalone, inference-only Uni-NaVid evaluation, teleoperation,
+and multi-goal interfaces. Single-goal evaluation defaults to the 100 HM3D-v2 labels in
+`dump/hm3d_v2_100_labels.json` (relative to the repository root). That manifest is a protected
+local input; see the [restoration guide](../paper_results/REPRODUCIBILITY.md) for a fresh clone.
+The harness does not import LongNav or install into the existing `vln` or `longnav_vlm` environments.
+Paper launchers also support MP3D; the [study index](../paper_results/README.md) links their protocols.
 
 ## Layout and isolation
+
+Paths in this list are relative to `baselines/`.
 
 - `.envs/uninavid-hm3d`: relocated local Conda prefix.
 - `.cache`: Conda, pip, Hugging Face, Torch, XDG, and temporary caches.
 - `Uni-NaVid`: pinned editable upstream clone.
 - `habitat-lab`: pinned editable Habitat-Lab clone.
-- `uninavid_hm3d`: HM3D ObjectNav adapter.
+- `uninavid_hm3d`: ObjectNav adapters, pruning, probes, and teleoperation.
 - `results`: resumable per-episode outputs and aggregate summaries.
 
 The large/generated paths are ignored by `baselines/.gitignore`. HM3D scenes
 are referenced by symlink and are only read by the evaluator.
 
 ## Commands
+
+Run these commands from the repository root. The wrapper selects the isolated runtime.
 
 ```bash
 bash baselines/setup.sh
@@ -47,12 +54,17 @@ trajectory. Its normal buffered-action behavior resumes after handoff.
 
 The live view and video place the annotated RGB observation beside Habitat's
 top-down map with goal instances and the agent trajectory. They and the JSON
-trace are written under `results/uninavid_teleop/<index>_<episode-label>/` as `current.png`,
+trace are written under `baselines/results/uninavid_teleop/<index>_<episode-label>/` as `current.png`,
 `episode.mp4`, and `trace.json`. Attention heat maps are intentionally disabled:
 Uni-NaVid's mixed 2x2, 8x8, and similarity-merged visual tokens do not retain the
 spatial provenance required by LongNav's 3D attention renderer.
 
-Run Uni-NaVid on the 236-episode OneMap sequential multi-object benchmark with:
+The multi-goal commands target the original 236-episode OneMap sequential multi-object
+benchmark. **The default assets are missing in this checkout:**
+`src/longnav/conf/episode_jsons/onemap_multi.json` and
+`habitat_configs/objectnav_hm3d_multi.yaml`. Restore those original assets before running
+these commands, or supply their actual locations using `--labels` and `--config`
+(absolute paths). The interface tests do not replace this benchmark integration check.
 
 ```bash
 bash baselines/run.sh multi-validate
@@ -63,7 +75,7 @@ bash baselines/run.sh multi-all-goals-full
 ```
 
 The full multi-object run is resumable and writes to
-`results/onemap_multi_uninavid_sequential`. Goals are disclosed one at a time.
+`baselines/results/onemap_multi_uninavid_sequential`. Goals are disclosed one at a time.
 When the model successfully stops at an intermediate goal, the evaluator keeps
 the visual history, discards any buffered future action, and appends the new task
 to the text context. Model actions are never added to that context. Stop actions
@@ -74,7 +86,7 @@ The `multi-all-goals-*` modes instead put the complete ordered sequence in the
 initial task (for example, `Find chair, then plant, then bed, in that order.`),
 while retaining the same visual memory, task updates, and no-oracle stopping.
 Their full results are written to
-`results/onemap_multi_uninavid_all_goals`.
+`baselines/results/onemap_multi_uninavid_all_goals`.
 
 
 The full command uses `--resume`; completed episode JSON files are skipped.
@@ -87,7 +99,7 @@ bash baselines/run.sh smoke --temperature 0.1 --actions-per-inference 1
 Context-window and extreme ablations (`--context-frames K`, `--no-visual-tokens`,
 `--current-frame-only-64`) are driven from the paper scripts: `paper/ctx_ablation/run_uninavid.sh`
 sweeps K on the 100-episode manifest with the official decoding, and the flags can be passed to
-`bash baselines/run.sh eval ...` directly. `--current-frame-only-64` removes the current frame's
+`baselines/run.sh eval` directly. `--current-frame-only-64` removes the current frame's
 duplicate four-token history representation while retaining its 64 detailed tokens; the
 leave-one-frame-out influence probes (`--frame-influence`, `paper/frame_influence/run_uninavid.sh`)
 are documented in `paper/frame_influence/README.md`. Every evaluation can be resumed by
@@ -98,8 +110,16 @@ rerunning its command with `--resume`.
 Uni-NaVid is installed editable, so changes under `baselines/Uni-NaVid/uninavid`
 take effect immediately. The observation-history cache and online token merging
 are implemented in `uninavid/model/uninavid_arch.py`; decoding and action
-buffering are controlled by `uninavid_hm3d/eval.py`. No training packages are
-installed or required.
+buffering are controlled by [uninavid_hm3d/eval.py](uninavid_hm3d/eval.py). No training runtime is required.
+
+Retained pruning methods are `identity`, `random`, `fastv`, `pyramiddrop`, `divprune`,
+`dart`, `hybrid`, and `uniform` (`--prune-method`). Budget scope is `last_stage` or `model`;
+`uniform` requires `model`. Use the [windowed/flat pruning protocol](../paper/token_prune/README.md)
+or [hybrid/uniform/PyramidDrop protocol](../paper/hybrid_prune/README.md) for compatible
+windows, budgets, and stages. [prune.py](uninavid_hm3d/prune.py) owns these mechanisms;
+the [frame-influence](../paper/frame_influence/README.md),
+[horizon](../paper/info_horizon/README.md), and [selector-KL](../paper/selector_kl/README.md)
+protocols document the retained diagnostic probes.
 
 Each run records the source revisions, dependency versions, label checksum,
 effective inference settings, raw model outputs, chosen actions, timing, and
@@ -114,4 +134,4 @@ layer 0 that keeps the *last* multi-token forward of the call, so a pruning
 pre-pass over the unpruned prompt is not what is counted), `cuda_peak_bytes`
 (`torch.cuda.max_memory_allocated()` over the call, after a reset) and
 `cuda_allocated_bytes` (resident after the call: weights + the per-frame feature
-cache). Runs from before that date have `null` in the three new fields.
+cache). Older runs can lack these fields; missing telemetry is not a measured zero.

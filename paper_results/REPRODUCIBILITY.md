@@ -24,8 +24,12 @@ Rebuild in an isolated mirror without overwriting published results:
 python tools/reproduce_paper.py --name reproduction-check
 ```
 
-This uses the existing `longnav_vlm` and `vln` environments. The named validation directory
-must not already exist. Command logs and exit statuses are saved beside the rebuilt outputs
+Run from the repository root. This uses the existing `longnav_vlm` and `vln` environments
+under `~/miniconda3/envs/`; use `--inference-python` and `--plot-python` to select other
+existing runtime paths. Paper shell launchers also have local runtime/dataset defaults;
+inspect their headers and supported environment overrides before launching on a new machine.
+
+The named validation directory must not already exist. Command logs and exit statuses are saved beside the rebuilt outputs
 under `.cleanup_archive/before-codebase-cleanup/validation/`. Missing inputs or a failed
 command must be resolved before treating those outputs as reproducible.
 
@@ -36,7 +40,7 @@ The manifest also lists older showcase and alternate cost-plot commands; the rep
 executes them after their aggregations. The completed cleanup comparison matched numerical tables
 and arrays exactly, PNGs pixel-for-pixel, and PDFs with only export timestamps removed. Its
 one-off comparison script is recoverable from commit `52b21afd`; the temporary mirrors and logs
-were removed after recording the validation summary in `cleanup_validation.json`.
+were removed after recording the validation summary in [cleanup_validation.json](../cleanup_validation.json).
 
 Future rebuilds create disposable output under `validation/<name>/`. After reviewing the results,
 remove that named mirror when no longer needed. Keep `protected-inputs/`, `obsolete/`, and the

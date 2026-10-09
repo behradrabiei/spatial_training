@@ -11,6 +11,13 @@ decision of ten short episodes. Decoder layer 0 only, keep-one-in only. LongNav-
 (maps + statistics); Uni-NaVid gets the same Spearman statistic (no maps: its history tokens are
 pooled 2×2 groups, not patches).
 
+Run commands from the repository root. LongNav-R1 uses `longnav_vlm`; plots use `vln`;
+Uni-NaVid launchers use the isolated baseline runtime. To rebuild the retained tables and
+figures without overwriting published outputs, follow the
+[reproduction guide](../../paper_results/REPRODUCIBILITY.md). A Git clone alone is
+insufficient: restore required local inputs from the checksummed backup first. Ordinary
+launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
+
 ## Definitions
 
 **Regime.** Full episode context, argmax decoding, `ep_seed 17`, and the **sparse filter
@@ -102,6 +109,9 @@ captured prefill is re-scored, decisions untouched (trajectories are bit-identic
   prompt_tokens, ...`); loader `analysis.selector.load_uninavid_selector`; no budget statistics (its
   flat budgets were history-pool budgets). Unit test `baselines/tests/test_selector_probe.py`.
 
+LongNav-R1 selector implementations are in [kv_prune.py](../../src/longnav/utils/kv_prune.py); the inherited
+`VLMWorker._dart_select` wrapper is in [pruning_runtime.py](../../src/longnav/utils/pruning_runtime.py).
+
 ## Arms
 
 | arm | preset / flags | what |
@@ -117,13 +127,13 @@ bash paper/selector_kl/run.sh                     # R1 probe run (~2 h) -> Uni-N
 bash paper/selector_kl/run_uninavid.sh            # the Uni-NaVid arm alone (LABELS=... COUNT=1 ARM=... for a smoke)
 PYTHONPATH=baselines:baselines/Uni-NaVid baselines/.envs/uninavid-hm3d/bin/python -m unittest baselines.tests.test_selector_probe
 python paper/selector_kl/aggregate.py --allow-partial   # interim look while the run is going
-/home/brabiei/miniconda3/envs/vln/bin/python paper/selector_kl/plot.py
+conda run -n vln python paper/selector_kl/plot.py
 python tests/selector_probe_smoke.py              # GPU smoke (first check CPU-only)
 ```
 
-`paper_results/selector_kl/`: `runs/r1_selector_probe/` (config, launch log, `rollout/results_*`;
+`paper_results/selector_kl/`: `runs/r1_selector_probe/` (config, `rollout/results_*`;
 per-episode dirs gitignored), `runs/uninavid_selector_probe/` (manifest, `episodes/`, `selector/`;
-traces gitignored), `runs/showcase/<label>/frames/` (gitignored), `results/`
+`selector/` and traces gitignored), `runs/showcase/<label>/frames/` (gitignored), `results/`
 (`per_token.parquet` — the tracked per-token data, `per_decision.csv`, `summary.csv`,
 `table.tex`, `showcase.json`, `summary.json`), `figures/` (`showcase`, `spearman`).
 

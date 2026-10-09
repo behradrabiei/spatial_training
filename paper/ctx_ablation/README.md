@@ -5,6 +5,13 @@ apparent small-window performance is information leaking through the cache rathe
 memory? SR / SPL / steps vs the number of frames in context, for LongNav-R1 (two variants)
 and Uni-NaVid, on the 100-episode HM3D-v2 val split.
 
+Run commands from the repository root. LongNav-R1 uses `longnav_vlm`; plots use `vln`;
+Uni-NaVid launchers use the isolated baseline runtime. To rebuild the retained tables and
+figures without overwriting published outputs, follow the
+[reproduction guide](../../paper_results/REPRODUCIBILITY.md). A Git clone alone is
+insufficient: restore required local inputs from the checksummed backup first. Ordinary
+launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
+
 ## Definitions
 
 **Context size `K`** — the number of observation frames the policy can see when it emits an
@@ -17,9 +24,9 @@ exactly the last `K` user turns (`<|im_start|>user … <image> … <|im_end|>`),
 the assistant reply that was produced after it. The window opens on the oldest retained
 `<|im_start|>user`: the action that preceded it is gone too, so `K` frames come with the
 `K−1` actions taken between them and nothing older. Older turns are retired one whole turn per
-step. (`vlm.context_window=N`, the legacy knob, keeps `N` *past* turns and cuts at the assistant
-header, i.e. `N+1` frames plus one dangling action token; every run before this experiment used
-that convention.)
+step. (`vlm.context_window=N`, the legacy size knob, keeps `N` *past* turns. With the historical
+`vlm.context_cut=header` setting this gives `N+1` frames plus one dangling action token.
+Size and cut are separate settings; this experiment uses the frame cut.)
 
 The sparse visual-token filter stays **on** (`use_sparse=true, sparse_threshold=0.95`) — it is
 the regime the checkpoint was trained in. Each frame's patches are deduplicated only against
@@ -58,8 +65,8 @@ built-in control that must reproduce `r1_evict_k1`.
   no visualization. Everything is in `src/longnav/config/experiment/paper_ctx.yaml`; each arm
   adds only `vlm.context_frames=K vlm.context_window_mode={evict|recompute}`. The resolved
   config of every run is saved to `paper_results/ctx_ablation/runs/<arm>/config.yaml`.
-- Uni-NaVid: the official evaluator settings as shipped in `baselines/` — seeded sampling
-  (seed 30, temperature 0.2), 2 actions per LLM call, 500-step cap, same success radius. Note
+- Uni-NaVid: the official evaluator settings as shipped in `baselines/` — global RNG seed 30
+  (temperature 0.2; no per-call `--sampling-seed`), 2 actions per LLM call, 500-step cap, same success radius. Note
   the decoding asymmetry with LongNav-R1 (sampled vs argmax); it is the published protocol of
   each model. Each run's `manifest.json` records the flags, seeds, package versions and the
   label-file hash. Seeding fixes the sampler's random stream, not fp16 kernel arithmetic, so
@@ -80,23 +87,24 @@ bash paper/ctx_ablation/run_uninavid.sh
 
 # LongNav-R1 (evict 25–70 min per arm, recompute ~2 h per arm; r1_full first)
 conda activate longnav_vlm
-bash paper/ctx_ablation/run_r1.sh                # or ARMS="r1_full r1_evict_k8" bash ...
+bash paper/ctx_ablation/run_r1.sh
+# A subset: ARMS="r1_full r1_evict_k8" bash paper/ctx_ablation/run_r1.sh
 
 # Aggregate (longnav_vlm) and plot (vln has matplotlib)
 python paper/ctx_ablation/aggregate.py
-/home/brabiei/miniconda3/envs/vln/bin/python paper/ctx_ablation/plot.py
+conda run -n vln python paper/ctx_ablation/plot.py
 ```
 
 Do not run the two model families concurrently on one GPU (Uni-NaVid-7B alone takes ~15 GB).
 Both run scripts skip arms that are already complete and resume partial ones.
 
-## Outputs — all under `paper_results/ctx_ablation/` (tracked)
+## Outputs — all under `paper_results/ctx_ablation/`
 
 - `runs/<arm>/` — raw run output. LongNav-R1: `config.yaml` (resolved Hydra config),
-  `launch.log`, `rollout/results_*` (per-episode JSONL); the per-episode `rollout/<scene>/…`
+  `rollout/results_*` (per-episode JSONL); the per-episode `rollout/<scene>/…`
   dirs (`sequence.json`, thumbnails) stay on disk but are gitignored. Uni-NaVid: `manifest.json`
-  (flags, seeds, versions, label hash), `summary.json`, `episodes/*.json`, `launch.log`;
-  `traces/` gitignored. `driver.log` is the chained launch log.
+  (flags, seeds, versions, label hash), `summary.json`, `episodes/*.json`;
+  `traces/` gitignored. New launches generate ignored `launch.log` / `driver.log` files; historical logs were archived.
 - `results/per_episode.csv`, `results/summary.csv` (means, CIs, p-values vs each model's
   `full`, leakage gap per `K`), `results/table.tex` (booktabs, stars vs `full`).
 - `figures/ctx_ablation.{pdf,png}` — SR | SPL | steps vs `K`;

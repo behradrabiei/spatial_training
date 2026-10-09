@@ -10,6 +10,13 @@ run the way it is published: over the whole history, with no recency window.
 Episodes, models, decoding, the prune substrate and the budget unit are those of
 [`paper/token_prune`](../token_prune/README.md); only what differs is stated here.
 
+Run commands from the repository root. LongNav-R1 uses `longnav_vlm`; plots use `vln`;
+Uni-NaVid launchers use the isolated baseline runtime. To rebuild the retained tables and
+figures without overwriting published outputs, follow the
+[reproduction guide](../../paper_results/REPRODUCIBILITY.md). A Git clone alone is
+insufficient: restore required local inputs from the checksummed backup first. Ordinary
+launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
+
 ## The budget
 
 `k` frames' worth of history visual tokens **held by the whole model**: the number of history visual
@@ -18,7 +25,7 @@ model: ≈ 200 post-filter tokens for LongNav-R1, 4 for Uni-NaVid). `k ∈ {2, 4
 every layer costs one unit, a token kept on a quarter of the layers a quarter — the measure is
 proportional to the KV memory (and attention compute) spent on visual history.
 
-Outside the budget, identically for both protocols: text/action tokens and the prompt (never pruned),
+Outside the budget, identically for hybrid and PyramidDrop: text/action tokens and the prompt (never pruned),
 and the **current frame**, which every layer always sees in full (deletion is permanent and the hook
 runs after the action is read, so pruning touches history only). Nothing is pruned while the scope holds
 `≤ k` frames.
@@ -94,7 +101,7 @@ prompt), stage 1 a random stage of budget 0 drawn when layer 20's prefill starts
 each blind layer, cache identical to the history-only variant but a different decision),
 `baselines/tests/test_prune.py` (`UniformProtocolTests`).
 
-## The two protocols
+## Hybrid and PyramidDrop
 
 | | `pyramiddrop` (no window) | `hybrid` |
 |---|---|---|
@@ -111,7 +118,7 @@ with KL still 0.013 at 24 (cut at 24).
 
 ## Arms
 
-`<model>_<protocol>_mp<k>`: 2 models × 2 protocols × 4 budgets = **16 arms**, 100 HM3D-v2 episodes each
+`<model>_<protocol>_mp<k>`: 2 models × 3 protocols × 4 budgets = **24 arms**, 100 HM3D-v2 episodes each
 (`src/longnav/conf/episode_jsons/hm3d_v2_100.json`). No identity or reference arms are run; the unpruned
 references are Exp 1's (`r1_full` .84/.468, `r1_evict_k32` .89/.474).
 
@@ -124,8 +131,8 @@ references are Exp 1's (`r1_full` .84/.468, `r1_evict_k32` .89/.474).
 | `r1_uniform_mp<k>` (Exp 7b) | `+experiment=paper_hybrid 'vlm.kv_prune_stages=[0,18]' 'vlm.kv_prune_stage_importance=[random,random]' vlm.kv_prune_visual_blind=true vlm.kv_prune_budget_scope=model vlm.kv_prune_schedule_anchor=pool vlm.kv_prune_budget_frames=<k>` |
 | `uninavid_uniform_mp<k>` (Exp 7b) | `--context-frames 32 --prune-method uniform --prune-k <k> --prune-budget-scope model --prune-schedule-anchor pool --sampling-seed 30` |
 
-Uni-NaVid samples its actions (temperature 0.2); both arms seed the per-call sampler so the pair differs
-by the protocol only (and is therefore not comparable with Exp 4's unseeded arms).
+Uni-NaVid samples its actions (temperature 0.2); all three protocols seed the per-call sampler
+with the same seed. These trajectories are not paired with Exp 4's arms without per-call reseeding.
 
 Knobs (LongNav-R1, `src/longnav/config_schema.py`): `vlm.kv_prune_stage_importance`,
 `vlm.kv_prune_tail_budget_frames`, `vlm.kv_prune_budget_scope`, `vlm.kv_prune_schedule_anchor`;
@@ -163,7 +170,8 @@ The `last_stage` budget calculation remains available for the windowed token-pru
 
 ## MP3D replicate
 
-The hybrid/PyramidDrop comparison, extended to all 24 arms with uniform below, on MP3D ObjectNav val (`DATASET=mp3d`): 100 episodes drawn with seed 17 from the
+All three protocols also run on MP3D ObjectNav val (`DATASET=mp3d`): 24 arms, each using
+100 episodes drawn with seed 17 from the
 2195-episode split (`src/longnav/conf/episode_jsons/mp3d_100_seed17.json`, the manifest of the MP3D
 information-horizon replicate). LongNav-R1 runs with `+dataset=mp3d_val`; Uni-NaVid with
 `baselines/uninavid_hm3d/config/objectnav_mp3d.yaml` and the MP3D dataset and scene paths. Protocols,
@@ -173,7 +181,7 @@ budgets, stages and seeds are unchanged. Data in `paper_results/hybrid_prune_mp3
 the unpruned full-context arm of `paper_results/info_horizon_mp3d` (`r1_ref` .52/.236, `uninavid_ref`
 .38/.140).
 
-**Findings (sweep complete 2026-09-22 00:34, 16 arms × 100 episodes, ~6 h with two workers, no failed arm;
+**Initial hybrid/PyramidDrop findings (sweep complete 2026-09-22 00:34, 16 arms × 100 episodes, ~6 h with two workers, no failed arm;
 `aggregate.py --dataset mp3d --strict`).** SR / SPL; **bold** = hybrid − pyramiddrop p < .05 (paired
 sign-flip, uncorrected), † = survives Bonferroni over the 16 tests (p < .003):
 
@@ -215,28 +223,30 @@ conda activate longnav_vlm
 python tests/vtp_hybrid_smoke.py                       # both arm types, CPU + GPU
 PYTHONPATH=baselines:baselines/Uni-NaVid baselines/.envs/uninavid-hm3d/bin/python -m unittest baselines.tests.test_prune
 
-# serial (all three protocols; ARMS="..." / K_LIST="..." narrow it)
+# serial (all three protocols; e.g. K_LIST="8 4" narrows the budgets)
 bash paper/hybrid_prune/run_r1.sh && bash paper/hybrid_prune/run_uninavid.sh
 
 # or two lock-coordinated workers on the one GPU (only ONE may hold Uni-NaVid arms)
-nohup bash paper/hybrid_prune/run_worker.sh U uninavid_hybrid_mp8 uninavid_pyramiddrop_mp8 ... r1_pyramiddrop_mp2 ... &
-EXTRA_OVERRIDES="resources.osm_gb=10" nohup bash paper/hybrid_prune/run_worker.sh R r1_hybrid_mp8 r1_pyramiddrop_mp8 ... &
+nohup bash paper/hybrid_prune/run_worker.sh U uninavid_hybrid_mp8 uninavid_pyramiddrop_mp8 uninavid_uniform_mp8 &
+EXTRA_OVERRIDES="resources.osm_gb=10" nohup bash paper/hybrid_prune/run_worker.sh R r1_hybrid_mp8 r1_pyramiddrop_mp8 r1_uniform_mp8 &
 
 # the MP3D replicate: prefix the same commands with DATASET=mp3d, and pass --dataset mp3d below
 python paper/hybrid_prune/aggregate.py --status          # progress
 python paper/hybrid_prune/aggregate.py --allow-partial   # interim
 python paper/hybrid_prune/aggregate.py --strict          # final whole-model protocol
-/home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot.py
+conda run -n vln python paper/hybrid_prune/plot.py
 # MP3D includes all three protocols: add --dataset mp3d to aggregate.py / plot.py
 ```
 
 Finished arms are skipped; a partial arm resumes (LongNav-R1 through wandb — project
 `longnav_paper_hybrid` — Uni-NaVid through
-`--resume`). An arm that ends at 99/100 (iterator starvation) is filled by re-running its script.
+`--resume`). The earlier iterator-starvation bug was fixed in the inference scheduler.
+All 48 retained arms across HM3D and MP3D contain 100/100 episodes in the cleanup validation;
+rerunning a launcher resumes an incomplete arm.
 
 ## Outputs
 
-`paper_results/hybrid_prune/`: `runs/<arm>/` (configs, logs, per-episode results), `results/`
+`paper_results/hybrid_prune/`: `runs/<arm>/` (configs and per-episode results; new launch logs are ignored), `results/`
 (`per_episode.csv`, `summary.csv`, `paired.csv` = `<protocol>` − pyramiddrop per protocol (hybrid,
 uniform), model and k with bootstrap CI and paired sign-flip p, `table.tex`), `figures/`
 (`protocol_curves`, `budget_met`, `memory_tradeoff` — three lines each: PyramidDrop, Protocol (hybrid),
@@ -335,7 +345,7 @@ conda activate longnav_vlm
 MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_100.json BENCH=cost_bench_100 bash paper/hybrid_prune/run_cost_bench.sh   # unpruned + hybrid, ~70 min
 MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_100.json BENCH=cost_bench_100 ARMS="uniform pyramiddrop" bash paper/hybrid_prune/run_cost_bench.sh   # ~67 min
 for P in hybrid uniform; do for E in last min5; do
-  /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot_cost.py --bench paper_results/hybrid_prune/runs/cost_bench_100 \
+  conda run -n vln python paper/hybrid_prune/plot_cost.py --bench paper_results/hybrid_prune/runs/cost_bench_100 \
     --name cost_bench_100 --protocol $P --edge $E
 done; done
 ```
@@ -346,7 +356,7 @@ done; done
 
 ## Findings
 
-Sweep complete 2026-09-20 08:35 (16 arms × 100 episodes, `aggregate.py --strict`, no failed arm). SR / SPL
+Initial hybrid/PyramidDrop sweep complete 2026-09-20 08:35 (16 arms × 100 episodes, `aggregate.py --strict`, no failed arm). SR / SPL
 at a whole-model budget of `k` frames' worth; **bold** = hybrid − pyramiddrop significant (paired sign-flip,
 uncorrected p < .05; † = also survives Bonferroni over the 16 tests, p < .003):
 
