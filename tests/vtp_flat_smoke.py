@@ -12,7 +12,15 @@ layer 0: the token is scored from layer 0 and deleted from every layer. Four thi
      are the top-B' of that row among the visual slots, and the choice differs from the
      all-layer mean (GPU).
   4. Every flat method runs at k=1 with equal cache lengths on all layers (memory-matched),
-     synced side DBs, finite probabilities and a decision that moves; DART reads layer 0 (GPU).
+     synced side DBs, finite probabilities and a decision that moves; DART reads layer 0 (GPU);
+     the whole-frame arms leave exactly one frame's slots.
+  5. Whole-frame selectors (kl_keep_one / recency, Exp 4b) -- exactly k frames survive once the
+     pool exceeds k, ranked by a stubbed keep-one table / by frame id with ties to the newer
+     frame, text and the random generator untouched, the sup/kl_select record well-formed (CPU).
+  6. kl_keep_one on the model -- the selector's frame scores equal the keep_one diagnostic's row
+     on the same cache, the survivors are that row's top-k frames, the selector costs exactly
+     1 + pool replays per pruning step and none below, the diagnostic does not move its decision,
+     and random/identity never enter the whole-frame path (GPU).
 
 Run inside longnav_vlm:
     python tests/vtp_flat_smoke.py
@@ -39,7 +47,11 @@ METHODS = {
     "divprune": dict(kv_prune_importance="divprune"),
     "fastv": dict(kv_prune_importance="attn", kv_prune_score_layer=0),
     "dart": dict(kv_prune_importance="dart"),
+    "kl_keep_one": dict(kv_prune_importance="kl_keep_one"),
+    "recency": dict(kv_prune_importance="recency"),
 }
+WHOLE_FRAME = ("kl_keep_one", "recency")
+KL_TOL = 1e-5  # selector score vs the diagnostic's keep-one KL (same replays; the log rounds to 6 dp)
 
 
 # --- check 1: frame budget with no window (CPU) ------------------------------------------
@@ -71,6 +83,70 @@ def check_frame_budget(k=2):
             failures.append(f"turn {turn}: mask-less log is {log}")
         if worker.past_image_embeds[0].shape[0] != n_vis_alive:
             failures.append(f"turn {turn}: embed DB desynced")
+    return failures
+
+
+# --- check 5: whole-frame selectors (CPU) ---------------------------------------------------
+def check_whole_frame(k=2):
+    failures = []
+    table = {0: 0.05, 1: 0.5, 2: 0.01, 3: 0.3, 4: 0.3, 5: 0.02}  # frame -> stubbed keep-one KL
+    counts = [6, 9, 5, 8, 7, 10]
+    for importance in WHOLE_FRAME:
+        worker = prune_worker(None, importance=importance, kv_prune_budget_frames=float(k), kv_prune_log_masks=False)
+        worker.context_cut = "header"
+        calls = []
+        worker._replay_base_bias = lambda forced: None
+
+        def fake_kls(base_bias, frames, layers, vis_logp=None):
+            calls.append(list(frames))
+            return None, {f: (table[f], None) for f in frames}
+
+        worker._keep_one_frame_kls = fake_kls
+        gen_state = worker._kv_prune_state.generator.get_state().clone()
+        alive, next_id = set(), 0
+        for turn, n_vis in enumerate(counts):
+            n, vis = visual_chunk(PREFIX if turn == 0 else LEAD, n_vis)
+            ids = torch.arange(next_id, next_id + n)
+            next_id += n
+            feed(worker, ids, vis_row=vis, lead=0 if turn == 0 else LEAD)
+            ps, log = worker._kv_prune_state, worker._kl_select_log
+            pool = sorted(alive | {turn})
+            if len(pool) <= k:
+                expect = set(pool)
+            elif importance == "kl_keep_one":
+                expect = set(sorted(pool, key=lambda f: (-table[f], -f))[:k])
+            else:
+                expect = set(pool[-k:])
+            got = set(ps.turn_id[ps.is_visual].tolist())
+            print(f"  {importance} turn {turn}: pool {pool} -> alive {sorted(got)} (expect {sorted(expect)})")
+            if got != expect:
+                failures.append(f"{importance} turn {turn}: alive frames {sorted(got)}, expected {sorted(expect)}")
+            alive = got
+            exp_text = PREFIX + sum((0 if t == 0 else LEAD) + 4 for t in range(turn + 1))
+            if int((~ps.is_visual).sum()) != exp_text:
+                failures.append(f"{importance} turn {turn}: text slots {int((~ps.is_visual).sum())}, expected {exp_text}")
+            if worker.past_image_embeds[0].shape[0] != int(ps.is_visual.sum()):
+                failures.append(f"{importance} turn {turn}: embed DB desynced")
+            if len(pool) <= k:
+                if log != {} or (importance == "kl_keep_one" and calls and calls[-1] == pool and turn < k):
+                    failures.append(f"{importance} turn {turn}: pool within budget but log {log}")
+                continue
+            score = {f: (table[f] if importance == "kl_keep_one" else float(f)) for f in pool}
+            if log.get("frames") != pool or log.get("kept") != [int(f in expect) for f in pool] \
+                    or any(abs(s - score[f]) > 1e-9 for s, f in zip(log.get("score", []), pool)) \
+                    or log.get("n_replays") != (1 + len(pool) if importance == "kl_keep_one" else 0) \
+                    or log.get("measure") != importance:
+                failures.append(f"{importance} turn {turn}: malformed kl_select log {log}")
+            if importance == "kl_keep_one" and calls[-1] != pool:
+                failures.append(f"{importance} turn {turn}: scored {calls[-1]}, pool is {pool}")
+            imp = ps.importance[ps.is_visual]
+            want = torch.tensor([score[f] for f in ps.turn_id[ps.is_visual].tolist()])
+            if not torch.allclose(imp, want):
+                failures.append(f"{importance} turn {turn}: importance does not carry the frame score")
+        if not torch.equal(worker._kv_prune_state.generator.get_state(), gen_state):
+            failures.append(f"{importance}: the random generator was consumed")
+        if importance == "recency" and calls:
+            failures.append("recency replayed something")
     return failures
 
 
@@ -191,13 +267,18 @@ def check_methods(images, base):
         ps, st = worker._kv_prune_state, worker._reindex_state
         lens = worker._kv_lengths()
         n_vis = int(ps.is_visual.sum())
-        expect = frame_budget(ps, 0, 1.0)
+        frames_alive = len(set(ps.turn_id[ps.is_visual].tolist()))
+        # Token-budget arms keep k x the running mean; whole-frame arms keep exactly k frames.
+        expect = frames_alive if name in WHOLE_FRAME else frame_budget(ps, 0, 1.0)
         signal = max(float(np.abs(a - b).max()) for a, b in zip(base, p))
         print(f"  {name}: signal {signal:.4f}, dropped {ps.n_budget_dropped}, visual alive {n_vis} "
-              f"(budget {expect}), layers hold {lens[0]}..{lens[-1]}")
+              f"(budget {expect}), frames alive {frames_alive}, layers hold {lens[0]}..{lens[-1]}")
         if any(not np.all(np.isfinite(x)) for x in p):
             failures.append(f"{name}: non-finite probabilities")
-        if n_vis != expect:
+        if name in WHOLE_FRAME:
+            if frames_alive != 1:
+                failures.append(f"{name}: {frames_alive} frames hold visual slots, expected exactly 1")
+        elif n_vis != expect:
             failures.append(f"{name}: {n_vis} visual slots alive, budget {expect}")
         if len(set(lens)) != 1 or st.layer_selective:
             failures.append(f"{name}: layers are not memory-matched {lens}")
@@ -211,10 +292,86 @@ def check_methods(images, base):
     return failures
 
 
+def shadow_select(worker, images):
+    """Drive the episode recording, after every prune, the whole-frame log, the diagnostic's
+    keep-one row, the frames still holding visual slots and the replay count of that step."""
+    records = []
+    orig_apply = worker._apply_kv_prune
+
+    def apply():
+        orig_apply()
+        ps = worker._kv_prune_state
+        records.append(dict(log=dict(worker._kl_select_log), diag=list(worker._kl_influence_keep_one),
+                            alive=sorted(set(ps.turn_id[ps.is_visual].tolist())),
+                            replays=worker._prune_replay_count, n_turns=ps.n_turns,
+                            counts=list(ps.visual_per_turn)))
+
+    worker._apply_kv_prune = apply
+    probs = run_probs(worker, images)
+    return records, probs
+
+
+def check_kl_keep_one(images, k=2):
+    failures = []
+    from longnav.utils.kv_prune import topk_frames
+
+    with_diag = build(kv_prune_budget_frames=float(k), **COMMON, kv_prune_importance="kl_keep_one",
+                      kv_prune_log_influence=True, kv_prune_influence_measures=("keep_one",))
+    recs, p_diag = shadow_select(with_diag, images)
+    release(with_diag)
+    alone = build(kv_prune_budget_frames=float(k), **COMMON, kv_prune_importance="kl_keep_one")
+    recs_alone, p_alone = shadow_select(alone, images)
+    release(alone)
+    pruned_steps, max_diff = 0, 0.0
+    for rec, rec_a in zip(recs, recs_alone):
+        log, diag, alive = rec["log"], rec["diag"], rec["alive"]
+        pool = [f for f in range(rec["n_turns"]) if rec["counts"][f] > 0 and (f in alive or f == rec["n_turns"] - 1
+                                                                                or f in log.get("frames", []))]
+        if len(pool) <= k:
+            if log or rec_a["replays"]:
+                failures.append(f"step {rec['n_turns'] - 1}: pool {pool} within budget but log {log} / "
+                                f"{rec_a['replays']} selector replays")
+            continue
+        pruned_steps += 1
+        frames = log.get("frames", [])
+        if sorted(frames) != pool:
+            failures.append(f"step {rec['n_turns'] - 1}: scored {frames}, pool is {pool}")
+        diff = max(abs(s - diag[f]) for s, f in zip(log["score"], frames))
+        max_diff = max(max_diff, diff)
+        if diff > KL_TOL:
+            failures.append(f"step {rec['n_turns'] - 1}: selector score differs from the keep_one row by {diff:.2e}")
+        want = topk_frames(frames, [diag[f] for f in frames], k)
+        if alive != want or [int(f in want) for f in frames] != log["kept"]:
+            failures.append(f"step {rec['n_turns'] - 1}: survivors {alive}, top-{k} of the keep-one row is {want}")
+        if log["n_replays"] != 1 + len(frames) or rec_a["replays"] != 1 + len(frames):
+            failures.append(f"step {rec['n_turns'] - 1}: {log['n_replays']} logged / {rec_a['replays']} counted "
+                            f"replays, expected {1 + len(frames)}")
+        if rec_a["log"] != log:
+            failures.append(f"step {rec['n_turns'] - 1}: the diagnostic changed the selection log")
+    moved = max(float(np.abs(a - b).max()) for a, b in zip(p_diag, p_alone))
+    print(f"  kl_keep_one: {pruned_steps} pruning steps, max |score - keep_one row| = {max_diff:.2e}, "
+          f"diagnostic on/off max |dp| = {moved:.2e}")
+    if not pruned_steps:
+        failures.append("kl_keep_one never pruned")
+    if moved > 1e-4:
+        failures.append(f"the keep_one diagnostic moved the kl_keep_one decision by {moved:.2e}")
+    for name in ("random", "identity"):
+        cfg = METHODS["random"] if name == "random" else {}
+        budget = dict(kv_prune_budget_frames=1.0) if name == "random" else {}
+        worker = build(**budget, **COMMON, **cfg)
+        recs, _ = shadow_select(worker, images)
+        release(worker)
+        if any(r["log"] or r["replays"] for r in recs):
+            failures.append(f"{name}: entered the whole-frame path (log/replays non-empty)")
+    return failures
+
+
 def main():
     failures = []
     print("check 1: frame budget without a window")
     failures += check_frame_budget()
+    print("check 5: whole-frame selectors (stubbed scores)")
+    failures += check_whole_frame()
     if torch.cuda.is_available() and "--cpu" not in sys.argv:
         images = make_images(N_STEPS)
         print("check 2: identity vs the full-context model")
@@ -224,14 +381,16 @@ def main():
         failures += check_fastv_layer0(images)
         print("check 4: flat methods at k=1")
         failures += check_methods(images, base)
+        print("check 6: kl_keep_one vs the keep_one diagnostic")
+        failures += check_kl_keep_one(images)
     else:
-        print("checks 2-4 skipped (no GPU)")
+        print("checks 2-4, 6 skipped (no GPU)")
     if failures:
         print("\nFAIL:")
         for f in failures:
             print("  -", f)
         sys.exit(1)
-    print("\nPASS: window-free frame budget, identity, layer-0 FastV, flat methods")
+    print("\nPASS: window-free frame budget, identity, layer-0 FastV, flat methods, whole-frame selectors")
 
 
 if __name__ == "__main__":

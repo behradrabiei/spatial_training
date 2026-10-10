@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 
 from uninavid_hm3d.eval import parse_args
+from uninavid_hm3d.influence import action_logp, kl_divergence
 from uninavid_hm3d.prune import (
     N_PER_FRAME,
     NAV_TOKENS,
@@ -18,6 +19,7 @@ from uninavid_hm3d.prune import (
     UNIFORM_BLIND_LAYER,
     PruneState,
     TokenPruner,
+    check_layer,
     describe,
     history_columns,
     pack_bits,
@@ -29,6 +31,7 @@ from uninavid_hm3d.prune import (
     selection_seed,
     model_stage_budgets,
     stage_budgets,
+    topk_frames,
     unpack_bits,
 )
 
@@ -862,6 +865,187 @@ class UniformProtocolTests(WholeModelBudgetTests):
         spans = history_columns(self.placeholder, [4])
         want = set(range(*spans[-1])) | set(range(spans[-1][1] + 2, spans[-1][1] + 2 + NAV_TOKENS))
         self.assertEqual(self.hidden_columns(layers[20].calls[0][1]), want)
+
+
+class MeanLayer:
+    """Attention stand-in: each position is the mean of the keys its 4-D additive mask leaves open."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+    def forward(self, hidden_states, attention_mask=None, position_ids=None, past_key_value=None,
+                output_attentions=False, use_cache=False):
+        self.calls.append(tuple(hidden_states.shape))
+        open_ = (attention_mask > torch.finfo(attention_mask.dtype).min / 2).to(hidden_states.dtype)[:, 0]
+        return ((open_ @ hidden_states) / open_.sum(-1, keepdim=True).clamp(min=1),)
+
+
+class PassLayer:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+    def forward(self, hidden_states, attention_mask=None, **kwargs):
+        self.calls.append(tuple(hidden_states.shape))
+        return (hidden_states,)
+
+
+class FakeKLLlama(FakeLlama):
+    """LlamaModel stub whose cache-less forward (the keep-one probes) runs the layers under a
+    causal 4-D mask -- so the blinder's wrapped ``layer.forward`` closes each probe's columns --
+    and whose cached forward (the real prefill / decode) records its kwargs like FakeLlama."""
+
+    def forward(self, **kwargs):
+        if kwargs.get("use_cache") is False and kwargs.get("past_key_values") is None:
+            x = kwargs["inputs_embeds"]
+            B, L, _ = x.shape
+            mask = torch.full((L, L), torch.finfo(torch.float32).min).triu(1)[None, None].expand(B, 1, L, L)
+            self.probes.append(tuple(x.shape))
+            for layer in self.layers:
+                x = layer.forward(x, attention_mask=mask, position_ids=None, past_key_value=None,
+                                  output_attentions=False, use_cache=False)[0]
+            return (x,)
+        return super().forward(**kwargs)
+
+
+ACTION_IDS = [5, 6, 7, 8]
+
+
+def make_kl_model(n_frames=6, n_layers=4):
+    model = FakeModel()
+    model.state = FakeKLLlama(feat_cache=None, forwards=[], probes=[],
+                              layers=[MeanLayer()] + [PassLayer() for _ in range(n_layers - 1)])
+    model.state.feat_cache = torch.randn(n_frames, N_PER_FRAME, C, generator=torch.Generator().manual_seed(3))
+    head = torch.randn(C, 12, generator=torch.Generator().manual_seed(6))
+    model.lm_head = lambda h: h @ head
+    return model
+
+
+class WholeFrameTests(unittest.TestCase):
+    """kl_keep_one / recency (--prune-layer 0): exactly k history frames survive, chosen by the
+    keep-one KL of each frame's group (reference: every visual column closed) or by frame id."""
+
+    def setUp(self):
+        self.ids = synthetic_ids()
+        self.tab = table()
+        self.nav = torch.zeros(NAV_TOKENS, C)
+        self.placeholder = int(torch.nonzero(self.ids == IMAGE)[0])
+        self.pool = [(f, t) for f in range(5) for t in range(4)]
+
+    def surviving_groups(self, feat, frames, deleted):
+        groups = []
+        for row, f in enumerate(frames):
+            keep = [t for t in range(4) if (f, t) not in deleted]
+            if keep:
+                groups.append(feat[row][keep])
+        return groups
+
+    def expected_kls(self, model, embeds, n_frames):
+        """By hand: the last position of the masked-mean layer averages the open columns of the
+        assembled prompt; the reference closes every group and the fine tokens, probe f reopens
+        frame f's group."""
+        spans = history_columns(self.placeholder, [4] * n_frames)
+        L = embeds.shape[1]
+        all_visual = torch.zeros(L, dtype=torch.bool)
+        for a, b in spans:
+            all_visual[a:b] = True
+        b = spans[-1][1]
+        all_visual[b + 2:b + 2 + NAV_TOKENS] = True
+
+        def logp(hide):
+            open_ = (~hide).float()
+            return action_logp(model.lm_head((open_ @ embeds[0]) / open_.sum()), ACTION_IDS)[0]
+
+        ref = logp(all_visual)
+        kls = {}
+        for f in range(n_frames - 1):
+            hide = all_visual.clone()
+            hide[spans[f][0]:spans[f][1]] = False
+            kls[f] = kl_divergence(logp(hide), ref)
+        return kls
+
+    def test_kl_keep_one_keeps_the_top_k_frames(self):
+        model = make_kl_model()
+        pruner = TokenPruner("kl_keep_one", 2, image_token_index=IMAGE, layer=0, action_ids=ACTION_IDS)
+        pruner.install(model)
+        pruner.begin_episode("scene_0")
+        pruner.state.advance(0, list(range(6)))
+        feat = model.state.feat_cache
+        embeds, result_list, sent, decode, record = run_flat(model, pruner, self.ids, 5, self.nav, self.tab)
+        self.assertEqual(result_list, [4] * 6)
+        kls = self.expected_kls(model, embeds, 6)
+        kept = topk_frames(list(range(5)), [kls[f] for f in range(5)], 2)
+        self.assertEqual(set(self.pool) - pruner.state.deleted[0], {(f, t) for f in kept for t in range(4)})
+        for f in range(5):
+            self.assertAlmostEqual(record["score"][f], kls[f], places=6)
+        self.assertEqual((record["n_probes"], record["n_pool"], sum(record["n_kept"])), (6, 20, 8))
+        self.assertEqual(record["n_kept"], [4 if f in kept else 0 for f in range(5)])
+        # One batched probe forward (reference + 5 frames) through the masked-mean layer, then the
+        # real prefill of the surviving groups, then one decode; the blinder's hooks are inert there.
+        self.assertEqual(model.state.probes, [(6, embeds.shape[1], C)])
+        self.assertEqual(model.state.layers[0].calls, [(6, embeds.shape[1], C)])
+        ref = assemble(self.ids, self.surviving_groups(feat, range(6), pruner.state.deleted[0]), self.nav, self.tab)
+        self.assertTrue(torch.equal(sent["inputs_embeds"][0], ref))
+        self.assertEqual(record["prompt_tokens"], ref.shape[0])
+        self.assertEqual(decode["inputs_embeds"].shape[1], 1)
+        self.assertEqual(len(model.state.forwards), 2)
+        self.assertFalse(pruner.blinder._active)
+
+    def test_recency_keeps_the_newest_frames_without_probes(self):
+        model, pruner = make_pruner("recency", k=2, n_frames=6, layer=0)
+        feat = model.state.feat_cache
+        embeds, _, sent, _, record = run_flat(model, pruner, self.ids, 5, self.nav, self.tab)
+        self.assertEqual(set(self.pool) - pruner.state.deleted[0], {(f, t) for f in (3, 4) for t in range(4)})
+        self.assertEqual(record["score"], [0.0, 1.0, 2.0, 3.0, 4.0])
+        self.assertEqual((record["n_probes"], sum(record["n_kept"])), (0, 8))
+        self.assertEqual(model.state.layers[0].calls, [])  # no layer-0 scoring pass either
+        ref = assemble(self.ids, self.surviving_groups(feat, range(6), pruner.state.deleted[0]), self.nav, self.tab)
+        self.assertTrue(torch.equal(sent["inputs_embeds"][0], ref))
+        # Second inference: two frames enter, the window drops the two oldest, frame 2 (emptied) is
+        # absent from the prompt and the pool; the k newest of the pool {3, 4, 5, 6} survive.
+        model.state.feat_cache = torch.cat([feat[2:], torch.randn(2, N_PER_FRAME, C)])
+        pruner.state.advance(4, [6, 7])
+        _, result_list, sent, _, record = run_flat(model, pruner, self.ids, 7, self.nav, self.tab)
+        self.assertEqual(result_list, [4] * 5)
+        alive = {tok for f in (3, 4, 5, 6) for tok in [(f, t) for t in range(4)]} - pruner.state.deleted[0]
+        self.assertEqual(alive, {(f, t) for f in (5, 6) for t in range(4)})
+        self.assertEqual(record["frames"], [2, 3, 4, 5, 6])
+        self.assertEqual(record["score"], [None, 3.0, 4.0, 5.0, 6.0])
+
+    def test_below_budget_runs_no_probe(self):
+        model = make_kl_model()
+        pruner = TokenPruner("kl_keep_one", 8, image_token_index=IMAGE, layer=0, action_ids=ACTION_IDS)
+        pruner.install(model)
+        pruner.begin_episode("scene_0")
+        pruner.state.advance(0, list(range(6)))
+        embeds, _, sent, _, record = run_flat(model, pruner, self.ids, 5, self.nav, self.tab)
+        self.assertEqual(model.state.probes, [])
+        self.assertIs(sent["inputs_embeds"], embeds)
+        self.assertEqual((record["n_probes"], record["score"], sum(record["n_kept"])), (0, [None] * 5, 20))
+
+    def test_guards_and_describe(self):
+        for method in ("kl_keep_one", "recency"):
+            with self.assertRaises(ValueError):
+                check_layer(method, None)
+            with self.assertRaises(ValueError):
+                describe(method, 4, 17, 8)
+            d = describe(method, 4, 17, 8, 0)
+            self.assertEqual((d["placement"], d["removal"], d["frame_level"], d["budget_tokens"]),
+                             ("layer0-prepass", "rows", True, 16))
+        with self.assertRaises(ValueError):
+            TokenPruner("kl_keep_one", 1, IMAGE, layer=0)  # no action ids
+        self.assertFalse(describe("fastv", 4, 17, 8, 0)["frame_level"])
+        self.assertIsNone(describe("random", 4, 17, 8)["probe_batch"])
+        for method in ("kl_keep_one", "recency"):
+            ok = parse_args(["--prune-method", method, "--prune-k", "4", "--context-frames", "64", "--prune-layer", "0"])
+            self.assertEqual((ok.prune_method, ok.prune_layer), (method, 0))
+            with self.assertRaises(SystemExit):
+                parse_args(["--prune-method", method, "--prune-k", "4", "--context-frames", "64"])
 
 
 class DescribeAndCliTests(unittest.TestCase):

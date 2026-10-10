@@ -65,8 +65,16 @@ N_PER_FRAME = 4
 NAV_TOKENS = 64
 LENGTH_THRESHOLD = 64
 SIMILARITY_THRESHOLD = 0.985
-METHODS = ("identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform")
+METHODS = ("identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform",
+           "kl_keep_one", "recency")
 INPUT_LEVEL = ("random", "divprune")
+# Whole-frame selectors (paper/token_prune flat, Exp 4b): exactly k history frames (4-token groups)
+# survive. kl_keep_one ranks a frame by KL(P(action | only its group visible) || P(action | no visual
+# column)) -- the reference closes every history group, the current frame's group and its 64 fine
+# tokens, by column masking on every layer -- recency by frame id. Both are layer-0 pre-pass
+# methods (--prune-layer 0): they need the assembled prompt and delete by row removal.
+WHOLE_FRAME = ("kl_keep_one", "recency")
+PROBE_BATCH = 8  # kl_keep_one: keep-one probes per full forward
 UNIFORM_BLIND_LAYER = 20  # uniform: first visual-blind decoder layer (LongNav-R1 cuts at 18 of 28)
 # (scoring layer, first hidden layer) per stage; LLaMA-7B has 32 decoder layers. A stage without
 # a scoring layer is a random stage, drawn when its first hidden layer runs. 'uniform'
@@ -82,11 +90,13 @@ N_LAYERS = 32
 SCOPES = ("last_stage", "model")
 ANCHORS = ("original", "pool")  # what the stage schedule shrinks from: h x 4 tokens, or the tokens alive now
 PREPASS_STAGE = (0, 0)  # scope='model': score at layer 0 in a pre-pass, remove the rows
-FLAT_METHODS = ("fastv", "dart")  # layer-placed methods that ``layer=0`` turns into a layer-0 pre-pass
+FLAT_METHODS = ("fastv", "dart") + WHOLE_FRAME  # methods that ``layer=0`` runs as a layer-0 pre-pass
 
 
 def check_layer(method: str, layer: int | None) -> bool:
     """Validate ``layer`` (None = the method's paper placement, 0 = flat); True for a pre-pass arm."""
+    if method in WHOLE_FRAME and layer is None:
+        raise ValueError(f"{method} has no paper placement; it is a layer-0 pre-pass method (--prune-layer 0)")
     if layer is None:
         return False
     if int(layer) != 0:
@@ -110,6 +120,13 @@ def select_random(n_pool: int, budget: int, generator: torch.Generator) -> torch
 def select_topk(scores: torch.Tensor, budget: int) -> torch.Tensor:
     """Indices of the ``budget`` largest scores (sorted)."""
     return torch.topk(scores.float(), budget).indices.sort().values
+
+
+def topk_frames(frames: Sequence[int], scores: Sequence[float], k: int) -> list[int]:
+    """The ``k`` frames with the largest score; ties go to the NEWER frame (larger id). Returns
+    the kept frame ids sorted ascending (the same rule as LongNav's ``kv_prune.topk_frames``)."""
+    order = sorted(range(len(frames)), key=lambda i: (-float(scores[i]), -int(frames[i])))
+    return sorted(int(frames[i]) for i in order[:int(k)])
 
 
 def cosine_distance_matrix(x: torch.Tensor) -> torch.Tensor:
@@ -317,7 +334,13 @@ def describe(method: str, k: int | None, seed: int, n_pivots: int, layer: int | 
         "stages": None if stages is None else [list(s) for s in stages],
         "pivots": n_pivots if method == "dart" else None,
         "seed": seed if method in ("random", "hybrid", "uniform") else None,
-        "query": "last prompt token, mean over heads" if method in ("fastv", "pyramiddrop", "hybrid") else None,
+        "query": "last prompt token, mean over heads" if method in ("fastv", "pyramiddrop", "hybrid")
+        else "KL(P(action | only frame f's group) || P(action | no visual column)), last prompt position"
+        if method == "kl_keep_one" else None,
+        "frame_level": method in WHOLE_FRAME,  # whole 4-token groups: exactly k frames survive
+        "kl_reference": "every visual column closed (history groups, current group, 64 fine tokens)"
+        if method == "kl_keep_one" else None,
+        "probe_batch": PROBE_BATCH if method == "kl_keep_one" else None,
         "stage_selectors": ["random", "blind"] if method in BLIND_STAGE else None if method != "hybrid"
         else ["random" if sc is None else "attn" for sc, _ in stages],
         "tail_budget_tokens": TAIL_FRAMES * N_PER_FRAME if method == "hybrid" else 0 if method in BLIND_STAGE else None,
@@ -335,7 +358,7 @@ class TokenPruner:
 
     def __init__(self, method: str, k: int, image_token_index: int, seed: int = 17,
                  n_pivots: int = 8, layer: int | None = None, scope: str = "last_stage",
-                 anchor: str = "original") -> None:
+                 anchor: str = "original", action_ids: Sequence[int] | None = None) -> None:
         if method not in METHODS or method == "identity":
             raise ValueError(f"TokenPruner needs a pruning method, got {method!r}")
         if int(k) < 1:
@@ -343,6 +366,15 @@ class TokenPruner:
         self.method = method
         self.k = int(k)
         self.budget = self.k * N_PER_FRAME
+        # kl_keep_one: the action words' token ids (the probes' action distribution), the column
+        # blinder its probes close visual columns with, and the unwrapped LlamaModel.forward +
+        # lm_head they run through.
+        self.action_ids = None if action_ids is None else [int(i) for i in action_ids]
+        if method == "kl_keep_one" and not self.action_ids:
+            raise ValueError("kl_keep_one needs the action token ids (action_ids)")
+        self.blinder = None
+        self._llama_forward = None
+        self._lm_head = None
         self.image_token_index = int(image_token_index)
         self.seed = int(seed)
         self.n_pivots = int(n_pivots)
@@ -382,6 +414,10 @@ class TokenPruner:
         self._sep: dict[int, int] = {}  # flat: column of the separator closing each history group
         self._prompt_len: int | None = None
         self._blind_cols: torch.Tensor | None = None  # blind stage: the current frame's group + fine tokens
+        self._ids: torch.Tensor | None = None  # the prompt ids (kl_keep_one: the blinder's begin_inference)
+        self._flat_spans: list[tuple[int, int]] | None = None  # flat: group spans of the assembled prompt
+        self._frame_score: dict[int, float] = {}  # whole-frame selectors: this inference's frame scores
+        self._n_probes = 0  # kl_keep_one: probes run this inference (reference + one per pool frame)
         self._budgets: list[int] = []
         self._widths: list[int] | None = None
         self._n_pool = 0
@@ -400,6 +436,7 @@ class TokenPruner:
         self._step = int(step)
         self._placeholder = int(where[0])
         self._n_ids = int(ids.numel())
+        self._ids = ids.detach().clone()
         self._n_pool = len(self.state.pool(0))
         # Stage budgets shrink geometrically from the window's ORIGINAL token count (h x 4,
         # the same denominator LongNav-R1 uses), not from the already-pruned pool.
@@ -446,6 +483,11 @@ class TokenPruner:
             "prompt_tokens": self._prompt_len,
             "seconds": self._seconds,
         }
+        if self.method in WHOLE_FRAME:
+            # Whole-frame selectors: each history frame's rank score this inference (keep-one KL
+            # or frame id; None when nothing was selected) and the probes it cost.
+            record["score"] = [self._frame_score.get(f) for f in self.state.history]
+            record["n_probes"] = self._n_probes
         self._clear_inference()
         return record
 
@@ -509,6 +551,14 @@ class TokenPruner:
         self._wrap_online(model)
         if self.prepass:
             self._wrap_prefill(model)
+        if self.method == "kl_keep_one":
+            # The probes close visual columns on every layer through the blinder's layer hooks;
+            # outside a probe (no hide set) the hooks pass the mask through untouched.
+            from uninavid_hm3d.layer_blind import ColumnBlinder
+
+            self.blinder = ColumnBlinder(self.image_token_index)
+            self.blinder.install(model)
+            self._lm_head = model.lm_head
         hooked = self._hooked_stages()
         if hooked:
             layers = model.get_model().layers
@@ -572,6 +622,7 @@ class TokenPruner:
         self._prompt_len = prompt_length(self._n_ids, result_list)
         if self.prepass:
             spans = history_columns(self._placeholder, result_list)
+            self._flat_spans = spans
             self._col, self._sep, group = {}, {}, 0
             for i, f in enumerate(self.state.frame_ids):
                 alive = [t for t in range(N_PER_FRAME) if keep[i * N_PER_FRAME + t]]
@@ -583,23 +634,30 @@ class TokenPruner:
                     self._sep[f] = spans[group][1]
                 group += 1
             if self.blind_stage:
-                # The blind layers hide the current frame too: its history group (the last span)
-                # and the 64 fine tokens that follow </video_special> <image_special>.
-                cols = torch.zeros(self._prompt_len, dtype=torch.bool)
-                a, b = spans[-1]
-                cols[a:b] = True
-                cols[b + 2:b + 2 + NAV_TOKENS] = True
-                if b + 2 + NAV_TOKENS > self._prompt_len:
-                    raise RuntimeError("fine-token span overruns the prompt; layout arithmetic is inconsistent")
-                self._blind_cols = cols
+                # The blind layers hide the current frame too.
+                self._blind_cols = self._current_columns(spans, self._prompt_len)
             self._refresh_hide()
         return tokens[keep.to(tokens.device)], result_list
+
+    @staticmethod
+    def _current_columns(spans: Sequence[tuple[int, int]], prompt_len: int) -> torch.Tensor:
+        """Bool column mask of the current frame's visual tokens in the assembled prompt: its
+        history group (the last span) and the 64 fine tokens that follow
+        ``</video_special> <image_special>``."""
+        cols = torch.zeros(prompt_len, dtype=torch.bool)
+        a, b = spans[-1]
+        cols[a:b] = True
+        cols[b + 2:b + 2 + NAV_TOKENS] = True
+        if b + 2 + NAV_TOKENS > prompt_len:
+            raise RuntimeError("fine-token span overruns the prompt; layout arithmetic is inconsistent")
+        return cols
 
     def _wrap_prefill(self, model: Any) -> None:
         """Flat fastv/dart: score on decoder layer 0 before the real prefill, then drop the rows."""
         llama = model.get_model()
         orig = llama.forward
         pruner = self
+        pruner._llama_forward = orig  # kl_keep_one probes: the unwrapped forward (never re-enters this)
 
         def forward(*args, **kwargs):
             embeds = kwargs.get("inputs_embeds")
@@ -630,13 +688,17 @@ class TokenPruner:
             mask2d = torch.ones((1, q), dtype=torch.bool, device=embeds.device)
         elif mask2d.shape[-1] != q or not bool(mask2d.bool().all()):
             raise RuntimeError("the layer-0 pre-pass expects an unpadded single-sequence prefill")
-        mask = llama._prepare_decoder_attention_mask(mask2d, (1, q), embeds, 0)
-        position_ids = torch.arange(q, dtype=torch.long, device=embeds.device).unsqueeze(0)
-        out = llama.layers[0](embeds, attention_mask=mask, position_ids=position_ids, past_key_value=None,
-                              output_attentions=True, use_cache=True)
-        self._seconds += time.perf_counter() - started
         before = set(self.state.deleted[0])
-        self._score_and_select(0, out[1], out[0], out[2])
+        if self.method in WHOLE_FRAME:
+            self._select_frames(embeds)
+            self._seconds += time.perf_counter() - started
+        else:
+            mask = llama._prepare_decoder_attention_mask(mask2d, (1, q), embeds, 0)
+            position_ids = torch.arange(q, dtype=torch.long, device=embeds.device).unsqueeze(0)
+            out = llama.layers[0](embeds, attention_mask=mask, position_ids=position_ids, past_key_value=None,
+                                  output_attentions=True, use_cache=True)
+            self._seconds += time.perf_counter() - started
+            self._score_and_select(0, out[1], out[0], out[2])
         fresh = self.state.deleted[0] - before
         for tok in fresh:
             keep[self._col[tok]] = False
@@ -695,6 +757,60 @@ class TokenPruner:
             raise RuntimeError(f"random stage {stage} reached before the stages above it selected")
         generator = torch.Generator().manual_seed(selection_seed(self.seed, self.label, self._step))
         self._select(stage, lambda pool: select_random(len(pool), self._budgets[stage], generator))
+
+    def _select_frames(self, embeds: torch.Tensor) -> None:
+        """Whole-frame selection on the assembled prompt: the ``k = B'/4`` pool frames with the
+        largest score keep their groups, the others lose theirs (``kl_keep_one``: keep-one KL,
+        ``recency``: frame id; ties go to the newer frame)."""
+        pool = self.state.pool(0)
+        frames = list(dict.fromkeys(f for f, _ in pool))
+        cols: dict[int, list[int]] = {}
+        for f, t in pool:
+            cols.setdefault(f, []).append(self._col[(f, t)])
+        if any(len(c) != N_PER_FRAME for c in cols.values()):
+            raise RuntimeError("whole-frame selection found a partial group; the ledger holds token-level deletions")
+        if self.method == "kl_keep_one":
+            scores = self._keep_one_kls(embeds, frames, cols)
+        else:
+            scores = {f: float(f) for f in frames}
+        kept = set(topk_frames(frames, [scores[f] for f in frames], self._budgets[0] // N_PER_FRAME))
+        self._frame_score = scores
+        self._select(0, lambda pool: torch.tensor([i for i, (f, _) in enumerate(pool) if f in kept],
+                                                  dtype=torch.long))
+
+    def _keep_one_kls(self, embeds: torch.Tensor, frames: Sequence[int],
+                      cols: dict[int, list[int]]) -> dict[int, float]:
+        """``{frame: KL(P(action | only its group) || P(action | no visual column))}`` -- the
+        reference closes every history group (the current frame's included) and the 64 fine
+        tokens on every layer; probe f reopens frame f's group. One full forward per
+        ``PROBE_BATCH`` probes through the unwrapped ``LlamaModel.forward``; the action
+        distribution is the renormalised softmax over the action words at the last position
+        (``influence.action_logp``)."""
+        from uninavid_hm3d.influence import action_logp, kl_divergence
+
+        q = int(embeds.shape[1])
+        all_visual = torch.zeros(q, dtype=torch.bool)
+        for c in self._col.values():
+            all_visual[c] = True
+        all_visual |= self._current_columns(self._flat_spans, q)
+        hides = [all_visual]
+        for f in frames:
+            hide = all_visual.clone()
+            hide[cols[f]] = False
+            hides.append(hide)
+        logps = []
+        self.blinder.begin_inference(self._ids)
+        try:
+            for start in range(0, len(hides), PROBE_BATCH):
+                hide = torch.stack(hides[start:start + PROBE_BATCH])
+                self.blinder.set_hide(hide, 0)
+                out = self._llama_forward(inputs_embeds=embeds.expand(hide.shape[0], -1, -1), use_cache=False)
+                logits = self._lm_head(out[0][:, -1])
+                logps += [action_logp(row, self.action_ids)[0] for row in logits]
+        finally:
+            self.blinder.finish()
+        self._n_probes = len(hides)
+        return {f: kl_divergence(lp, logps[0]) for f, lp in zip(frames, logps[1:])}
 
     def _score_and_select(self, stage: int, attn: torch.Tensor, hidden: torch.Tensor,
                           present: tuple[torch.Tensor, torch.Tensor] | None) -> None:

@@ -229,6 +229,11 @@ class EpisodeRolloutMixin:
                         # prune (raw in sequence.json as sup/vtp_*; see VLMWorker._log_vtp). With
                         # kv_prune_log_masks off only the scalar mean/vtp_n_new is carried.
                         vlm_logs |= dict(self._vtp_log)
+                    if getattr(self, "kv_prune_importance", None) in ("kl_keep_one", "recency"):
+                        # Whole-frame selection (paper/token_prune flat, Exp 4b): the pool frames,
+                        # their rank scores and who survived (raw in sequence.json as
+                        # sup/kl_select; {} on a step that pruned nothing).
+                        vlm_logs["kl_select"] = dict(getattr(self, "_kl_select_log", {}) or {})
                 try:
                     import torch
                     vlm_mem = torch.cuda.memory_allocated()/(1024**3)

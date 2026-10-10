@@ -32,7 +32,9 @@ wandb/, datasets, environments, or baseline runtime clones. Unclassified artifac
 
 Retain random, FastV (attn), DivPrune, DART, PyramidDrop, hybrid, uniform, visual blindness,
 context eviction/recomputation/reindexing, and both last_stage/model budgets. KL/keep-one replay
-is a paper diagnostic, not a selection policy. Gradient attribution intentionally uses backward;
+is a paper diagnostic; the one selection policy built on it is the whole-frame `kl_keep_one` arm
+of the flat token-prune study (added 2026-10-09, with its `recency` control) -- the token-level
+`kl` / `keep_one` selectors stay removed. Gradient attribution intentionally uses backward;
 it is not training. World-coordinate utilities still support BEV inference and visualization.
 
 Preserve Habitat measures, stop guards, sparse filtering, episode ordering, log flushing, Uni-NaVid

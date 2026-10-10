@@ -1,6 +1,8 @@
-"""CPU tests for the common partition and seeded random selector."""
+"""CPU tests for the common partition, the seeded random selector and the whole-frame ranking."""
 import torch
-from longnav.utils.kv_prune import KVPruneState, build_prune_partition, build_selected_keep, random_select
+from longnav.utils.kv_prune import (
+    KVPruneState, build_prune_partition, build_selected_keep, random_select, topk_frames,
+)
 
 def make_state(rows, seed=17):
     state = KVPruneState(seed=seed)
@@ -55,7 +57,18 @@ def test_deterministic_random():
     assert torch.equal(sa, sb)
     assert not torch.equal(sa, sc)
 
+def test_topk_frames():
+    """Whole-frame rule (kl_keep_one / recency): largest score first, ties to the NEWER frame,
+    kept ids returned sorted, the whole pool when k covers it."""
+    assert topk_frames([3, 7, 9, 12], [0.5, 0.1, 0.5, 0.0], 1) == [9]
+    assert topk_frames([3, 7, 9, 12], [0.5, 0.1, 0.5, 0.0], 2) == [3, 9]
+    assert topk_frames([12, 3, 9], [1.0, 2.0, 1.5], 2) == [3, 9]
+    assert topk_frames([3, 7], [0.0, 0.0], 5) == [3, 7]
+    assert topk_frames([], [], 2) == []
+    assert topk_frames([4, 5, 6], [4, 5, 6], 2) == [5, 6]  # recency: score = frame id
+
 if __name__ == "__main__":
     test_partition()
     test_deterministic_random()
+    test_topk_frames()
     print("PASS")

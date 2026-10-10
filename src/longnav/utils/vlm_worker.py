@@ -4,7 +4,9 @@ import time
 
 CONTEXT_WINDOW_MODES = ("evict", "recompute", "reindex", "prune")
 CONTEXT_CUTS = ("header", "frame")
-KV_PRUNE_IMPORTANCE_MODES = ("attn", "random", "divprune", "dart")
+from longnav.utils.kv_prune import WHOLE_FRAME_MODES
+
+KV_PRUNE_IMPORTANCE_MODES = ("attn", "random", "divprune", "dart") + WHOLE_FRAME_MODES
 KV_PRUNE_SCORE_LAYER_MODES = ("pruned", "all", "boundary")
 
 
@@ -185,6 +187,7 @@ class VLMWorker(ContextCacheMixin, DiagnosticsMixin, PruningMixin):
         self._kl_influence_horizon = []  # [[K, kl, logp], ...]: frames of age >= K hidden
         self._kl_influence_keep_one = []  # keep-one-in: KL(P only f's visual slots || P no visual) per frame f
         self._kl_influence_keep_one_logp = []  # per cached frame f: action log-probs with only f's visual slots
+        self._kl_select_log = {}  # whole-frame selectors: the pool frames, their scores and who survived
         self.kv_prune_influence_measures = tuple(str(m) for m in (kv_prune_influence_measures or ()))
         if not self.kv_prune_influence_measures or any(
                 m not in ("leave_one", "keep_one") for m in self.kv_prune_influence_measures):
@@ -311,6 +314,9 @@ class VLMWorker(ContextCacheMixin, DiagnosticsMixin, PruningMixin):
             raise ValueError("kv_prune_log_layer_influence / kv_prune_log_keep_one require "
                              "context_window_mode='prune' (the per-layer replay path lives on the "
                              "pre-rotation cache)")
+        if kv_prune_importance in WHOLE_FRAME_MODES and context_window_mode != "prune":
+            raise ValueError(f"kv_prune_importance={kv_prune_importance!r} is a pruning selector; it requires "
+                             "context_window_mode='prune'")
         if context_window_mode == "prune":
             if kv_budget is not None and self.kv_prune_budget_frames is not None:
                 raise ValueError("set either kv_budget (total cache slots) or kv_prune_budget_frames "
@@ -373,6 +379,27 @@ class VLMWorker(ContextCacheMixin, DiagnosticsMixin, PruningMixin):
                                      "kv_prune_layer_start-1; it does not combine with kv_prune_stages")
                 if self.kv_prune_dart_pivots < 1:
                     raise ValueError("kv_prune_dart_pivots must be at least 1")
+            if kv_prune_importance in WHOLE_FRAME_MODES:
+                # paper/token_prune flat (Exp 4b) whole-frame arms: exactly k frames survive each
+                # step. 'kl_keep_one' replays the decision once with every visual slot hidden and
+                # once per pool frame with only that frame's slots visible; 'recency' keeps the k
+                # newest frames with no replay.
+                if self.kv_prune_budget_frames is None or not self.kv_prune_budget_frames.is_integer():
+                    raise ValueError(f"kv_prune_importance={kv_prune_importance!r} keeps whole frames: set "
+                                     "kv_prune_budget_frames to an integer k")
+                if self.kv_prune_stages is not None or self.kv_prune_visual_blind:
+                    raise ValueError(f"kv_prune_importance={kv_prune_importance!r} does not combine with "
+                                     "kv_prune_stages or kv_prune_visual_blind")
+                if kv_prune_candidate_scope != "visual" or int(kv_prune_recent_turns) != 0:
+                    raise ValueError(f"kv_prune_importance={kv_prune_importance!r} ranks the flat pool: "
+                                     "kv_prune_candidate_scope='visual', kv_prune_recent_turns=0")
+                if self.kv_prune_layer_start != 0 or self.kv_prune_layer_end is not None \
+                        or self.kv_prune_score_layer is not None:
+                    raise ValueError(f"kv_prune_importance={kv_prune_importance!r} hides and deletes a frame "
+                                     "on every layer: no layer-selective pruning or score layer")
+                if kv_prune_importance == "kl_keep_one" and attn_impl == "flash_attention_2":
+                    raise NotImplementedError("kl_keep_one replays the decision with an additive column "
+                                              "mask; use attn_impl='sdpa' or 'eager'")
             if kv_prune_candidate_scope not in ("all", "visual"):
                 raise ValueError("kv_prune_candidate_scope must be 'all' or 'visual', "
                                  f"got {kv_prune_candidate_scope!r}")
@@ -461,6 +488,7 @@ class VLMWorker(ContextCacheMixin, DiagnosticsMixin, PruningMixin):
         self._kl_influence_horizon = []
         self._kl_influence_keep_one = []
         self._kl_influence_keep_one_logp = []
+        self._kl_select_log = {}
         self._influence_recs = []
         self._influence_probe_count = 0
         self._influence_probe_latency = 0.0
@@ -959,7 +987,8 @@ class VLMWorker(ContextCacheMixin, DiagnosticsMixin, PruningMixin):
             self._record_frame_keys()
         if (self.visualize_attention_3d or
                 self.kv_prune_log_influence or self.kv_prune_log_layer_influence
-                or self.kv_prune_log_keep_one or self.token_info_probe):
+                or self.kv_prune_log_keep_one or self.token_info_probe
+                or self.kv_prune_importance == "kl_keep_one"):
             self._decision_inputs = self._slice_decision_token(turn_inputs)
         if self._grad_attribution_enabled():
             self._grad_attribution_pass()

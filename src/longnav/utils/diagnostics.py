@@ -313,6 +313,32 @@ class DiagnosticsMixin:
         return [self._action_kl(base_logp.to(ablated_logp.device), ablated_logp), _round_list(ablated_logp)]
 
 
+    def _keep_one_frame_kls(self, base_bias, frames, layers, vis_logp=None):
+        """Keep-one-in replays over the action distribution.
+
+        Returns ``(vis_logp, {frame: (kl, only_logp)})`` for the ``frames`` holding a visual
+        slot: ``vis_logp`` is the no-visual decision (EVERY visual slot hidden, the current
+        frame's included; replayed first unless passed in) and the KL is
+        KL(P only f's visual slots || P no visual), expectation under the only-f distribution.
+        Frames with no visual slot replay nothing and are absent (only-f == no visual). The
+        hiding applies on ``layers`` (None = every layer). Shared by the kv_prune_log_influence
+        keep_one diagnostic and the 'kl_keep_one' selector, so both see the same numbers.
+        """
+        ps = self._kv_prune_state
+        if vis_logp is None:
+            vis_logp = self._replay_action_logp(
+                base_bias, extra=self._replay_ablation_term(ps.is_visual), extra_layers=layers)
+        per_frame = {}
+        for f in frames:
+            mine = ps.is_visual & (ps.turn_id == f)
+            if not bool(mine.any()):
+                continue
+            only_logp = self._replay_action_logp(
+                base_bias, extra=self._replay_ablation_term(ps.is_visual & ~mine), extra_layers=layers)
+            per_frame[int(f)] = (self._action_kl(only_logp, vis_logp), only_logp)
+        return vis_logp, per_frame
+
+
     def _score_layer_frame_influence(self, visual_mask, forced):
         """Per probe layer i and cached frame f, with every hiding applied on layers >= i:
         keep-one-in KL(P only f || P no visual) and leave-one-out KL(P full || P without f).

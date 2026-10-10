@@ -10,8 +10,12 @@
 #   divprune  vlm.kv_prune_importance=divprune
 #   fastv     vlm.kv_prune_importance=attn vlm.kv_prune_score_layer=0   (layer-0 decision row)
 #   dart      vlm.kv_prune_importance=dart                              (layer-0 keys + layer-0 output)
-# plus vlm.kv_prune_budget_frames=<k> (k in {32,16,8,4} frames' worth of history tokens);
-# r1_identity adds nothing (unlimited budget) and must reproduce the ctx ablation's r1_full.
+#   kl_keep_one  vlm.kv_prune_importance=kl_keep_one   (whole frames: the k with the largest keep-one-in
+#                KL(P(action | only that frame) || P(action | no visual)) survive; 1 + pool replays/step)
+#   recency      vlm.kv_prune_importance=recency       (whole frames: the k newest survive, no replay)
+# plus vlm.kv_prune_budget_frames=<k> (k in {32,16,8,4} frames' worth of history tokens; for the
+# whole-frame arms exactly k frames); r1_identity adds nothing (unlimited budget) and must
+# reproduce the ctx ablation's r1_full.
 #
 # Launch from the repo root:
 #   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \

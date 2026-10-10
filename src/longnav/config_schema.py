@@ -166,7 +166,12 @@ class VLMConfig:
     # nested budgets V0*lambda^s, each stage ranked at the layer below it).
     # Flat variant (+experiment=paper_prune_flat): no window at all -- the budget is then k x the
     # running mean over every history frame of the episode -- and every method at layer 0:
-    # attn with kv_prune_score_layer=0, dart with layer_start=0.
+    # attn with kv_prune_score_layer=0, dart with layer_start=0. Whole-frame arms of the flat
+    # variant (2026-10-09): kl_keep_one keeps exactly the k frames with the largest keep-one-in
+    # KL, KL(P(action | only that frame's visual slots) || P(action | no visual slot)), measured
+    # by 1 + pool decision replays per step (reference = every visual slot hidden, the current
+    # frame's included); recency keeps the k newest frames. Both need an integer
+    # kv_prune_budget_frames and log the pool/scores/survivors as sup/kl_select.
     kv_prune_budget_frames: Optional[float] = None
     kv_prune_stages: Optional[List[int]] = None  # first layer of each PyramidDrop stage (ascending; 0 = every layer pruned)
     # --- paper/hybrid_prune: per-stage rule on top of kv_prune_stages. kv_prune_stage_importance

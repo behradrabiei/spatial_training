@@ -128,8 +128,8 @@ class PruningMixin:
         import time
         import torch
         from longnav.utils.kv_prune import (
-            build_prune_partition, build_selected_keep, divprune_select, frame_budget,
-            model_budgets, pyramid_budgets, random_select, slice_cache_layers,
+            WHOLE_FRAME_MODES, build_prune_partition, build_selected_keep, divprune_select,
+            frame_budget, model_budgets, pyramid_budgets, random_select, slice_cache_layers,
             step_seed, visual_slot_embeddings,
         )
 
@@ -138,6 +138,7 @@ class PruningMixin:
         kv_len = self._master_len()
         self._prune_score_latency = 0.0
         self._prune_replay_count = 0
+        self._kl_select_log = {}
         method = self.kv_prune_importance
         layer_selective = st.layer_selective
         alive = st.alive if layer_selective else None
@@ -158,7 +159,8 @@ class PruningMixin:
         first_keep = 0 if self.context_window is None else max(0, ps.n_turns - self.context_window)
         budget = None if (st.no_pruned_layers or blind) else self.kv_budget
         capacity = None
-        if self.kv_prune_budget_frames is not None:
+        if self.kv_prune_budget_frames is not None and method not in WHOLE_FRAME_MODES:
+            # Whole-frame selectors fix the number of surviving FRAMES, not a token capacity.
             capacity = frame_budget(ps, first_keep, self.kv_prune_budget_frames)
         tail_capacity = None  # the last stage's own budget; binds from the second frame on
         if self.kv_prune_tail_budget_frames is not None:
@@ -231,18 +233,14 @@ class PruningMixin:
             if "keep_one" in self.kv_prune_influence_measures:
                 # Leave-one-IN: only frame f's visual slots stay visible (every other visual slot,
                 # the current frame's included, is hidden); reference = the no-visual decision.
+                # A frame with nothing left after the sparse filter replays nothing: only-f == no
+                # visual, so its KL is 0 and its log-probs are the reference's.
                 vis_list = _round_list(vis_logp)
-                keep_rows, keep_logps = [], []
-                for f in range(ps.n_turns):
-                    mine = ps.is_visual & (ps.turn_id == f)
-                    if not bool(mine.any()):  # nothing survived the sparse filter: only-f == no visual
-                        keep_rows.append(0.0); keep_logps.append(vis_list)
-                        continue
-                    only_logp = self._replay_action_logp(
-                        base_bias, extra=self._replay_ablation_term(ps.is_visual & ~mine), extra_layers=layers)
-                    keep_rows.append(self._action_kl(only_logp, vis_logp))
-                    keep_logps.append(_round_list(only_logp))
-                self._kl_influence_keep_one, self._kl_influence_keep_one_logp = keep_rows, keep_logps
+                _, per_frame = self._keep_one_frame_kls(base_bias, range(ps.n_turns), layers, vis_logp=vis_logp)
+                self._kl_influence_keep_one = [per_frame[f][0] if f in per_frame else 0.0
+                                               for f in range(ps.n_turns)]
+                self._kl_influence_keep_one_logp = [_round_list(per_frame[f][1]) if f in per_frame else vis_list
+                                                    for f in range(ps.n_turns)]
         if self.kv_prune_log_layer_influence and probe_step:
             visual = partition.base_keep & ps.is_visual
             if alive is not None:
@@ -325,7 +323,12 @@ class PruningMixin:
         else:
             if method == "attn":
                 scores = st.mean_scores().cpu()
-            if partition.capacity == candidate_idx.numel():
+            if method in WHOLE_FRAME_MODES:
+                # Exactly k frames survive: the partition's capacity (every candidate) is cut
+                # down to the kept frames' slots before the exact-count check below.
+                selected, scores = self._whole_frame_select(ps, partition, candidate_idx, kv_len)
+                partition.capacity = int(selected.numel())
+            elif partition.capacity == candidate_idx.numel():
                 selected = candidate_idx
             elif method == "random":
                 selected = random_select(candidate_idx, partition.capacity, ps.generator)
@@ -420,6 +423,43 @@ class PruningMixin:
         hidden = self._hidden_db[db_rank[candidate_idx].to(self._hidden_db.device)]
         return dart_select(norms[candidate_idx], hidden, candidate_idx, capacity,
                            n_pivots=self.kv_prune_dart_pivots)
+
+
+    def _whole_frame_select(self, ps, partition, candidate_idx, kv_len):
+        """Whole-frame selection (paper/token_prune flat, Exp 4b): the pool is every turn holding
+        a candidate slot and exactly k = kv_prune_budget_frames of them survive, every candidate
+        slot of the others deleted. 'kl_keep_one' ranks the pool by the keep-one-in KL,
+        KL(P(action | only f's visual slots) || P(action | no visual slot)): one decision replay
+        with every visual column hidden (the reference; the current frame's slots included) plus
+        one per pool frame, on the pre-prune cache. 'recency' ranks by frame id, no replay. A
+        pool of <= k frames is left whole and replays nothing (frame_budget's None). Returns
+        the selected slots and a per-slot score row carrying each frame's rank score."""
+        import torch
+        from longnav.utils.kv_prune import topk_frames
+
+        k = int(self.kv_prune_budget_frames)
+        frames = torch.unique(ps.turn_id[candidate_idx], sorted=True).tolist()
+        scores = torch.zeros(kv_len, dtype=torch.float32)
+        if len(frames) <= k:
+            return candidate_idx, scores
+        if self.kv_prune_importance == "kl_keep_one":
+            _, per_frame = self._keep_one_frame_kls(
+                self._replay_base_bias(partition.forced), frames, self._ablation_layers())
+            ranks = [per_frame[f][0] if f in per_frame else 0.0 for f in frames]
+            n_replays = 1 + len(per_frame)
+        else:
+            ranks = [float(f) for f in frames]
+            n_replays = 0
+        kept = topk_frames(frames, ranks, k)
+        keep_turn = torch.zeros(ps.n_turns, dtype=torch.bool)
+        keep_turn[kept] = True
+        selected = candidate_idx[keep_turn[ps.turn_id[candidate_idx]]]
+        for f, r in zip(frames, ranks):
+            scores[partition.candidates & (ps.turn_id == f)] = r
+        self._kl_select_log = {"measure": self.kv_prune_importance, "frames": frames,
+                               "score": [round(r, 6) for r in ranks],
+                               "kept": [int(f in kept) for f in frames], "n_replays": n_replays}
+        return selected, scores
 
 
     def _log_vtp(self, first_keep):

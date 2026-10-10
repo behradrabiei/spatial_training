@@ -56,13 +56,20 @@ MODELS = {"r1": "LongNav-R1", "uninavid": "Uni-NaVid"}
 VARIANTS = {
     "window": dict(root=ROOT / "paper_results/token_prune",
                    methods=("random", "fastv", "pyramiddrop", "divprune", "dart"), k_list=(16, 8, 4, 1),
-                   window={"r1": 31, "uninavid": 31}, merge_ctx=True, baseline="recency",
+                   window={"r1": 31, "uninavid": 31}, baseline="recency",
+                   # ctx-ablation rows merged in: the recency windows (tagged ctx_method) and the
+                   # 32-frame reference; paired deltas reported for delta_tags.
+                   ctx_recency=True, ctx_reference=True, ctx_method="recency", delta_tags=("recency", "ref"),
                    identity=(("r1_identity", "r1_evict_k32", True), ("uninavid_identity", "uninavid_k32", False))),
     "flat": dict(root=ROOT / "paper_results/token_prune_flat",
-                 methods=("random", "fastv", "divprune", "dart"), k_list=(32, 16, 8, 4),
-                 window={"r1": None, "uninavid": 63}, merge_ctx=False, baseline="random",
+                 methods=("random", "fastv", "divprune", "dart", "kl_keep_one", "recency"), k_list=(32, 16, 8, 4),
+                 window={"r1": None, "uninavid": 63}, baseline="random",
+                 # The ctx-ablation recency windows are merged as method 'window' (the flat variant has
+                 # its own whole-frame 'recency' arm); the reference stays the identity arm.
+                 ctx_recency=True, ctx_reference=False, ctx_method="window", delta_tags=("random", "window", "ref"),
                  identity=(("r1_identity", "r1_full", True),)),
 }
+WHOLE_FRAME_METHODS = ("kl_keep_one", "recency")  # flat arms that keep exactly k frames (results/kl_select.csv)
 V = VARIANTS["window"]  # set from --variant in main()
 METRICS = (("success", "sr"), ("spl", "spl"), ("n_steps", "steps"))
 EP_COLS = ["arm", "model", "method", "k", "frames_worth", "episode_label", "success", "spl", "soft_spl",
@@ -82,12 +89,12 @@ def arm_specs():
 
 def ctx_specs():
     """(ctx arm, model key, method, k, frames_worth) of the ctx-ablation rows merged in."""
-    if not V["merge_ctx"]:
-        return
     for m, tpl in (("r1", "r1_evict_k{}"), ("uninavid", "uninavid_k{}")):
-        yield tpl.format(32), m, "reference", None, V["window"][m]
-        for k in V["k_list"]:
-            yield tpl.format(k), m, "recency", k, k - 1
+        if V["ctx_reference"]:
+            yield tpl.format(32), m, "reference", None, V["window"][m]
+        if V["ctx_recency"]:
+            for k in V["k_list"]:
+                yield tpl.format(k), m, V["ctx_method"], k, k - 1
 
 
 def frames_worth(model, k):
@@ -100,11 +107,11 @@ def frames_worth(model, k):
 def partner_arm(model, k, tag):
     """The arm a paired delta of `tag` is taken against (None = not applicable)."""
     ctx = "r1_evict_k{}" if model == "r1" else "uninavid_k{}"
-    if tag == "recency":
+    if tag == V["ctx_method"]:
         return ctx.format(k) if k is not None else None
     if tag == "random":
         return f"{model}_random_b{k}" if k is not None else None
-    return ctx.format(32) if V["merge_ctx"] else f"{model}_identity"
+    return ctx.format(32) if V["ctx_reference"] else f"{model}_identity"
 
 
 def fnum(v, default=np.nan):
@@ -174,6 +181,66 @@ def mask_rows_uninavid(run_dir: Path, arm: str, method: str, k):
                     yield {"arm": arm, "model": MODELS["uninavid"], "method": method, "k": k, "episode": label,
                            "step": step, "frame": int(fr), "age": step - int(fr), "n_tokens": int(n),
                            "n_kept": int(kp), "keep_bits": kb}
+
+
+# --- whole-frame selection logs (kl_keep_one / recency arms) -----------------------------
+def select_rows_r1(run_dir: Path):
+    """Per prune step of a whole-frame arm: (episode, step, pool frame ids, scores, kept flags,
+    probes) from sequence.json's sup/kl_select -- the record logged after env step t ({} when
+    nothing was pruned); frame ids are env steps, so age = step - frame."""
+    for seq in sorted(run_dir.glob("rollout/*/*/sequence.json")):
+        label = seq.parent.name.split(".")[0]
+        d = json.loads(seq.read_text())
+        for t, rec in enumerate(d.get("sup/kl_select") or []):
+            if rec and rec.get("frames"):
+                yield (label, t, [int(f) for f in rec["frames"]], [fnum(s) for s in rec["score"]],
+                       [bool(x) for x in rec["kept"]], int(rec.get("n_replays", 0)))
+
+
+def select_rows_uninavid(run_dir: Path):
+    """The same from prune/<label>.jsonl: the frames scored this inference (score not null), kept
+    when all their tokens survived."""
+    for path in sorted(run_dir.glob("prune/*.jsonl")):
+        label = path.stem
+        with path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                rec = json.loads(line)
+                scored = [(int(fr), fnum(s), int(kp) == int(n)) for fr, s, kp, n in
+                          zip(rec.get("frames", []), rec.get("score") or [], rec["n_kept"], rec["n_tokens"])
+                          if s is not None]
+                if scored:
+                    frames, scores, kept = (list(x) for x in zip(*scored))
+                    yield label, int(rec["step"]), frames, scores, kept, int(rec.get("n_probes", 0))
+
+
+def select_summary(rows, arm, model, method, k):
+    """One row per arm: how the whole-frame selector behaved -- pool size, ages and scores of the
+    kept / dropped frames, how often the dropped set held the OLDEST pool frame (= what a recency
+    rule would drop; Uni-NaVid can drop two frames per inference) and how often the newest pool
+    frame survived, and the probes per prune step."""
+    steps = list(rows)
+    if not steps:
+        return None
+    pool, probes, oldest_dropped, newest_kept = [], [], [], []
+    age_kept, age_dropped, score_kept, score_dropped, episodes = [], [], [], [], set()
+    for label, step, frames, scores, kept, n_probes in steps:
+        episodes.add(label)
+        pool.append(len(frames))
+        probes.append(n_probes)
+        for f, s, kp in zip(frames, scores, kept):
+            (age_kept if kp else age_dropped).append(step - f)
+            (score_kept if kp else score_dropped).append(s)
+        oldest_dropped.append(not kept[frames.index(min(frames))])
+        newest_kept.append(kept[frames.index(max(frames))])
+    return {"arm": arm, "model": MODELS[model], "method": method, "k": k, "n_episodes": len(episodes),
+            "prune_steps": len(steps), "mean_pool_frames": float(np.mean(pool)),
+            "mean_age_kept": nanmean(age_kept), "mean_age_dropped": nanmean(age_dropped),
+            "frac_oldest_dropped": float(np.mean(oldest_dropped)), "frac_newest_kept": float(np.mean(newest_kept)),
+            "mean_score_kept": nanmean(score_kept), "mean_score_dropped": nanmean(score_dropped),
+            "mean_probes_per_step": float(np.mean(probes))}
 
 
 def per_episode_token_stats(mask_rows):
@@ -371,7 +438,7 @@ def main() -> None:
     mode = "allow" if (args.allow_partial or args.check_identity) else "skip" if args.skip_partial else "strict"
     runs, missing = load_arms(runs_root, labels, mode)
     ctx = load_ctx_rows(args.ctx_per_episode)
-    if not ctx and V["merge_ctx"]:
+    if not ctx and (V["ctx_recency"] or V["ctx_reference"]):
         print(f"[warn] no ctx-ablation rows at {args.ctx_per_episode}; recency/reference rows left out")
 
     if args.check_identity:
@@ -398,6 +465,20 @@ def main() -> None:
     write_parquet(out / "masks.parquet", masks, MASK_COLS)
     write_csv(out / "retention.csv", retention,
               ["arm", "model", "method", "k", "age", "frac_mean", "lo", "hi", "n_episodes", "n_steps"])
+
+    # --- whole-frame selection logs (kl_keep_one / recency arms) -------------------------
+    selects = []
+    for arm, (rows, model, method, k, partial) in runs.items():
+        if method not in WHOLE_FRAME_METHODS:
+            continue
+        gen = select_rows_r1 if model == "r1" else select_rows_uninavid
+        rec = select_summary((r for r in gen(runs_root / arm) if r[0] in rows), arm, model, method, k)
+        if rec is None:
+            print(f"[warn] {arm}: no whole-frame selection logs found")
+        else:
+            selects.append(rec)
+    if selects:
+        write_csv(out / "kl_select.csv", selects)
 
     # --- per-episode ---------------------------------------------------------------------
     episodes = []
@@ -440,9 +521,9 @@ def main() -> None:
         rec["tokens_kept_frac"] = (rec["tokens_kept_mean"] / (window * rec["n_per_frame"])
                                    if window and np.isfinite(rec["tokens_kept_mean"]) and rec["n_per_frame"] > 0
                                    else float("nan"))
-        # Paired deltas vs the same-k baseline arm (recency window / random) and vs the unpruned
-        # reference (labels both hold).
-        for tag in (V["baseline"], "ref"):
+        # Paired deltas vs the same-k baseline arm (recency window / random), the flat variant's
+        # same-k ctx-ablation window, and vs the unpruned reference (labels both hold).
+        for tag in V["delta_tags"]:
             partner = partner_arm(model, k, tag)
             other = all_rows.get(partner) if partner and partner != arm else None
             common = [l for l in labels if other is not None and l in rows and l in other]
@@ -470,7 +551,8 @@ def main() -> None:
         s = stars(float(p)) if p != "" else ""
         return f"{r[name]:{fmt}}" + (f"$^{{{s}}}$" if s else "") + (r"$^\dagger$" if r["partial"] else "")
 
-    K_LIST, METHODS, flat = V["k_list"], V["methods"], not V["merge_ctx"]
+    K_LIST, METHODS, flat = V["k_list"], V["methods"], not V["ctx_reference"]
+    ctx_method = V["ctx_method"] if V["ctx_recency"] else None
     lines = [r"% Generated by paper/token_prune/aggregate.py -- do not edit by hand.",
              r"\begin{tabular}{l l " + "cc " * len(K_LIST) + "}", r"\toprule",
              " & & " + " & ".join(rf"\multicolumn{{2}}{{c}}{{$k={k}$}}" for k in K_LIST) + r" \\",
@@ -481,18 +563,20 @@ def main() -> None:
         ref_txt = f"{ref['sr']:.2f} / {ref['spl']:.3f}" if ref else "--"
         ref_name = "unpruned reference" if flat else "32-frame reference"
         lines.append(rf"\multicolumn{{{2 + 2 * len(K_LIST)}}}{{l}}{{\emph{{{MODELS[m]}}}, {ref_name} SR / SPL = {ref_txt}}} \\")
-        for method in (() if flat else ("recency",)) + METHODS:
+        for method in ((ctx_method,) if ctx_method else ()) + METHODS:
             cells = []
             for k in K_LIST:
-                arm = tpl.format(k) if method == "recency" else f"{m}_{method}_b{k}"
+                arm = tpl.format(k) if method == ctx_method else f"{m}_{method}_b{k}"
                 cells += [cell(arm, "sr", ".2f"), cell(arm, "spl", ".3f")]
             lines.append(f"{MODELS[m]} & {method} & " + " & ".join(cells) + r" \\")
         lines.append(r"\midrule")
     lines[-1] = r"\bottomrule"
     lines += [r"\end{tabular}"]
     lines += [r"% $k$ = frames' worth of history tokens kept; every method scores and deletes at decoder layer 0",
-              r"% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window). Stars: paired sign-flip test vs",
-              r"% the same-$k$ random arm, *p<0.05 **p<0.01 ***p<0.001; $\dagger$ = arm still partial.",
+              r"% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window). kl\_keep\_one / recency keep",
+              r"% exactly $k$ whole frames. window row: the ctx-ablation recency arm with $k$ frames visible",
+              r"% including the current one ($k-1$ history frames, text history cut too). Stars: paired sign-flip",
+              r"% test vs the same-$k$ random arm, *p<0.05 **p<0.01 ***p<0.001; $\dagger$ = arm still partial.",
               ] if flat else [
               r"% $k$ = frames' worth of history tokens kept (recency row: the ctx-ablation arm with $k$ frames",
               r"% visible including the current one, i.e. $k-1$ history frames). Stars: paired sign-flip test vs",
@@ -516,7 +600,7 @@ def main() -> None:
     if any(r["partial"] for r in summary):
         print("* = partial arm (interim numbers on fewer episodes)")
     print(f"\nwrote {out / 'per_episode.csv'}, {out / 'summary.csv'}, {out / 'table.tex'}, {out / 'n_tokens.csv'}, "
-          f"{out / 'masks.parquet'}, {out / 'retention.csv'}")
+          f"{out / 'masks.parquet'}, {out / 'retention.csv'}" + (f", {out / 'kl_select.csv'}" if selects else ""))
 
 
 if __name__ == "__main__":

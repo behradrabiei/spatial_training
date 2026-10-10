@@ -467,6 +467,19 @@ def dart_select(key_norms, hidden, candidate_idx, capacity, n_pivots=8):
     return candidate_idx[kept.cpu()]
 
 
+# Whole-frame selectors (paper/token_prune flat, Exp 4b): the budget is k FRAMES, every candidate
+# slot of a kept frame survives and every slot of a dropped frame goes. 'kl_keep_one' ranks the
+# pool by the keep-one-in KL of each frame, 'recency' by frame id (the k newest).
+WHOLE_FRAME_MODES = ("kl_keep_one", "recency")
+
+
+def topk_frames(frames, scores, k):
+    """The ``k`` frames with the largest score; ties go to the NEWER frame (larger id). Returns
+    the kept frame ids sorted ascending; every frame when ``k`` covers them all."""
+    order = sorted(range(len(frames)), key=lambda i: (-float(scores[i]), -int(frames[i])))
+    return sorted(int(frames[i]) for i in order[:int(k)])
+
+
 def pack_keep_bits(state, alive, turns):
     """Per-turn keep masks over each turn's ORIGINAL raster list, packed to one base64 string
     (turn order, then raster order), plus the surviving visual count per turn. `alive` is the

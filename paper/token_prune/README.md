@@ -211,6 +211,8 @@ Methods (PyramidDrop is layer-staged by construction and is left out; its code i
 | `divprune` | as above (input embeddings) | `vlm.kv_prune_importance=divprune` | `--prune-method divprune --prune-layer 0` |
 | `fastv` | last-text-token attention **of decoder layer 0**, mean over heads → top-`B'` | `vlm.kv_prune_importance=attn vlm.kv_prune_score_layer=0` | `--prune-method fastv --prune-layer 0` |
 | `dart` | pivots = L1 norm of the **layer-0 keys**, cosine on the **layer-0 output** hidden states (the layer-0 *input* is DivPrune's embedding DB) | `vlm.kv_prune_importance=dart` (`kv_prune_layer_start` stays 0) | `--prune-method dart --prune-layer 0` |
+| `kl_keep_one` (2026-10-09) | **whole frames**: keep exactly the `k` pool frames with the largest keep-one-in KL, `KL(P(action \| only frame f's visual tokens) ‖ P(action \| no visual tokens))`; reference = every visual token hidden, the current frame's included (Exp 3's `keep_one` measure); ties → the newer frame | `vlm.kv_prune_importance=kl_keep_one` | `--prune-method kl_keep_one --prune-layer 0` |
+| `recency` (2026-10-09) | **whole frames**: keep the `k` newest pool frames (the control for `kl_keep_one`: what age alone buys in this exact regime) | `vlm.kv_prune_importance=recency` | `--prune-method recency --prune-layer 0` |
 
 `k ∈ {32, 16, 8, 4}` → 2 models × 4 methods × 4 budgets = 32 arms + 2 identity arms, same arm
 names as above under the flat root (LongNav-R1 logs to its own wandb project `longnav_paper_flat`,
@@ -229,6 +231,32 @@ assembled prompt (rows deleted by earlier inferences already absent), select, dr
 then the real prefill — so the budget holds inside the same inference and the four methods differ in
 the selection rule only. Up to two frames enter per inference, so the pool is at most `B' + 8`.
 
+*Whole-frame arms (`kl_keep_one`, `recency`; added 2026-10-09).* These test the **measure itself**:
+is the keep-one-in KL — the quantity the paper uses to define a frame's information — a good
+selection criterion? The budget is `k` whole frames (the pool frames that keep their tokens; the
+dropped frames lose every token). On LongNav-R1 the pool is every turn still holding a visual slot
+(survivors + the frame just decided), so at a pruning step it is always `k+1` frames and one leaves;
+`kl_keep_one` scores it on the pre-prune cache with the retained keep-one replay
+(`PruningMixin._whole_frame_select` → `DiagnosticsMixin._keep_one_frame_kls`, the code of
+`vlm.kv_prune_influence_measures=[keep_one]`): one decision replay with every visual column masked
+(the no-visual reference) plus one per pool frame with only that frame's columns open — `k+2`
+single-token replays per step, evict-style (the other cached tokens' K/V already absorbed the frames
+that left, like every flat arm). On Uni-NaVid the pool is the history groups (≤ `k+2` frames), scored
+in the layer-0 pre-pass by full-prompt forwards with `layer_blind.ColumnBlinder` closing every visual
+column (history groups, current group, the 64 fine tokens) except the probed frame's group — the
+paper's `keep_one_mask` probe — batched 8 per forward (`--probe-batch` fixed at 8), ≤ `ceil((k+3)/8)`
+forwards per inference, leak-free by construction (no cache across inferences). `recency` is the
+same code path with score = frame id and no replay. Per step the pool, scores and survivors are
+logged (R1: `sup/kl_select` in `sequence.json`; Uni-NaVid: `score` / `n_probes` in
+`prune/<label>.jsonl`), and `aggregate.py` summarises them in `results/kl_select.csv`: mean age and
+score of the kept / dropped frames, how often the dropped set held the oldest pool frame (= the
+recency rule's choice) and probes per step. The flat table/figure also carry the ctx-ablation
+recency windows (`r1_evict_k{k}` / `uninavid_k{k}`, method `window`, drawn at `k-1` history frames)
+— an approximate control only: those arms cut the text/action history with the frames
+(`context_cut=frame`, evict mode), whereas every flat arm keeps all text. Token counts: whole-frame
+arms hold `k` frames' own tokens rather than `k ×` the running mean, so `kv_len_mean` matches the
+token-budget arms on average, not step by step.
+
 ```bash
 VARIANT=flat nohup bash paper/token_prune/run_all.sh > /dev/null 2>&1 &     # 34 arms, one GPU
 VARIANT=flat ARMS="r1_fastv_b8" bash paper/token_prune/run_r1.sh            # or per family / arm
@@ -245,8 +273,11 @@ conda run -n vln python paper/token_prune/plot.py --variant flat
 Identity: `r1_identity` must reproduce the ctx ablation's `r1_full` episode for episode
 (`aggregate.py --variant flat --check-identity`); `uninavid_identity` at 64 frames is a new unpruned
 reference with no ctx-ablation counterpart. `figures/budget_curves.{pdf,png}`: SR and SPL vs frames'
-worth, one plain line per method — no reference line, no recency curve, no error bars (the CIs are in
-`results/summary.csv`). Tests: `tests/vtp_flat_smoke.py`, `baselines/tests/test_prune.py` (`FlatHookTests`).
+worth, one plain line per method — no reference line, no error bars (the CIs are in
+`results/summary.csv`); since 2026-10-09 the ctx-ablation recency windows are the black squares.
+Tests: `tests/vtp_flat_smoke.py` (incl. the whole-frame checks 5–6: stubbed-score selection on CPU,
+and on the GPU the selector's scores equal the `keep_one` diagnostic's row on the same cache),
+`baselines/tests/test_prune.py` (`FlatHookTests`, `WholeFrameTests`).
 
 ### Flat-variant findings (sweep complete 2026-09-18; 100 episodes per arm; SR / SPL / mean steps)
 
@@ -293,6 +324,52 @@ reference shift (full context .84 vs 32-frame window .89 SR, n.s.). This is cons
 does not affect the ranking of methods, but flat and Exp 4 numbers at the same k are not interchangeable. A
 text-only window would be needed to test it directly. Most added failures are "reached the goal, never issued
 stop" (63 % of flat DivPrune k = 8 failures end within 1 m of the goal at the 500-step cap).
+
+### Keep-one KL as the criterion (whole-frame arms, sweep complete 2026-10-10; SR / SPL / mean steps)
+
+| arm | LongNav-R1 k=4 | k=8 | k=16 | k=32 | Uni-NaVid k=4 | k=8 | k=16 | k=32 |
+|---|---|---|---|---|---|---|---|---|
+| kl_keep_one | .49/.195/329 | **.78/.340/216** | .79/.390/173 | .82/.456/142 | .64/.314/165 | .67/.338/148 | .73/.339/170 | .80/.426/117 |
+| recency (whole frames) | .51/.200/324 | .64/.314/239 | .73/.388/184 | .87/.462/128 | .55/.321/99 | .71/.394/128 | .74/.424/116 | .70/.391/122 |
+| random (above) | .42/.163/361 | .59/.265/275 | .74/.368/196 | .82/.432/143 | .69/.346/112 | .71/.376/117 | .72/.394/117 | .69/.425/125 |
+| window (Exp 1, k−1 history frames) | .70/.282/261 | .73/.361/211 | .85/.420/146 | .89/.474/112 | .57/.289/110 | .68/.378/109 | .71/.383/123 | .76/.430/99 |
+
+Paired deltas (sign-flip, 100 episodes) are in `results/summary.csv` (`*_vs_random`, `*_vs_window`,
+`*_vs_ref`); the selection statistics in `results/kl_select.csv`.
+
+**F5 — the keep-one KL beats random at one budget on LongNav-R1, ties elsewhere.** At k = 8 the KL arm is far
+above random (SR +0.19, p < 0.001; SPL +0.075, p = 0.011; −59 steps) and above FastV (+0.14 SR, p = 0.005);
+at k = 4 it beats FastV (+0.20 SR, p < 0.001) and random on steps only (−33, p = 0.035; SR +0.07, n.s.); at
+k = 16 / 32 it ties random (SR +0.05 / 0.00, SPL +0.02 both n.s.). Against the exact whole-frame recency control
+it wins only at k = 8 (SR +0.14, p = 0.002; SPL +0.026, p = 0.040) and ties at k = 4 / 16 / 32 (SR −0.02 / +0.06
+/ −0.05, all n.s.; at k = 32 recency is 13 steps shorter, p = 0.02). The selection log explains the proximity:
+the KL arm drops the oldest pool frame on 33 % (k = 32) to 60 % (k = 4) of its pruning steps and keeps frames
+whose mean age is within a frame of recency's (16.3 vs 15.5 at k = 32, 1.9 vs 1.5 at k = 4) — on LongNav-R1 the
+keep-one KL is a recency rule with content-driven exceptions (its values decay .06 → 4e-4 over ages 0–12, as in
+Exp 3), and the exceptions pay off at k = 8 only.
+
+**F6 — on Uni-NaVid the keep-one KL ranks by content, and that costs efficiency.** The KL arm keeps old frames
+(mean age kept 21–24 at every k vs recency's 2.5–16; the oldest pool frame is dropped on only 4–8 % of
+pruning steps) and it is at best even with random on SR (+0.11 at k = 32, p = 0.02, the one gain; −0.05 … +0.01
+elsewhere) while taking +32 … +54 more steps at k ≤ 16 (all p ≤ 0.045) with SPL −0.03 … −0.06 (vs recency at
+k = 16: SPL −0.085, p = 0.007). Uni-NaVid's age-flat keep-one values (.13–.26 at every age, cf. Exp 3) mean the
+rule hoards whichever frames look informative on their own, and the policy wanders longer. Whole-frame recency
+is itself no better than random there (SR −0.14 at k = 4, p = 0.021; ties above).
+
+**F7 — the full text history is what separates the flat random arm from Exp 4 (the open question of F3).**
+The whole-frame `recency` arm holds exactly the frames of the ctx-ablation window with one more
+(k kept + the current one vs K = k frames) and differs only in keeping every past turn's text/action tokens
+(header cut, nothing aged out); it is *below* that window on LongNav-R1 at every k ≤ 16: SR .51 vs .70 (k = 4),
+.64 vs .73 (k = 8), .73 vs .85 (k = 16), .87 vs .89 (k = 32), SPL −0.09 / −0.05 / −0.03 / −0.01. Unbounded
+action-text history hurts this model by about 0.1 SR at small frame budgets; the flat arms share that handicap,
+so their ranking stands but their absolute numbers sit below Exp 4's. On Uni-NaVid the two coincide (±0.06 SR).
+
+Reading: the keep-one KL is a faithful measure of what a frame contributes on its own, but as an online
+selection criterion it buys little — on LongNav-R1 it mostly re-derives age, on Uni-NaVid it keeps old
+frames the policy then over-weights. It costs k+2 decision replays per step (R1) or ⌈(k+3)/8⌉ full forwards
+per inference (Uni-NaVid), against none for random/recency. Together with Exp 8 (the heuristics do not track
+the KL) this closes the selector question from both ends: the heuristics are not the measure, and the measure
+is not a good selector.
 
 Audit (2026-09-19): all 34 saved configs/manifests match the protocol; interrupted-and-resumed arms hold only
 complete episodes, 100 unique labels each; reruns of 10 episodes of `r1_random_b8`, `r1_divprune_b8` (mask log

@@ -44,7 +44,13 @@ RECENCY = dict(color="black", marker="s", markersize=4, linestyle="-", label="re
 PANELS = {"sr": "Success rate", "spl": "SPL"}
 DODGE = 0.15  # x offset between methods so error bars at the same budget stay legible
 WINDOW = 31
-FLAT_METHODS = ("random", "fastv", "divprune", "dart")  # PyramidDrop is layer-staged by construction
+# Flat variant only (METHODS above also sets the windowed figure's dodge, so it stays as published):
+# the whole-frame arms added 2026-10-09 -- keep-one KL ranking and plain frame recency.
+FLAT_STYLES = METHODS | {
+    "kl_keep_one": dict(color="tab:brown", label="Keep-one KL"),
+    "recency": dict(color="tab:olive", label="Recency (frames)"),
+}
+FLAT_METHODS = ("random", "fastv", "divprune", "dart", "kl_keep_one", "recency")  # no PyramidDrop (layer-staged)
 
 
 def load_rows(path: Path) -> list[dict]:
@@ -117,16 +123,22 @@ def draw_budget_panel(ax, summary, model, metric, show_legend):
 
 
 def draw_flat_panel(ax, summary, model, metric, show_legend):
-    """Flat variant: one plain line per method -- no recency curve, no error bars; the unpruned
-    identity arm (full context / 64 frames) is the dotted reference."""
+    """Flat variant: one plain line per method, no error bars; the unpruned identity arm (full
+    context / 64 frames) is the dotted reference and the ctx-ablation recency windows (merged by
+    aggregate.py as method 'window', at k-1 history frames) the black squares."""
     missing = []
     ident = series(summary, model, "identity")
     if ident:
         ax.axhline(fl(ident[0][metric]), color="gray", linestyle=":", linewidth=1.6, label="Unpruned")
     else:
         missing.append("identity")
+    win = series(summary, model, "window")
+    if win:
+        ax.plot([fl(r["frames_worth"]) for r in win], [fl(r[metric]) for r in win], linewidth=1, **RECENCY)
+    else:
+        missing.append("window")
     for method in FLAT_METHODS:
-        style = METHODS[method]
+        style = FLAT_STYLES[method]
         rows = series(summary, model, method)
         if not rows:
             missing.append(method)
@@ -173,10 +185,11 @@ def figure_budget(summary, out: Path, draw_panel=None, legend_top=False):
         rect = None
         if legend_top:
             handles, names = axes[0][0].get_legend_handles_labels()
-            fig.legend(handles, names, loc="upper center", ncol=len(handles), fontsize=12, frameon=False,
+            ncol = min(len(handles), 4)  # more than four entries wrap onto a second legend row
+            fig.legend(handles, names, loc="upper center", ncol=ncol, fontsize=12, frameon=False,
                        handlelength=1.6, columnspacing=1.0)
             fig.supxlabel("history tokens kept (frames' worth)", fontsize=14)
-            rect = (0, 0, 1, 0.93)
+            rect = (0, 0, 1, 0.93 if len(handles) <= ncol else 0.87)
         for model, m in missing.items():
             if m:
                 print(f"[budget_curves] {model}: no data yet for {', '.join(m)}")

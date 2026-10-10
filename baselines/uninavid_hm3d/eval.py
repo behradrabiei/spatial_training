@@ -556,9 +556,17 @@ class PrunePolicy(UniNaVidPolicy):
             raise ValueError("token pruning needs a finite context window and the full visual stream")
         from uninavid_hm3d.prune import TokenPruner
 
+        action_ids = None
+        if prune_method == "kl_keep_one":
+            # The probes' action distribution: the same word-initial action tokens the influence
+            # probes score.
+            from uninavid_hm3d.influence import FrameInfluenceProbe
+
+            action_ids = FrameInfluenceProbe._resolve_action_ids(self.tokenizer)
         self.pruner = TokenPruner(prune_method, prune_k, image_token_index=self.image_token_index,
                                   seed=prune_seed, n_pivots=prune_pivots, layer=prune_layer,
-                                  scope=prune_budget_scope, anchor=prune_schedule_anchor)
+                                  scope=prune_budget_scope, anchor=prune_schedule_anchor,
+                                  action_ids=action_ids)
         self.pruner.install(self.model)
 
     def reset(self, episode_label: str | None = None) -> None:
@@ -1296,13 +1304,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--prune-method",
-        choices=["identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform"],
+        choices=["identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform",
+                 "kl_keep_one", "recency"],
         default="identity",
         help=(
             "Persistent pruning of the history tokens under the context window "
             "(paper/token_prune); identity installs nothing. uniform (paper/hybrid_prune): a uniform "
             "layer-0 draw below decoder layer 20 and every visual token hidden from layer 20 on; "
-            "needs --prune-budget-scope model"
+            "needs --prune-budget-scope model. kl_keep_one / recency (paper/token_prune flat, whole "
+            "frames): keep the k history frames with the largest keep-one KL, KL(P(action | only that "
+            "frame's group) || P(action | no visual column)), or the k newest; need --prune-layer 0"
         ),
     )
     parser.add_argument(
@@ -1406,6 +1417,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             parser.error("--prune-method uniform needs --prune-budget-scope model")
         if args.prune_layer is not None and args.prune_method in staged:
             parser.error(f"--prune-layer has no {args.prune_method} variant (its stages are the method)")
+        if args.prune_method in ("kl_keep_one", "recency") and args.prune_layer != 0:
+            parser.error(f"--prune-method {args.prune_method} is a layer-0 pre-pass method (whole frames by row "
+                         "removal); pass --prune-layer 0")
         frames = args.context_frames if args.context_frames is not None else args.context_window + 1
         if frames > 64:
             parser.error("--prune-method needs --context-frames <= 64 (Uni-NaVid's long-term tier starts "
