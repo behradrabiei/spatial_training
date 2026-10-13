@@ -33,12 +33,12 @@ class ConfigTests(unittest.TestCase):
                 normalize_inference_config(OmegaConf.create({'vlm': {key: value}}))
 
     def test_whole_frame_selectors_validate(self):
-        """kl_keep_one / recency (paper/token_prune flat, Exp 4b) need the flat prune regime and an
-        integer frame budget; everything else is refused."""
+        """kl_keep_one / entropy_keep_one / recency (paper/token_prune flat, Exp 4b) need the flat
+        prune regime and an integer frame budget; everything else is refused."""
         from longnav.utils.vlm_worker import VLMWorker
         flat = dict(load_model=False, use_sparse=True, context_window_mode='prune',
                     kv_prune_candidate_scope='visual', kv_prune_recent_turns=0, kv_prune_budget_frames=4)
-        for method in ('kl_keep_one', 'recency'):
+        for method in ('kl_keep_one', 'entropy_keep_one', 'recency'):
             VLMWorker(kv_prune_importance=method, **flat)
             for bad in (dict(kv_prune_budget_frames=None), dict(kv_prune_budget_frames=2.5),
                         dict(kv_prune_stages=[7]), dict(kv_prune_candidate_scope='all'),

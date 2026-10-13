@@ -1,0 +1,28 @@
+{
+  "blind_layer": null,
+  "budget_scope": "last_stage",
+  "budget_tokens": 64,
+  "first_hidden_layer": 0,
+  "frame_level": true,
+  "k": 16,
+  "kl_reference": null,
+  "method": "entropy_keep_one",
+  "n_per_frame": 4,
+  "pivots": null,
+  "placement": "layer0-prepass",
+  "probe_batch": 8,
+  "protocol": "permanent deletion",
+  "prune_layer": 0,
+  "query": "H(P(action | only frame f's group)), last prompt position; the k LOWEST survive",
+  "removal": "rows",
+  "schedule_anchor": null,
+  "seed": null,
+  "stage_selectors": null,
+  "stages": [
+    [
+      0,
+      0
+    ]
+  ],
+  "tail_budget_tokens": null
+}

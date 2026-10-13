@@ -313,6 +313,23 @@ class DiagnosticsMixin:
         return [self._action_kl(base_logp.to(ablated_logp.device), ablated_logp), _round_list(ablated_logp)]
 
 
+    def _keep_one_frame_logps(self, base_bias, frames, layers):
+        """The only-f decisions: ``{frame: log P(action | only f's visual slots)}`` for the
+        ``frames`` holding a visual slot, one replay each in ``frames`` order with EVERY other
+        visual slot hidden (the current frame's included) on ``layers`` (None = every layer).
+        Frames with no visual slot replay nothing and are absent (only-f == no visual). The
+        per-frame loop of the keep-one measure; the 'entropy_keep_one' selector reads it alone."""
+        ps = self._kv_prune_state
+        per_frame = {}
+        for f in frames:
+            mine = ps.is_visual & (ps.turn_id == f)
+            if not bool(mine.any()):
+                continue
+            per_frame[int(f)] = self._replay_action_logp(
+                base_bias, extra=self._replay_ablation_term(ps.is_visual & ~mine), extra_layers=layers)
+        return per_frame
+
+
     def _keep_one_frame_kls(self, base_bias, frames, layers, vis_logp=None):
         """Keep-one-in replays over the action distribution.
 
@@ -328,15 +345,17 @@ class DiagnosticsMixin:
         if vis_logp is None:
             vis_logp = self._replay_action_logp(
                 base_bias, extra=self._replay_ablation_term(ps.is_visual), extra_layers=layers)
-        per_frame = {}
-        for f in frames:
-            mine = ps.is_visual & (ps.turn_id == f)
-            if not bool(mine.any()):
-                continue
-            only_logp = self._replay_action_logp(
-                base_bias, extra=self._replay_ablation_term(ps.is_visual & ~mine), extra_layers=layers)
-            per_frame[int(f)] = (self._action_kl(only_logp, vis_logp), only_logp)
-        return vis_logp, per_frame
+        per_frame = self._keep_one_frame_logps(base_bias, frames, layers)
+        return vis_logp, {f: (self._action_kl(lp, vis_logp), lp) for f, lp in per_frame.items()}
+
+
+    @staticmethod
+    def _action_entropy(logp):
+        """Entropy in nats of a log action distribution (fp32, clamped at 0)."""
+        import torch
+
+        h = -torch.sum(logp.exp() * logp)
+        return max(float(h.detach().cpu()), 0.0)
 
 
     def _score_layer_frame_influence(self, visual_mask, forced):

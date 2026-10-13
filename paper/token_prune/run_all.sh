@@ -10,7 +10,7 @@
 # The chain stops if an identity arm does not reproduce its reference (aggregate.py
 # --check-identity); pass IDENTITY_TOLERANCE=1 to accept Uni-NaVid's sampling noise.
 #
-# VARIANT=flat chains the flat variant (34 arms, log under paper_results/token_prune_flat/runs).
+# VARIANT=flat chains the flat variant (58 arms, log under paper_results/token_prune_flat/runs).
 # Its identity check compares r1_identity with the ctx ablation's r1_full; Uni-NaVid's 64-frame
 # identity arm has no reference run and is not gated.
 set -uo pipefail

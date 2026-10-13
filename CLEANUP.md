@@ -18,7 +18,8 @@ legacy diversity/grid/voxel selection, KL/keep-one selection, Fisher, cache merg
 budget pruning. KL/keep-one probes, gradient attention attribution, BEV positions, sparse filtering,
 Habitat metrics, stopping, visualization, and Uni-NaVid interfaces remain. (2026-10-09: a whole-frame
 keep-one KL selector, `kl_keep_one`, and its `recency` control were added for the flat token-prune
-study on top of the retained probe; the removed token-level `kl` / `keep_one` selectors stay removed.)
+study on top of the retained probe, and 2026-10-12 a minimum-entropy variant, `entropy_keep_one`, on the
+same probes; the removed token-level `kl` / `keep_one` selectors stay removed.)
 
 The server initializes at application startup and uses the correct prompt location. Evaluation keeps
 one collection queue until its finite split ends, avoiding loss of prefetched episodes between

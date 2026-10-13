@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Iterator, Optional, Tuple
 from string import Template
 from PIL import Image
 from longnav.utils.vlm_worker import VLMWorker
+from longnav.utils.kv_prune import WHOLE_FRAME_MODES
 import numpy as np
 import time 
 
@@ -229,7 +230,7 @@ class EpisodeRolloutMixin:
                         # prune (raw in sequence.json as sup/vtp_*; see VLMWorker._log_vtp). With
                         # kv_prune_log_masks off only the scalar mean/vtp_n_new is carried.
                         vlm_logs |= dict(self._vtp_log)
-                    if getattr(self, "kv_prune_importance", None) in ("kl_keep_one", "recency"):
+                    if getattr(self, "kv_prune_importance", None) in WHOLE_FRAME_MODES:
                         # Whole-frame selection (paper/token_prune flat, Exp 4b): the pool frames,
                         # their rank scores and who survived (raw in sequence.json as
                         # sup/kl_select; {} on a step that pruned nothing).

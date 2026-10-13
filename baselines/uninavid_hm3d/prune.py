@@ -66,15 +66,18 @@ NAV_TOKENS = 64
 LENGTH_THRESHOLD = 64
 SIMILARITY_THRESHOLD = 0.985
 METHODS = ("identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform",
-           "kl_keep_one", "recency")
+           "kl_keep_one", "entropy_keep_one", "recency")
 INPUT_LEVEL = ("random", "divprune")
 # Whole-frame selectors (paper/token_prune flat, Exp 4b): exactly k history frames (4-token groups)
 # survive. kl_keep_one ranks a frame by KL(P(action | only its group visible) || P(action | no visual
 # column)) -- the reference closes every history group, the current frame's group and its 64 fine
-# tokens, by column masking on every layer -- recency by frame id. Both are layer-0 pre-pass
-# methods (--prune-layer 0): they need the assembled prompt and delete by row removal.
-WHOLE_FRAME = ("kl_keep_one", "recency")
-PROBE_BATCH = 8  # kl_keep_one: keep-one probes per full forward
+# tokens, by column masking on every layer; entropy_keep_one (2026-10-12) by the entropy of the
+# same only-f distribution, keeping the k LOWEST (no reference probe); recency by frame id. All
+# are layer-0 pre-pass methods (--prune-layer 0): they need the assembled prompt and delete by
+# row removal.
+WHOLE_FRAME = ("kl_keep_one", "entropy_keep_one", "recency")
+PROBE_METHODS = ("kl_keep_one", "entropy_keep_one")  # whole-frame methods that run keep-one probes
+PROBE_BATCH = 8  # keep-one probes per full forward
 UNIFORM_BLIND_LAYER = 20  # uniform: first visual-blind decoder layer (LongNav-R1 cuts at 18 of 28)
 # (scoring layer, first hidden layer) per stage; LLaMA-7B has 32 decoder layers. A stage without
 # a scoring layer is a random stage, drawn when its first hidden layer runs. 'uniform'
@@ -336,11 +339,13 @@ def describe(method: str, k: int | None, seed: int, n_pivots: int, layer: int | 
         "seed": seed if method in ("random", "hybrid", "uniform") else None,
         "query": "last prompt token, mean over heads" if method in ("fastv", "pyramiddrop", "hybrid")
         else "KL(P(action | only frame f's group) || P(action | no visual column)), last prompt position"
-        if method == "kl_keep_one" else None,
+        if method == "kl_keep_one"
+        else "H(P(action | only frame f's group)), last prompt position; the k LOWEST survive"
+        if method == "entropy_keep_one" else None,
         "frame_level": method in WHOLE_FRAME,  # whole 4-token groups: exactly k frames survive
         "kl_reference": "every visual column closed (history groups, current group, 64 fine tokens)"
         if method == "kl_keep_one" else None,
-        "probe_batch": PROBE_BATCH if method == "kl_keep_one" else None,
+        "probe_batch": PROBE_BATCH if method in PROBE_METHODS else None,
         "stage_selectors": ["random", "blind"] if method in BLIND_STAGE else None if method != "hybrid"
         else ["random" if sc is None else "attn" for sc, _ in stages],
         "tail_budget_tokens": TAIL_FRAMES * N_PER_FRAME if method == "hybrid" else 0 if method in BLIND_STAGE else None,
@@ -366,12 +371,12 @@ class TokenPruner:
         self.method = method
         self.k = int(k)
         self.budget = self.k * N_PER_FRAME
-        # kl_keep_one: the action words' token ids (the probes' action distribution), the column
-        # blinder its probes close visual columns with, and the unwrapped LlamaModel.forward +
-        # lm_head they run through.
+        # Probe methods: the action words' token ids (the probes' action distribution), the
+        # column blinder the probes close visual columns with, and the unwrapped
+        # LlamaModel.forward + lm_head they run through.
         self.action_ids = None if action_ids is None else [int(i) for i in action_ids]
-        if method == "kl_keep_one" and not self.action_ids:
-            raise ValueError("kl_keep_one needs the action token ids (action_ids)")
+        if method in PROBE_METHODS and not self.action_ids:
+            raise ValueError(f"{method} needs the action token ids (action_ids)")
         self.blinder = None
         self._llama_forward = None
         self._lm_head = None
@@ -484,8 +489,8 @@ class TokenPruner:
             "seconds": self._seconds,
         }
         if self.method in WHOLE_FRAME:
-            # Whole-frame selectors: each history frame's rank score this inference (keep-one KL
-            # or frame id; None when nothing was selected) and the probes it cost.
+            # Whole-frame selectors: each history frame's score this inference (keep-one KL,
+            # only-f entropy or frame id; None when nothing was selected) and the probes it cost.
             record["score"] = [self._frame_score.get(f) for f in self.state.history]
             record["n_probes"] = self._n_probes
         self._clear_inference()
@@ -551,7 +556,7 @@ class TokenPruner:
         self._wrap_online(model)
         if self.prepass:
             self._wrap_prefill(model)
-        if self.method == "kl_keep_one":
+        if self.method in PROBE_METHODS:
             # The probes close visual columns on every layer through the blinder's layer hooks;
             # outside a probe (no hide set) the hooks pass the mask through untouched.
             from uninavid_hm3d.layer_blind import ColumnBlinder
@@ -759,9 +764,11 @@ class TokenPruner:
         self._select(stage, lambda pool: select_random(len(pool), self._budgets[stage], generator))
 
     def _select_frames(self, embeds: torch.Tensor) -> None:
-        """Whole-frame selection on the assembled prompt: the ``k = B'/4`` pool frames with the
-        largest score keep their groups, the others lose theirs (``kl_keep_one``: keep-one KL,
-        ``recency``: frame id; ties go to the newer frame)."""
+        """Whole-frame selection on the assembled prompt: ``k = B'/4`` pool frames keep their
+        groups, the others lose theirs -- the largest keep-one KL (``kl_keep_one``), the LOWEST
+        only-f entropy (``entropy_keep_one``) or the largest frame id (``recency``); ties go to
+        the newer frame. ``_frame_score`` holds the measure itself (the entropy for the entropy
+        arm, so lower = kept there)."""
         pool = self.state.pool(0)
         frames = list(dict.fromkeys(f for f, _ in pool))
         cols: dict[int, list[int]] = {}
@@ -771,9 +778,12 @@ class TokenPruner:
             raise RuntimeError("whole-frame selection found a partial group; the ledger holds token-level deletions")
         if self.method == "kl_keep_one":
             scores = self._keep_one_kls(embeds, frames, cols)
+        elif self.method == "entropy_keep_one":
+            scores = self._keep_one_entropies(embeds, frames, cols)
         else:
             scores = {f: float(f) for f in frames}
-        kept = set(topk_frames(frames, [scores[f] for f in frames], self._budgets[0] // N_PER_FRAME))
+        sign = -1.0 if self.method == "entropy_keep_one" else 1.0
+        kept = set(topk_frames(frames, [sign * scores[f] for f in frames], self._budgets[0] // N_PER_FRAME))
         self._frame_score = scores
         self._select(0, lambda pool: torch.tensor([i for i, (f, _) in enumerate(pool) if f in kept],
                                                   dtype=torch.long))
@@ -782,18 +792,37 @@ class TokenPruner:
                       cols: dict[int, list[int]]) -> dict[int, float]:
         """``{frame: KL(P(action | only its group) || P(action | no visual column))}`` -- the
         reference closes every history group (the current frame's included) and the 64 fine
-        tokens on every layer; probe f reopens frame f's group. One full forward per
-        ``PROBE_BATCH`` probes through the unwrapped ``LlamaModel.forward``; the action
+        tokens on every layer; probe f reopens frame f's group."""
+        from uninavid_hm3d.influence import kl_divergence
+
+        logps = self._keep_one_logps(embeds, frames, cols, with_reference=True)
+        return {f: kl_divergence(lp, logps[0]) for f, lp in zip(frames, logps[1:])}
+
+    def _keep_one_entropies(self, embeds: torch.Tensor, frames: Sequence[int],
+                            cols: dict[int, list[int]]) -> dict[int, float]:
+        """``{frame: H(P(action | only its group))}`` -- the same only-f probes as
+        ``_keep_one_kls`` without the no-visual reference."""
+        from uninavid_hm3d.influence import entropy
+
+        logps = self._keep_one_logps(embeds, frames, cols, with_reference=False)
+        return {f: entropy(lp) for f, lp in zip(frames, logps)}
+
+    def _keep_one_logps(self, embeds: torch.Tensor, frames: Sequence[int], cols: dict[int, list[int]],
+                        with_reference: bool) -> list[list[float]]:
+        """The probes' action log-probs: optionally the no-visual reference first (every visual
+        column closed: history groups, the current frame's group and its 64 fine tokens, on
+        every layer), then one row per frame with only that frame's group open. One full forward
+        per ``PROBE_BATCH`` probes through the unwrapped ``LlamaModel.forward``; the action
         distribution is the renormalised softmax over the action words at the last position
-        (``influence.action_logp``)."""
-        from uninavid_hm3d.influence import action_logp, kl_divergence
+        (``influence.action_logp``). Sets ``_n_probes``."""
+        from uninavid_hm3d.influence import action_logp
 
         q = int(embeds.shape[1])
         all_visual = torch.zeros(q, dtype=torch.bool)
         for c in self._col.values():
             all_visual[c] = True
         all_visual |= self._current_columns(self._flat_spans, q)
-        hides = [all_visual]
+        hides = [all_visual] if with_reference else []
         for f in frames:
             hide = all_visual.clone()
             hide[cols[f]] = False
@@ -810,7 +839,7 @@ class TokenPruner:
         finally:
             self.blinder.finish()
         self._n_probes = len(hides)
-        return {f: kl_divergence(lp, logps[0]) for f, lp in zip(frames, logps[1:])}
+        return logps
 
     def _score_and_select(self, stage: int, attn: torch.Tensor, hidden: torch.Tensor,
                           present: tuple[torch.Tensor, torch.Tensor] | None) -> None:

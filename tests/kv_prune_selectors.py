@@ -66,6 +66,10 @@ def test_topk_frames():
     assert topk_frames([3, 7], [0.0, 0.0], 5) == [3, 7]
     assert topk_frames([], [], 2) == []
     assert topk_frames([4, 5, 6], [4, 5, 6], 2) == [5, 6]  # recency: score = frame id
+    # entropy_keep_one ranks by the NEGATED entropy: the lowest-entropy frames survive, ties to the newer
+    H = [0.30, 0.05, 0.30, 1.38, 0.05]
+    assert topk_frames([0, 1, 2, 3, 4], [-h for h in H], 2) == [1, 4]
+    assert topk_frames([0, 1, 2, 3, 4], [-h for h in H], 3) == [1, 2, 4]
 
 if __name__ == "__main__":
     test_partition()

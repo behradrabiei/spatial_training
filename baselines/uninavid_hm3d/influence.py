@@ -72,6 +72,12 @@ def kl_divergence(p_logp: Sequence[float], q_logp: Sequence[float]) -> float:
     return max(float(torch.sum(p.exp() * (p - q))), 0.0)
 
 
+def entropy(logp: Sequence[float]) -> float:
+    """Entropy in nats of a log-prob vector, clamped at 0 (fp32)."""
+    p = torch.as_tensor(list(logp), dtype=torch.float32)
+    return max(float(-torch.sum(p.exp() * p)), 0.0)
+
+
 # ------------------------------------------------------------------------- long-term slots
 class LongTermTracker:
     """Shadow of ``online_process_tensor``'s long-term merge that remembers slot membership.

@@ -170,8 +170,10 @@ class VLMConfig:
     # variant (2026-10-09): kl_keep_one keeps exactly the k frames with the largest keep-one-in
     # KL, KL(P(action | only that frame's visual slots) || P(action | no visual slot)), measured
     # by 1 + pool decision replays per step (reference = every visual slot hidden, the current
-    # frame's included); recency keeps the k newest frames. Both need an integer
-    # kv_prune_budget_frames and log the pool/scores/survivors as sup/kl_select.
+    # frame's included); entropy_keep_one (2026-10-12) keeps the k frames whose only-f decision
+    # has the LOWEST entropy (the per-frame replays alone, no reference); recency keeps the k
+    # newest frames. All need an integer kv_prune_budget_frames and log the pool/scores/survivors
+    # as sup/kl_select.
     kv_prune_budget_frames: Optional[float] = None
     kv_prune_stages: Optional[List[int]] = None  # first layer of each PyramidDrop stage (ascending; 0 = every layer pruned)
     # --- paper/hybrid_prune: per-stage rule on top of kv_prune_stages. kv_prune_stage_importance

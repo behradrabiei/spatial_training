@@ -113,7 +113,8 @@ are implemented in `uninavid/model/uninavid_arch.py`; decoding and action
 buffering are controlled by [uninavid_hm3d/eval.py](uninavid_hm3d/eval.py). No training runtime is required.
 
 Retained pruning methods are `identity`, `random`, `fastv`, `pyramiddrop`, `divprune`,
-`dart`, `hybrid`, and `uniform` (`--prune-method`). Budget scope is `last_stage` or `model`;
+`dart`, `hybrid`, `uniform`, and the whole-frame `kl_keep_one`, `entropy_keep_one` and
+`recency` (`--prune-method`; the whole-frame ones need `--prune-layer 0`). Budget scope is `last_stage` or `model`;
 `uniform` requires `model`. Use the [windowed/flat pruning protocol](../paper/token_prune/README.md)
 or [hybrid/uniform/PyramidDrop protocol](../paper/hybrid_prune/README.md) for compatible
 windows, budgets, and stages. [prune.py](uninavid_hm3d/prune.py) owns these mechanisms;

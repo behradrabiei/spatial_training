@@ -213,9 +213,10 @@ Methods (PyramidDrop is layer-staged by construction and is left out; its code i
 | `dart` | pivots = L1 norm of the **layer-0 keys**, cosine on the **layer-0 output** hidden states (the layer-0 *input* is DivPrune's embedding DB) | `vlm.kv_prune_importance=dart` (`kv_prune_layer_start` stays 0) | `--prune-method dart --prune-layer 0` |
 | `kl_keep_one` (2026-10-09) | **whole frames**: keep exactly the `k` pool frames with the largest keep-one-in KL, `KL(P(action \| only frame f's visual tokens) ‖ P(action \| no visual tokens))`; reference = every visual token hidden, the current frame's included (Exp 3's `keep_one` measure); ties → the newer frame | `vlm.kv_prune_importance=kl_keep_one` | `--prune-method kl_keep_one --prune-layer 0` |
 | `recency` (2026-10-09) | **whole frames**: keep the `k` newest pool frames (the control for `kl_keep_one`: what age alone buys in this exact regime) | `vlm.kv_prune_importance=recency` | `--prune-method recency --prune-layer 0` |
+| `entropy_keep_one` (2026-10-12) | **whole frames**: the same only-f probes as `kl_keep_one` (only frame f's visual tokens visible, the current frame's hidden too) scored by the entropy of `P(action \| only frame f)` instead of its KL to the no-visual reference; keep the `k` pool frames with the **lowest** entropy (the frames that alone make the decision most certain); no reference replay; ties → the newer frame | `vlm.kv_prune_importance=entropy_keep_one` | `--prune-method entropy_keep_one --prune-layer 0` |
 
-`k ∈ {32, 16, 8, 4}` → 2 models × 4 methods × 4 budgets = 32 arms + 2 identity arms, same arm
-names as above under the flat root (LongNav-R1 logs to its own wandb project `longnav_paper_flat`,
+`k ∈ {32, 16, 8, 4}` → 2 models × 4 methods × 4 budgets = 32 arms + 2 identity arms (plus the
+3 whole-frame methods below: 24 more arms, 58 in all), same arm names as above under the flat root (LongNav-R1 logs to its own wandb project `longnav_paper_flat`,
 because wandb resume keys on project + run name).
 
 *LongNav-R1 mechanics.* Same prune substrate and one-step lag as above: the layer-0 decision row is
@@ -231,9 +232,11 @@ assembled prompt (rows deleted by earlier inferences already absent), select, dr
 then the real prefill — so the budget holds inside the same inference and the four methods differ in
 the selection rule only. Up to two frames enter per inference, so the pool is at most `B' + 8`.
 
-*Whole-frame arms (`kl_keep_one`, `recency`; added 2026-10-09).* These test the **measure itself**:
-is the keep-one-in KL — the quantity the paper uses to define a frame's information — a good
-selection criterion? The budget is `k` whole frames (the pool frames that keep their tokens; the
+*Whole-frame arms (`kl_keep_one`, `recency`; added 2026-10-09; `entropy_keep_one` 2026-10-12).* These
+test the **measure itself**: is the keep-one-in KL — the quantity the paper uses to define a
+frame's information — a good selection criterion? (`entropy_keep_one` asks the same of the
+decisiveness of the only-f decision: the KL decomposes as `KL(P_f ‖ Q) = CE(P_f, Q) − H(P_f)`, so
+the entropy arm keeps the `−H` term and drops the cross-entropy to the no-visual prior `Q`.) The budget is `k` whole frames (the pool frames that keep their tokens; the
 dropped frames lose every token). On LongNav-R1 the pool is every turn still holding a visual slot
 (survivors + the frame just decided), so at a pruning step it is always `k+1` frames and one leaves;
 `kl_keep_one` scores it on the pre-prune cache with the retained keep-one replay
@@ -245,9 +248,12 @@ that left, like every flat arm). On Uni-NaVid the pool is the history groups (�
 in the layer-0 pre-pass by full-prompt forwards with `layer_blind.ColumnBlinder` closing every visual
 column (history groups, current group, the 64 fine tokens) except the probed frame's group — the
 paper's `keep_one_mask` probe — batched 8 per forward (`--probe-batch` fixed at 8), ≤ `ceil((k+3)/8)`
-forwards per inference, leak-free by construction (no cache across inferences). `recency` is the
-same code path with score = frame id and no replay. Per step the pool, scores and survivors are
-logged (R1: `sup/kl_select` in `sequence.json`; Uni-NaVid: `score` / `n_probes` in
+forwards per inference, leak-free by construction (no cache across inferences). `entropy_keep_one` runs
+the same per-frame probes without the reference (R1: `pool` replays per step via
+`DiagnosticsMixin._keep_one_frame_logps`, the loop `_keep_one_frame_kls` shares; Uni-NaVid:
+`≤ ceil((k+2)/8)` forwards) and ranks by `−H`; its logged score is the entropy itself (lower =
+kept). `recency` is the same code path with score = frame id and no replay. Per step the pool,
+scores and survivors are logged (R1: `sup/kl_select` in `sequence.json`; Uni-NaVid: `score` / `n_probes` in
 `prune/<label>.jsonl`), and `aggregate.py` summarises them in `results/kl_select.csv`: mean age and
 score of the kept / dropped frames, how often the dropped set held the oldest pool frame (= the
 recency rule's choice) and probes per step. The flat table/figure also carry the ctx-ablation
@@ -275,8 +281,9 @@ Identity: `r1_identity` must reproduce the ctx ablation's `r1_full` episode for 
 reference with no ctx-ablation counterpart. `figures/budget_curves.{pdf,png}`: SR and SPL vs frames'
 worth, one plain line per method — no reference line, no error bars (the CIs are in
 `results/summary.csv`); since 2026-10-09 the ctx-ablation recency windows are the black squares.
-Tests: `tests/vtp_flat_smoke.py` (incl. the whole-frame checks 5–6: stubbed-score selection on CPU,
-and on the GPU the selector's scores equal the `keep_one` diagnostic's row on the same cache),
+Tests: `tests/vtp_flat_smoke.py` (incl. the whole-frame checks 5–7: stubbed-score selection on CPU,
+and on the GPU the selectors' scores equal the `keep_one` diagnostic's KL row / the entropy of its
+only-f log-prob rows on the same cache),
 `baselines/tests/test_prune.py` (`FlatHookTests`, `WholeFrameTests`).
 
 ### Flat-variant findings (sweep complete 2026-09-18; 100 episodes per arm; SR / SPL / mean steps)
@@ -370,6 +377,79 @@ frames the policy then over-weights. It costs k+2 decision replays per step (R1)
 per inference (Uni-NaVid), against none for random/recency. Together with Exp 8 (the heuristics do not track
 the KL) this closes the selector question from both ends: the heuristics are not the measure, and the measure
 is not a good selector.
+
+### Keep-one entropy as the criterion (whole-frame arms, sweep complete 2026-10-13; SR / SPL / mean steps)
+
+Motivation: `kl_keep_one`'s one gain (R1, k = 8) could come from either term of
+`KL(P_f ‖ Q) = CE(P_f, Q) − H(P_f)`: a frame that *shifts* the decision away from the no-visual
+prior `Q`, or one that merely makes it *certain*. `entropy_keep_one` keeps the `k` frames with the
+lowest `H(P_f)` — a confidence criterion with no reference replay (one replay cheaper per step).
+
+*Offline check before the sweep* (entropy of the only-f log-probs already stored by the Exp 3
+keep-one rerun, `paper_results/frame_influence_keepone/results/influence.csv.gz`; full-context
+pool, 10 episodes per model; R1 1089 steps / 150k frame rows, Uni-NaVid 640 / 123k):
+
+| | LongNav-R1 | Uni-NaVid |
+|---|---|---|
+| within-step Spearman ρ(H, KL) | −0.02 (median −0.08) | −0.67 (median −0.72) |
+| k lowest-H frames == k highest-KL frames, k = 4/8/16/32 | 21 / 12 / 11 / 11 % | 13 / 10 / 6 / 1 % |
+| Jaccard of the two kept sets | .42 / .40 / .43 / .47 | .45 / .55 / .67 / .70 |
+| mean H by age, 1 → ≥ 64 | .37 → .41 → **.27** | 1.14 → 1.25 |
+| mean KL by age, 1 → ≥ 64 | .020 → .0002 | .18 → .03 |
+| argmax of the only-f decision, lowest-H quartile | 86 % "left" (= the no-visual prior) | 98 % "forward" |
+
+On Uni-NaVid the no-visual prior is near-uniform (H ≥ 0.5, mean 1.1–1.25 of ln 4 = 1.386), so
+within a step `KL ≈ const − H` and the two rankings align, though the kept sets still differ
+(entropy tilts newer). On LongNav-R1 the prior is itself a confident "left", so a low entropy
+mostly marks a frame that *agrees* with the prior rather than informs it; the oldest frames
+(KL ≈ 2e-4) are the most "decisive". Prediction: on R1 the entropy arm hoards prior-confirming,
+uninformative frames and lands below `kl_keep_one`; on Uni-NaVid it tracks `kl_keep_one` with a
+recency tilt. (The online pool is `k+1` frames, not the episode, so these overlaps are indicative
+only.)
+
+| arm | LongNav-R1 k=4 | k=8 | k=16 | k=32 | Uni-NaVid k=4 | k=8 | k=16 | k=32 |
+|---|---|---|---|---|---|---|---|---|
+| entropy_keep_one | .40/.152/364 | .57/.229/298 | .64/.289/253 | .71/.363/199 | .60/.289/189 | .71/.337/175 | .64/.325/168 | .75/.394/130 |
+| kl_keep_one (above) | .49/.195/329 | .78/.340/216 | .79/.390/173 | .82/.456/142 | .64/.314/165 | .67/.338/148 | .73/.339/170 | .80/.426/117 |
+| recency (whole frames) | .51/.200/324 | .64/.314/239 | .73/.388/184 | .87/.462/128 | .55/.321/99 | .71/.394/128 | .74/.424/116 | .70/.391/122 |
+| random | .42/.163/361 | .59/.265/275 | .74/.368/196 | .82/.432/143 | .69/.346/112 | .71/.376/117 | .72/.394/117 | .69/.425/125 |
+
+Paired deltas vs random / window / identity are in `results/summary.csv`; the entropy-vs-KL and
+entropy-vs-recency deltas below are paired sign-flip tests over the same 100 episodes; selection
+statistics in `results/kl_select.csv`.
+
+**F8 — on LongNav-R1 the entropy criterion is the worst whole-frame rule, and the KL arm's k = 8 gain
+is entirely the cross-entropy term.** The entropy arm ties random at k ≤ 8 (SR −0.02, n.s.) and is
+below it at k = 16 / 32 (SR −0.10, p = 0.03 / −0.11, p = 0.008; SPL −0.08 / −0.07, p = 0.001; +57
+steps, p < 0.001). Against `kl_keep_one` on the same probes it loses at every k: SR −0.09 (n.s.) /
+−0.21 (p = 0.001) / −0.15 (p = 0.002) / −0.11 (p = 0.018), SPL −0.04 … −0.11, +36 … +82 steps; against
+whole-frame recency SR −0.07 … −0.16 and SPL −0.05 … −0.10 (p ≤ 0.004 on SPL at k ≥ 8). At k = 8,
+where the KL arm was +0.19 SR over random, the entropy arm is −0.02: of `KL = CE(P_f, Q) − H(P_f)`,
+the `−H` term carries none of the gain — what paid off was selecting frames that *move* the decision
+away from the no-visual prior, not frames that make it certain.
+
+**F9 — the mechanism is the one the offline check predicted: decisiveness marks agreement with the
+prior, so the rule hoards old frames and discards the fresh view.** Mean age of the kept frames is
+26 / 27 / 49 / 60 at k = 4 / 8 / 16 / 32 (KL arm 1.9 … 16.3, recency ≤ 16.5); the oldest pool frame is
+dropped on only 24 / 13 / 7 / 5 % of pruning steps (KL 60 … 33 %) and the just-decided frame survives
+on 50 … 57 % of them (KL ≈ 100 %). The kept frames' mean entropy is .43–.47 vs .55 for the dropped —
+a small, stable margin that the prior-confirming old frames win (their only-f decision is the
+confident "left" of the no-visual prior). The policy then wanders: at k = 8, 22 of its 43 failures
+end within 1 m of the goal at the 500-step cap (random 17 of 41, KL 8 of 22).
+
+**F10 — on Uni-NaVid it buys nothing and costs steps.** SR is within noise of random at every k
+(−0.09 … +0.06, all p ≥ 0.11) and of the KL arm (−0.09 … +0.04, n.s.), but at k ≤ 16 the arm takes
++51 … +77 more steps than random (p < 0.001) with SPL −0.04 … −0.07 (vs recency at k = 16: SPL −0.10,
+p = 0.001); only at k = 32 is it even on steps. The selection log matches the KL arm's: kept frames
+21–25 steps old, the oldest dropped on 6–9 % of steps, the newest kept on 22 … 76 % — the same hoarding
+as F6, minus the KL arm's one SR gain at k = 32 (+0.11 → +0.06, n.s.).
+
+Reading: confidence is not information. A frame that alone makes the policy certain is, on
+LongNav-R1, mostly a frame that agrees with what the policy would do blind; the KL's reference term
+is what distinguishes informative frames from merely decisive ones, and the whole-frame selector
+question stays closed — now from a third direction. Cost: `pool` replays per step on LongNav-R1
+(one fewer than the KL arm), `⌈(k+2)/8⌉` forwards per inference on Uni-NaVid; the R1 k = 32 arm
+nevertheless took 9.1 h against the KL arm's 6.4 h because its episodes are longer.
 
 Audit (2026-09-19): all 34 saved configs/manifests match the protocol; interrupted-and-resumed arms hold only
 complete episodes, 100 unique labels each; reruns of 10 episodes of `r1_random_b8`, `r1_divprune_b8` (mask log

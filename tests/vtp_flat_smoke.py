@@ -14,13 +14,18 @@ layer 0: the token is scored from layer 0 and deleted from every layer. Four thi
   4. Every flat method runs at k=1 with equal cache lengths on all layers (memory-matched),
      synced side DBs, finite probabilities and a decision that moves; DART reads layer 0 (GPU);
      the whole-frame arms leave exactly one frame's slots.
-  5. Whole-frame selectors (kl_keep_one / recency, Exp 4b) -- exactly k frames survive once the
-     pool exceeds k, ranked by a stubbed keep-one table / by frame id with ties to the newer
-     frame, text and the random generator untouched, the sup/kl_select record well-formed (CPU).
+  5. Whole-frame selectors (kl_keep_one / entropy_keep_one / recency, Exp 4b) -- exactly k frames
+     survive once the pool exceeds k, ranked by a stubbed keep-one KL table / the entropy of a
+     stubbed only-f log-prob table (lowest kept) / by frame id with ties to the newer frame, text
+     and the random generator untouched, the sup/kl_select record well-formed (CPU).
   6. kl_keep_one on the model -- the selector's frame scores equal the keep_one diagnostic's row
      on the same cache, the survivors are that row's top-k frames, the selector costs exactly
      1 + pool replays per pruning step and none below, the diagnostic does not move its decision,
      and random/identity never enter the whole-frame path (GPU).
+  7. entropy_keep_one on the model -- the selector's scores equal the entropy of the keep_one
+     diagnostic's only-f log-prob rows, the survivors are the pool's k lowest-entropy frames, the
+     selector costs exactly pool replays per pruning step (no reference) and none below, and the
+     diagnostic does not move its decision (GPU).
 
 Run inside longnav_vlm:
     python tests/vtp_flat_smoke.py
@@ -48,10 +53,18 @@ METHODS = {
     "fastv": dict(kv_prune_importance="attn", kv_prune_score_layer=0),
     "dart": dict(kv_prune_importance="dart"),
     "kl_keep_one": dict(kv_prune_importance="kl_keep_one"),
+    "entropy_keep_one": dict(kv_prune_importance="entropy_keep_one"),
     "recency": dict(kv_prune_importance="recency"),
 }
-WHOLE_FRAME = ("kl_keep_one", "recency")
-KL_TOL = 1e-5  # selector score vs the diagnostic's keep-one KL (same replays; the log rounds to 6 dp)
+WHOLE_FRAME = ("kl_keep_one", "entropy_keep_one", "recency")
+REPLAY = ("kl_keep_one", "entropy_keep_one")
+KL_TOL = 1e-5  # selector score vs the diagnostic's keep-one KL / entropy (same replays; the log rounds to 6 dp)
+
+
+def entropy(logp):
+    """Entropy of a log-prob row, the selector's arithmetic (fp32)."""
+    lp = torch.as_tensor(logp, dtype=torch.float32)
+    return max(float(-(lp.exp() * lp).sum()), 0.0)
 
 
 # --- check 1: frame budget with no window (CPU) ------------------------------------------
@@ -90,6 +103,10 @@ def check_frame_budget(k=2):
 def check_whole_frame(k=2):
     failures = []
     table = {0: 0.05, 1: 0.5, 2: 0.01, 3: 0.3, 4: 0.3, 5: 0.02}  # frame -> stubbed keep-one KL
+    probs = {0: [0.97, 0.01, 0.01, 0.01], 1: [0.25, 0.25, 0.25, 0.25], 2: [0.49, 0.49, 0.01, 0.01],
+             3: [0.8, 0.1, 0.05, 0.05], 4: [0.8, 0.1, 0.05, 0.05], 5: [0.9, 0.05, 0.03, 0.02]}
+    logp_table = {f: torch.log(torch.tensor(p)) for f, p in probs.items()}  # stubbed only-f decisions
+    H = {f: entropy(lp) for f, lp in logp_table.items()}  # frames 3/4 tie -> the newer (4) ranks first
     counts = [6, 9, 5, 8, 7, 10]
     for importance in WHOLE_FRAME:
         worker = prune_worker(None, importance=importance, kv_prune_budget_frames=float(k), kv_prune_log_masks=False)
@@ -101,7 +118,12 @@ def check_whole_frame(k=2):
             calls.append(list(frames))
             return None, {f: (table[f], None) for f in frames}
 
+        def fake_logps(base_bias, frames, layers):
+            calls.append(list(frames))
+            return {f: logp_table[f] for f in frames}
+
         worker._keep_one_frame_kls = fake_kls
+        worker._keep_one_frame_logps = fake_logps
         gen_state = worker._kv_prune_state.generator.get_state().clone()
         alive, next_id = set(), 0
         for turn, n_vis in enumerate(counts):
@@ -115,6 +137,8 @@ def check_whole_frame(k=2):
                 expect = set(pool)
             elif importance == "kl_keep_one":
                 expect = set(sorted(pool, key=lambda f: (-table[f], -f))[:k])
+            elif importance == "entropy_keep_one":
+                expect = set(sorted(pool, key=lambda f: (H[f], -f))[:k])
             else:
                 expect = set(pool[-k:])
             got = set(ps.turn_id[ps.is_visual].tolist())
@@ -128,16 +152,17 @@ def check_whole_frame(k=2):
             if worker.past_image_embeds[0].shape[0] != int(ps.is_visual.sum()):
                 failures.append(f"{importance} turn {turn}: embed DB desynced")
             if len(pool) <= k:
-                if log != {} or (importance == "kl_keep_one" and calls and calls[-1] == pool and turn < k):
+                if log != {} or (importance in REPLAY and calls and calls[-1] == pool and turn < k):
                     failures.append(f"{importance} turn {turn}: pool within budget but log {log}")
                 continue
-            score = {f: (table[f] if importance == "kl_keep_one" else float(f)) for f in pool}
+            score = {f: (table[f] if importance == "kl_keep_one" else H[f] if importance == "entropy_keep_one"
+                         else float(f)) for f in pool}
+            n_replays = {"kl_keep_one": 1 + len(pool), "entropy_keep_one": len(pool)}.get(importance, 0)
             if log.get("frames") != pool or log.get("kept") != [int(f in expect) for f in pool] \
-                    or any(abs(s - score[f]) > 1e-9 for s, f in zip(log.get("score", []), pool)) \
-                    or log.get("n_replays") != (1 + len(pool) if importance == "kl_keep_one" else 0) \
-                    or log.get("measure") != importance:
+                    or any(abs(s - score[f]) > 1e-6 for s, f in zip(log.get("score", []), pool)) \
+                    or log.get("n_replays") != n_replays or log.get("measure") != importance:
                 failures.append(f"{importance} turn {turn}: malformed kl_select log {log}")
-            if importance == "kl_keep_one" and calls[-1] != pool:
+            if importance in REPLAY and calls[-1] != pool:
                 failures.append(f"{importance} turn {turn}: scored {calls[-1]}, pool is {pool}")
             imp = ps.importance[ps.is_visual]
             want = torch.tensor([score[f] for f in ps.turn_id[ps.is_visual].tolist()])
@@ -302,6 +327,7 @@ def shadow_select(worker, images):
         orig_apply()
         ps = worker._kv_prune_state
         records.append(dict(log=dict(worker._kl_select_log), diag=list(worker._kl_influence_keep_one),
+                            diag_logp=[list(r) for r in worker._kl_influence_keep_one_logp],
                             alive=sorted(set(ps.turn_id[ps.is_visual].tolist())),
                             replays=worker._prune_replay_count, n_turns=ps.n_turns,
                             counts=list(ps.visual_per_turn)))
@@ -311,20 +337,23 @@ def shadow_select(worker, images):
     return records, probs
 
 
-def check_kl_keep_one(images, k=2):
+def check_replay_selector(images, importance, k=2):
+    """kl_keep_one / entropy_keep_one on the model vs the keep_one diagnostic on the same cache:
+    the selector's scores are the diagnostic's KL row / the entropy of its only-f log-prob rows,
+    the survivors the pool's top-k (KL) / bottom-k (entropy), the replays 1 + pool / pool."""
     failures = []
     from longnav.utils.kv_prune import topk_frames
 
-    with_diag = build(kv_prune_budget_frames=float(k), **COMMON, kv_prune_importance="kl_keep_one",
+    with_diag = build(kv_prune_budget_frames=float(k), **COMMON, kv_prune_importance=importance,
                       kv_prune_log_influence=True, kv_prune_influence_measures=("keep_one",))
     recs, p_diag = shadow_select(with_diag, images)
     release(with_diag)
-    alone = build(kv_prune_budget_frames=float(k), **COMMON, kv_prune_importance="kl_keep_one")
+    alone = build(kv_prune_budget_frames=float(k), **COMMON, kv_prune_importance=importance)
     recs_alone, p_alone = shadow_select(alone, images)
     release(alone)
     pruned_steps, max_diff = 0, 0.0
     for rec, rec_a in zip(recs, recs_alone):
-        log, diag, alive = rec["log"], rec["diag"], rec["alive"]
+        log, alive = rec["log"], rec["alive"]
         pool = [f for f in range(rec["n_turns"]) if rec["counts"][f] > 0 and (f in alive or f == rec["n_turns"] - 1
                                                                                 or f in log.get("frames", []))]
         if len(pool) <= k:
@@ -336,25 +365,37 @@ def check_kl_keep_one(images, k=2):
         frames = log.get("frames", [])
         if sorted(frames) != pool:
             failures.append(f"step {rec['n_turns'] - 1}: scored {frames}, pool is {pool}")
-        diff = max(abs(s - diag[f]) for s, f in zip(log["score"], frames))
+        if importance == "kl_keep_one":
+            expect = {f: rec["diag"][f] for f in frames}
+            n_replays = 1 + len(frames)
+        else:
+            expect = {f: entropy(rec["diag_logp"][f]) for f in frames}
+            n_replays = len(frames)
+        diff = max(abs(s - expect[f]) for s, f in zip(log["score"], frames))
         max_diff = max(max_diff, diff)
         if diff > KL_TOL:
             failures.append(f"step {rec['n_turns'] - 1}: selector score differs from the keep_one row by {diff:.2e}")
-        want = topk_frames(frames, [diag[f] for f in frames], k)
+        sign = -1.0 if importance == "entropy_keep_one" else 1.0
+        want = topk_frames(frames, [sign * expect[f] for f in frames], k)
         if alive != want or [int(f in want) for f in frames] != log["kept"]:
-            failures.append(f"step {rec['n_turns'] - 1}: survivors {alive}, top-{k} of the keep-one row is {want}")
-        if log["n_replays"] != 1 + len(frames) or rec_a["replays"] != 1 + len(frames):
+            failures.append(f"step {rec['n_turns'] - 1}: survivors {alive}, expected {want}")
+        if log["n_replays"] != n_replays or rec_a["replays"] != n_replays:
             failures.append(f"step {rec['n_turns'] - 1}: {log['n_replays']} logged / {rec_a['replays']} counted "
-                            f"replays, expected {1 + len(frames)}")
+                            f"replays, expected {n_replays}")
         if rec_a["log"] != log:
             failures.append(f"step {rec['n_turns'] - 1}: the diagnostic changed the selection log")
     moved = max(float(np.abs(a - b).max()) for a, b in zip(p_diag, p_alone))
-    print(f"  kl_keep_one: {pruned_steps} pruning steps, max |score - keep_one row| = {max_diff:.2e}, "
+    print(f"  {importance}: {pruned_steps} pruning steps, max |score - keep_one row| = {max_diff:.2e}, "
           f"diagnostic on/off max |dp| = {moved:.2e}")
     if not pruned_steps:
-        failures.append("kl_keep_one never pruned")
+        failures.append(f"{importance} never pruned")
     if moved > 1e-4:
-        failures.append(f"the keep_one diagnostic moved the kl_keep_one decision by {moved:.2e}")
+        failures.append(f"the keep_one diagnostic moved the {importance} decision by {moved:.2e}")
+    return failures
+
+
+def check_kl_keep_one(images, k=2):
+    failures = check_replay_selector(images, "kl_keep_one", k)
     for name in ("random", "identity"):
         cfg = METHODS["random"] if name == "random" else {}
         budget = dict(kv_prune_budget_frames=1.0) if name == "random" else {}
@@ -383,8 +424,10 @@ def main():
         failures += check_methods(images, base)
         print("check 6: kl_keep_one vs the keep_one diagnostic")
         failures += check_kl_keep_one(images)
+        print("check 7: entropy_keep_one vs the keep_one diagnostic's only-f rows")
+        failures += check_replay_selector(images, "entropy_keep_one")
     else:
-        print("checks 2-4, 6 skipped (no GPU)")
+        print("checks 2-4, 6-7 skipped (no GPU)")
     if failures:
         print("\nFAIL:")
         for f in failures:

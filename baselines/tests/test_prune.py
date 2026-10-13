@@ -11,7 +11,7 @@ import torch
 import torch.nn.functional as F
 
 from uninavid_hm3d.eval import parse_args
-from uninavid_hm3d.influence import action_logp, kl_divergence
+from uninavid_hm3d.influence import action_logp, entropy, kl_divergence
 from uninavid_hm3d.prune import (
     N_PER_FRAME,
     NAV_TOKENS,
@@ -927,8 +927,9 @@ def make_kl_model(n_frames=6, n_layers=4):
 
 
 class WholeFrameTests(unittest.TestCase):
-    """kl_keep_one / recency (--prune-layer 0): exactly k history frames survive, chosen by the
-    keep-one KL of each frame's group (reference: every visual column closed) or by frame id."""
+    """kl_keep_one / entropy_keep_one / recency (--prune-layer 0): exactly k history frames survive,
+    chosen by the keep-one KL of each frame's group (reference: every visual column closed), by
+    the entropy of the only-f decision (lowest kept) or by frame id."""
 
     def setUp(self):
         self.ids = synthetic_ids()
@@ -945,10 +946,10 @@ class WholeFrameTests(unittest.TestCase):
                 groups.append(feat[row][keep])
         return groups
 
-    def expected_kls(self, model, embeds, n_frames):
+    def expected_logps(self, model, embeds, n_frames):
         """By hand: the last position of the masked-mean layer averages the open columns of the
         assembled prompt; the reference closes every group and the fine tokens, probe f reopens
-        frame f's group."""
+        frame f's group. Returns ``(reference log-probs, {frame: only-f log-probs})``."""
         spans = history_columns(self.placeholder, [4] * n_frames)
         L = embeds.shape[1]
         all_visual = torch.zeros(L, dtype=torch.bool)
@@ -962,12 +963,16 @@ class WholeFrameTests(unittest.TestCase):
             return action_logp(model.lm_head((open_ @ embeds[0]) / open_.sum()), ACTION_IDS)[0]
 
         ref = logp(all_visual)
-        kls = {}
+        only = {}
         for f in range(n_frames - 1):
             hide = all_visual.clone()
             hide[spans[f][0]:spans[f][1]] = False
-            kls[f] = kl_divergence(logp(hide), ref)
-        return kls
+            only[f] = logp(hide)
+        return ref, only
+
+    def expected_kls(self, model, embeds, n_frames):
+        ref, only = self.expected_logps(model, embeds, n_frames)
+        return {f: kl_divergence(lp, ref) for f, lp in only.items()}
 
     def test_kl_keep_one_keeps_the_top_k_frames(self):
         model = make_kl_model()
@@ -995,6 +1000,36 @@ class WholeFrameTests(unittest.TestCase):
         self.assertEqual(decode["inputs_embeds"].shape[1], 1)
         self.assertEqual(len(model.state.forwards), 2)
         self.assertFalse(pruner.blinder._active)
+
+    def test_entropy_keep_one_keeps_the_lowest_entropy_frames(self):
+        model = make_kl_model()
+        pruner = TokenPruner("entropy_keep_one", 2, image_token_index=IMAGE, layer=0, action_ids=ACTION_IDS)
+        pruner.install(model)
+        pruner.begin_episode("scene_0")
+        pruner.state.advance(0, list(range(6)))
+        feat = model.state.feat_cache
+        embeds, result_list, sent, decode, record = run_flat(model, pruner, self.ids, 5, self.nav, self.tab)
+        self.assertEqual(result_list, [4] * 6)
+        _, only = self.expected_logps(model, embeds, 6)
+        H = {f: entropy(only[f]) for f in range(5)}
+        kept = topk_frames(list(range(5)), [-H[f] for f in range(5)], 2)
+        self.assertEqual(set(self.pool) - pruner.state.deleted[0], {(f, t) for f in kept for t in range(4)})
+        for f in range(5):
+            self.assertAlmostEqual(record["score"][f], H[f], places=6)
+        # No reference probe: one batched forward of the 5 only-f probes, then the real prefill
+        # of the surviving groups and one decode.
+        self.assertEqual((record["n_probes"], record["n_pool"], sum(record["n_kept"])), (5, 20, 8))
+        self.assertEqual(record["n_kept"], [4 if f in kept else 0 for f in range(5)])
+        self.assertEqual(model.state.probes, [(5, embeds.shape[1], C)])
+        self.assertEqual(model.state.layers[0].calls, [(5, embeds.shape[1], C)])
+        ref = assemble(self.ids, self.surviving_groups(feat, range(6), pruner.state.deleted[0]), self.nav, self.tab)
+        self.assertTrue(torch.equal(sent["inputs_embeds"][0], ref))
+        self.assertEqual(decode["inputs_embeds"].shape[1], 1)
+        self.assertEqual(len(model.state.forwards), 2)
+        self.assertFalse(pruner.blinder._active)
+        d = describe("entropy_keep_one", 2, 17, 8, 0)
+        self.assertEqual((d["probe_batch"], d["kl_reference"], d["frame_level"]), (8, None, True))
+        self.assertIn("LOWEST", d["query"])
 
     def test_recency_keeps_the_newest_frames_without_probes(self):
         model, pruner = make_pruner("recency", k=2, n_frames=6, layer=0)
@@ -1029,7 +1064,7 @@ class WholeFrameTests(unittest.TestCase):
         self.assertEqual((record["n_probes"], record["score"], sum(record["n_kept"])), (0, [None] * 5, 20))
 
     def test_guards_and_describe(self):
-        for method in ("kl_keep_one", "recency"):
+        for method in ("kl_keep_one", "entropy_keep_one", "recency"):
             with self.assertRaises(ValueError):
                 check_layer(method, None)
             with self.assertRaises(ValueError):
@@ -1037,11 +1072,12 @@ class WholeFrameTests(unittest.TestCase):
             d = describe(method, 4, 17, 8, 0)
             self.assertEqual((d["placement"], d["removal"], d["frame_level"], d["budget_tokens"]),
                              ("layer0-prepass", "rows", True, 16))
-        with self.assertRaises(ValueError):
-            TokenPruner("kl_keep_one", 1, IMAGE, layer=0)  # no action ids
+        for method in ("kl_keep_one", "entropy_keep_one"):
+            with self.assertRaises(ValueError):
+                TokenPruner(method, 1, IMAGE, layer=0)  # no action ids
         self.assertFalse(describe("fastv", 4, 17, 8, 0)["frame_level"])
         self.assertIsNone(describe("random", 4, 17, 8)["probe_batch"])
-        for method in ("kl_keep_one", "recency"):
+        for method in ("kl_keep_one", "entropy_keep_one", "recency"):
             ok = parse_args(["--prune-method", method, "--prune-k", "4", "--context-frames", "64", "--prune-layer", "0"])
             self.assertEqual((ok.prune_method, ok.prune_layer), (method, 0))
             with self.assertRaises(SystemExit):

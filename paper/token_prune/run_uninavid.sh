@@ -31,7 +31,7 @@ case "$VARIANT" in
   flat)
     OUT_ROOT="$ROOT/paper_results/token_prune_flat/runs"
     CONTEXT_FRAMES=64; PRUNE_LAYER=0
-    METHODS="${METHODS:-random fastv divprune dart kl_keep_one recency}"
+    METHODS="${METHODS:-random fastv divprune dart kl_keep_one entropy_keep_one recency}"
     K_LIST="${K_LIST:-8 4 16 32}" ;;
   *) echo "Unknown VARIANT '$VARIANT' (expected window or flat)" >&2; exit 2 ;;
 esac
@@ -46,7 +46,7 @@ fi
 
 for ARM in $ARMS; do
   EXTRA=(--context-frames "$CONTEXT_FRAMES")
-  if [[ "$ARM" =~ ^uninavid_(random|fastv|pyramiddrop|divprune|dart|kl_keep_one|recency)_b([0-9]+)$ ]]; then
+  if [[ "$ARM" =~ ^uninavid_(random|fastv|pyramiddrop|divprune|dart|kl_keep_one|entropy_keep_one|recency)_b([0-9]+)$ ]]; then
     EXTRA+=(--prune-method "${BASH_REMATCH[1]}" --prune-k "${BASH_REMATCH[2]}")
     [[ -n "$PRUNE_LAYER" ]] && EXTRA+=(--prune-layer "$PRUNE_LAYER")
   elif [[ "$ARM" == "uninavid_identity" ]]; then

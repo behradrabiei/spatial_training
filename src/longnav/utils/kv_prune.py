@@ -469,8 +469,11 @@ def dart_select(key_norms, hidden, candidate_idx, capacity, n_pivots=8):
 
 # Whole-frame selectors (paper/token_prune flat, Exp 4b): the budget is k FRAMES, every candidate
 # slot of a kept frame survives and every slot of a dropped frame goes. 'kl_keep_one' ranks the
-# pool by the keep-one-in KL of each frame, 'recency' by frame id (the k newest).
-WHOLE_FRAME_MODES = ("kl_keep_one", "recency")
+# pool by the keep-one-in KL of each frame, 'entropy_keep_one' (2026-10-12) by the entropy of the
+# same only-f action distribution (the k LOWEST survive: the frames that alone make the decision
+# most certain; no reference replay), 'recency' by frame id (the k newest).
+WHOLE_FRAME_MODES = ("kl_keep_one", "entropy_keep_one", "recency")
+REPLAY_FRAME_MODES = ("kl_keep_one", "entropy_keep_one")  # the whole-frame modes that replay the decision
 
 
 def topk_frames(frames, scores, k):

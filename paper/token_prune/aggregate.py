@@ -62,14 +62,17 @@ VARIANTS = {
                    ctx_recency=True, ctx_reference=True, ctx_method="recency", delta_tags=("recency", "ref"),
                    identity=(("r1_identity", "r1_evict_k32", True), ("uninavid_identity", "uninavid_k32", False))),
     "flat": dict(root=ROOT / "paper_results/token_prune_flat",
-                 methods=("random", "fastv", "divprune", "dart", "kl_keep_one", "recency"), k_list=(32, 16, 8, 4),
+                 methods=("random", "fastv", "divprune", "dart", "kl_keep_one", "entropy_keep_one", "recency"),
+                 k_list=(32, 16, 8, 4),
                  window={"r1": None, "uninavid": 63}, baseline="random",
                  # The ctx-ablation recency windows are merged as method 'window' (the flat variant has
                  # its own whole-frame 'recency' arm); the reference stays the identity arm.
                  ctx_recency=True, ctx_reference=False, ctx_method="window", delta_tags=("random", "window", "ref"),
                  identity=(("r1_identity", "r1_full", True),)),
 }
-WHOLE_FRAME_METHODS = ("kl_keep_one", "recency")  # flat arms that keep exactly k frames (results/kl_select.csv)
+# Flat arms that keep exactly k frames (results/kl_select.csv). Their logged score is the measure itself:
+# keep-one KL (larger = kept), only-f entropy (LOWER = kept) or frame id.
+WHOLE_FRAME_METHODS = ("kl_keep_one", "entropy_keep_one", "recency")
 V = VARIANTS["window"]  # set from --variant in main()
 METRICS = (("success", "sr"), ("spl", "spl"), ("n_steps", "steps"))
 EP_COLS = ["arm", "model", "method", "k", "frames_worth", "episode_label", "success", "spl", "soft_spl",
@@ -218,7 +221,8 @@ def select_rows_uninavid(run_dir: Path):
 
 def select_summary(rows, arm, model, method, k):
     """One row per arm: how the whole-frame selector behaved -- pool size, ages and scores of the
-    kept / dropped frames, how often the dropped set held the OLDEST pool frame (= what a recency
+    kept / dropped frames (the score is the arm's measure: for entropy_keep_one the kept frames
+    have the LOWER mean), how often the dropped set held the OLDEST pool frame (= what a recency
     rule would drop; Uni-NaVid can drop two frames per inference) and how often the newest pool
     frame survived, and the probes per prune step."""
     steps = list(rows)
@@ -573,8 +577,8 @@ def main() -> None:
     lines[-1] = r"\bottomrule"
     lines += [r"\end{tabular}"]
     lines += [r"% $k$ = frames' worth of history tokens kept; every method scores and deletes at decoder layer 0",
-              r"% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window). kl\_keep\_one / recency keep",
-              r"% exactly $k$ whole frames. window row: the ctx-ablation recency arm with $k$ frames visible",
+              r"% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window). kl\_keep\_one / entropy\_keep\_one /",
+              r"% recency keep exactly $k$ whole frames. window row: the ctx-ablation recency arm with $k$ frames visible",
               r"% including the current one ($k-1$ history frames, text history cut too). Stars: paired sign-flip",
               r"% test vs the same-$k$ random arm, *p<0.05 **p<0.01 ***p<0.001; $\dagger$ = arm still partial.",
               ] if flat else [

@@ -33,7 +33,7 @@ case "$VARIANT" in
   flat)
     PRESET=paper_prune_flat
     OUT_ROOT="$ROOT/paper_results/token_prune_flat/runs"  # must match task.output_dir in experiment/paper_prune_flat.yaml
-    METHODS="${METHODS:-random fastv divprune dart kl_keep_one recency}"
+    METHODS="${METHODS:-random fastv divprune dart kl_keep_one entropy_keep_one recency}"
     K_LIST="${K_LIST:-8 4 16 32}" ;;
   *) echo "Unknown VARIANT '$VARIANT' (expected window or flat)" >&2; exit 2 ;;
 esac
@@ -53,6 +53,7 @@ method_overrides() {  # <method> -> Hydra overrides selecting the pruning rule (
       fastv)    echo "vlm.kv_prune_importance=attn vlm.kv_prune_score_layer=0" ;;
       dart)     echo "vlm.kv_prune_importance=dart" ;;
       kl_keep_one) echo "vlm.kv_prune_importance=kl_keep_one" ;;  # whole frames ranked by keep-one KL
+      entropy_keep_one) echo "vlm.kv_prune_importance=entropy_keep_one" ;;  # whole frames, lowest only-f entropy
       recency)     echo "vlm.kv_prune_importance=recency" ;;      # whole frames, the k newest
       *) return 1 ;;
     esac
@@ -70,7 +71,7 @@ method_overrides() {  # <method> -> Hydra overrides selecting the pruning rule (
 
 for ARM in $ARMS; do
   OVERRIDES=()
-  if [[ "$ARM" =~ ^r1_(random|fastv|pyramiddrop|divprune|dart|kl_keep_one|recency)_b([0-9]+)$ ]]; then
+  if [[ "$ARM" =~ ^r1_(random|fastv|pyramiddrop|divprune|dart|kl_keep_one|entropy_keep_one|recency)_b([0-9]+)$ ]]; then
     if ! METHOD_OVERRIDES="$(method_overrides "${BASH_REMATCH[1]}")"; then
       echo "Arm '$ARM' is not part of VARIANT=$VARIANT" >&2
       exit 2

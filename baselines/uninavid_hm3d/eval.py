@@ -554,10 +554,10 @@ class PrunePolicy(UniNaVidPolicy):
         super().__init__(*args, **kwargs)
         if self.context_window is None or self.no_visual_tokens or self.current_frame_only_64:
             raise ValueError("token pruning needs a finite context window and the full visual stream")
-        from uninavid_hm3d.prune import TokenPruner
+        from uninavid_hm3d.prune import PROBE_METHODS, TokenPruner
 
         action_ids = None
-        if prune_method == "kl_keep_one":
+        if prune_method in PROBE_METHODS:
             # The probes' action distribution: the same word-initial action tokens the influence
             # probes score.
             from uninavid_hm3d.influence import FrameInfluenceProbe
@@ -1305,15 +1305,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--prune-method",
         choices=["identity", "random", "fastv", "pyramiddrop", "divprune", "dart", "hybrid", "uniform",
-                 "kl_keep_one", "recency"],
+                 "kl_keep_one", "entropy_keep_one", "recency"],
         default="identity",
         help=(
             "Persistent pruning of the history tokens under the context window "
             "(paper/token_prune); identity installs nothing. uniform (paper/hybrid_prune): a uniform "
             "layer-0 draw below decoder layer 20 and every visual token hidden from layer 20 on; "
-            "needs --prune-budget-scope model. kl_keep_one / recency (paper/token_prune flat, whole "
-            "frames): keep the k history frames with the largest keep-one KL, KL(P(action | only that "
-            "frame's group) || P(action | no visual column)), or the k newest; need --prune-layer 0"
+            "needs --prune-budget-scope model. kl_keep_one / entropy_keep_one / recency "
+            "(paper/token_prune flat, whole frames): keep the k history frames with the largest "
+            "keep-one KL, KL(P(action | only that frame's group) || P(action | no visual column)), "
+            "the lowest entropy of P(action | only that frame's group), or the k newest; need "
+            "--prune-layer 0"
         ),
     )
     parser.add_argument(
@@ -1417,7 +1419,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             parser.error("--prune-method uniform needs --prune-budget-scope model")
         if args.prune_layer is not None and args.prune_method in staged:
             parser.error(f"--prune-layer has no {args.prune_method} variant (its stages are the method)")
-        if args.prune_method in ("kl_keep_one", "recency") and args.prune_layer != 0:
+        if args.prune_method in ("kl_keep_one", "entropy_keep_one", "recency") and args.prune_layer != 0:
             parser.error(f"--prune-method {args.prune_method} is a layer-0 pre-pass method (whole frames by row "
                          "removal); pass --prune-layer 0")
         frames = args.context_frames if args.context_frames is not None else args.context_window + 1

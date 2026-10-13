@@ -431,9 +431,11 @@ class PruningMixin:
         slot of the others deleted. 'kl_keep_one' ranks the pool by the keep-one-in KL,
         KL(P(action | only f's visual slots) || P(action | no visual slot)): one decision replay
         with every visual column hidden (the reference; the current frame's slots included) plus
-        one per pool frame, on the pre-prune cache. 'recency' ranks by frame id, no replay. A
-        pool of <= k frames is left whole and replays nothing (frame_budget's None). Returns
-        the selected slots and a per-slot score row carrying each frame's rank score."""
+        one per pool frame, on the pre-prune cache. 'entropy_keep_one' ranks by the entropy of
+        the same only-f decision and keeps the k LOWEST (no reference replay: one per pool
+        frame). 'recency' ranks by frame id, no replay. A pool of <= k frames is left whole and
+        replays nothing (frame_budget's None). Returns the selected slots and a per-slot score
+        row carrying each frame's measure (the logged score; for the entropy arm lower = kept)."""
         import torch
         from longnav.utils.kv_prune import topk_frames
 
@@ -442,15 +444,22 @@ class PruningMixin:
         scores = torch.zeros(kv_len, dtype=torch.float32)
         if len(frames) <= k:
             return candidate_idx, scores
-        if self.kv_prune_importance == "kl_keep_one":
-            _, per_frame = self._keep_one_frame_kls(
-                self._replay_base_bias(partition.forced), frames, self._ablation_layers())
+        mode = self.kv_prune_importance
+        base_bias = self._replay_base_bias(partition.forced) if mode in ("kl_keep_one", "entropy_keep_one") else None
+        if mode == "kl_keep_one":
+            _, per_frame = self._keep_one_frame_kls(base_bias, frames, self._ablation_layers())
             ranks = [per_frame[f][0] if f in per_frame else 0.0 for f in frames]
             n_replays = 1 + len(per_frame)
+        elif mode == "entropy_keep_one":
+            # Every candidate slot is visual (kv_prune_candidate_scope='visual'), so each pool
+            # frame holds a visual slot and gets its only-f replay.
+            per_frame = self._keep_one_frame_logps(base_bias, frames, self._ablation_layers())
+            ranks = [self._action_entropy(per_frame[f]) for f in frames]
+            n_replays = len(per_frame)
         else:
             ranks = [float(f) for f in frames]
             n_replays = 0
-        kept = topk_frames(frames, ranks, k)
+        kept = topk_frames(frames, [-r for r in ranks] if mode == "entropy_keep_one" else ranks, k)
         keep_turn = torch.zeros(ps.n_turns, dtype=torch.bool)
         keep_turn[kept] = True
         selected = candidate_idx[keep_turn[ps.turn_id[candidate_idx]]]

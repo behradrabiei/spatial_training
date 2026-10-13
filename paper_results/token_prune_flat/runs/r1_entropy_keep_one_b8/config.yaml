@@ -1,0 +1,195 @@
+adapter:
+  path: /home/brabiei/.cache/huggingface/hub/models--Aasdfip--hm3d_rpp_ke_standard-checkpoint_231/snapshots/de338927c8c96d1629ded0d042581776a960a465
+  peft_config:
+    r: 128
+    lora_alpha: 256
+    lora_dropout: 0.0
+    bias: none
+    task_type: CAUSAL_LM
+    target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+    modules_to_save: null
+    use_rslora: false
+training:
+  checkpoint: null
+  peft_config: null
+hab_config_list: null
+resources:
+  ray_address: local
+  object_spilling_directory: ./ray_object_spilling
+  osm_gb: 10
+  vlm_resource_tag: env_a
+  sim_resource_tag: env_b
+  num_vlms: 1
+  num_sims: 2
+  vlm_conda_env: longnav_vlm
+  habitat_conda_env: vln
+  vlm_gpu_fraction: 0.7
+  sim_gpu_fraction: 0.14
+  vlm_cpus: 4
+  sim_cpus: 4
+rollout:
+  max_steps: 500
+  temperature: 1.0
+  deterministic: true
+  action_space_str: '[stop, forward, left, right, up, down]'
+  system_prompt: ${read_text:src/longnav/conf/prompts/objectnav_prompt.txt}
+  action_space:
+  - stop
+  - forward
+  - left
+  - right
+  convo_start_template:
+  - role: user
+    content:
+    - type: text
+      text: ${rollout.system_prompt}
+  - role: user
+    content:
+    - type: image
+  - role: assistant
+    content:
+    - type: text
+      text: '**forward**'
+  convo_turn_template:
+  - role: assistant
+    content:
+    - type: text
+      text: '**$action**'
+  - role: user
+    content:
+    - type: image
+  - role: assistant
+    content:
+    - type: text
+      text: '**forward**'
+  stop_prob_threshold: null
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+  attn3d_layers:
+  - -1
+  pos_id_mode: auto
+vlm:
+  model_id: Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800
+  attn_impl: sdpa
+  dtype: bfloat16
+  prefix: '<|im_start|>assistant
+
+    **'
+  postfix: '**<|im_end|>
+
+    '
+  vocab:
+  - stop
+  - forward
+  - left
+  - right
+  offload_cache: false
+  use_sparse: true
+  sparse_threshold: 0.95
+  context_frames: null
+  context_window: null
+  context_cut: header
+  context_window_mode: prune
+  kv_budget: null
+  kv_prune_recent_turns: 0
+  kv_prune_ema_beta: 0.0
+  kv_prune_importance: entropy_keep_one
+  kv_prune_candidate_scope: visual
+  kv_prune_seed: 17
+  kv_prune_log_influence: false
+  kv_prune_influence_stride: 1
+  kv_prune_influence_horizons:
+  - 4
+  - 8
+  - 16
+  - 32
+  kv_prune_influence_measures:
+  - leave_one
+  influence_recompute: false
+  token_info_probe: false
+  horizon_probe_layers: []
+  selector_probe: false
+  selector_probe_budgets:
+  - 4
+  - 8
+  - 16
+  - 32
+  selector_probe_measures:
+  - keep_cur
+  - leave
+  kv_prune_layer_start: 0
+  kv_prune_layer_end: null
+  kv_prune_score_layers: pruned
+  kv_prune_score_layer: null
+  kv_prune_visual_blind: false
+  kv_prune_log_layer_influence: false
+  kv_prune_layer_influence_starts:
+  - 0
+  - 4
+  - 8
+  - 12
+  - 16
+  - 20
+  - 24
+  - 28
+  kv_prune_log_keep_one: false
+  kv_prune_budget_frames: 8.0
+  kv_prune_stages: null
+  kv_prune_stage_importance: null
+  kv_prune_budget_scope: last_stage
+  kv_prune_schedule_anchor: original
+  kv_prune_tail_budget_frames: null
+  kv_prune_dart_pivots: 8
+  kv_prune_seed_per_step: true
+  kv_prune_log_masks: false
+  attn_weighting: raw
+sim:
+  config_path: habitat_configs/objectnav_hm3d_v2.yaml
+  dataset_path: /home/brabiei/vault/habitat_data/evaluation_episodes/HM3D/objectnav_hm3d_v2/val/val.json.gz
+  workspace: .
+  scenes_dir: /home/brabiei/vault/habitat_data/scenes/HM3D/v2
+  split: val
+  fp_guard: false
+  fn_guard: false
+  voxel_kwargs: {}
+  output_schema:
+    obs:
+      rgb: true
+      instr_or_goal: true
+      patch_coords: false
+    info:
+      episode_label: true
+      spl: true
+      soft_spl: true
+      success: true
+      distance_to_goal: true
+    done: true
+    reward: true
+    stuck: true
+    fp_stop: true
+  auto_flush: false
+  ep_seed: true
+  explr_bonus: 0.13
+  collision_penalty: 0.05
+  fpstop_penalty: 0.3
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+  attn_norm_mode: peak
+task:
+  run_name: r1_entropy_keep_one_b8
+  wandb_project: longnav_paper_flat
+  shard_size: 5
+  subset_label: ''
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_100.json
+  output_dir: ./paper_results/token_prune_flat/runs
+  jobtype: eval
