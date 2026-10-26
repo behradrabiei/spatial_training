@@ -81,6 +81,90 @@
     "merged_control_n": 3046,
     "probe_seconds_total": 5697.267341101891
   },
-  "representative_episode": "Nfvxx8J5NCo_2",
+  "LightNav-0": {
+    "n_episodes": 10,
+    "n_decisions": 1696,
+    "n_pairs": 24416,
+    "n_pairs_scored": 24416,
+    "success_rate": 0.9,
+    "mean_steps": 169.7,
+    "infl_mean": 4.736275676549113,
+    "infl_median": 1.178092360496521,
+    "age0_mean": 9.23942155266655,
+    "history_all_mean": NaN,
+    "sum_loo_mean": 68.58891276312167,
+    "visual_all_mean": NaN,
+    "flip_rate": 0.5346494102228048,
+    "revival": {
+      "ever_dormant": 0,
+      "revived": 0,
+      "events": 0,
+      "rate": NaN
+    },
+    "ols": {
+      "n": 24416,
+      "r2": 0.03684794333428565,
+      "r2_age_only": 0.029546296049112075,
+      "partial_r2": {
+        "age_bin": 0.001079779760946309,
+        "log_age": 0.00100556706160293,
+        "action_at_frame": 0.0021759445442084413,
+        "chosen_action": 0.004960315005328897,
+        "entropy_t": 0.0003698090928402342
+      },
+      "log_age_slope": -0.11135559223757246
+    },
+    "replay_floor_kl_mean": 0.0,
+    "replay_floor_kl_median": 0.0,
+    "replay_floor_kl_p90": 0.0,
+    "p_mass_mean": 0.9990555220195707,
+    "p_apos_mean": 0.3558787368303868,
+    "p_opos_mean": 0.9241185393843379,
+    "n_tubelets_unprobed_mean": 14.441037735849056,
+    "probe_seconds_total": 5421.847200749209
+  },
+  "LightNav-0 (6-bin)": {
+    "n_episodes": 10,
+    "n_decisions": 1696,
+    "n_pairs": 24416,
+    "n_pairs_scored": 24416,
+    "success_rate": 0.9,
+    "mean_steps": 169.7,
+    "infl_mean": 2.6794267315369367,
+    "infl_median": 0.33406709134578705,
+    "age0_mean": 3.3321255247922394,
+    "history_all_mean": NaN,
+    "sum_loo_mean": 38.80242175397737,
+    "visual_all_mean": NaN,
+    "flip_rate": 0.48894167758846657,
+    "revival": {
+      "ever_dormant": 24,
+      "revived": 8,
+      "events": 32,
+      "rate": 0.3333333333333333
+    },
+    "ols": {
+      "n": 24416,
+      "r2": 0.015058839248134115,
+      "r2_age_only": 0.008560558573503907,
+      "partial_r2": {
+        "age_bin": 0.0027698011464458716,
+        "log_age": 1.8397489524035748e-06,
+        "action_at_frame": 0.0020801675284133347,
+        "chosen_action": 0.004491769064831397,
+        "entropy_t": 2.539442581106499e-06
+      },
+      "log_age_slope": -0.006251287825631575
+    },
+    "replay_floor_kl_mean": 0.0,
+    "replay_floor_kl_median": 0.0,
+    "replay_floor_kl_p90": 0.0,
+    "p_mass_mean": 0.9990555220195707,
+    "p_apos_mean": 0.3558787368303868,
+    "p_opos_mean": 0.9241185393843379,
+    "n_tubelets_unprobed_mean": 14.441037735849056,
+    "probe_seconds_total": 5421.847200749209
+  },
+  "representative_episode": "zt1RVoi7PcG_0",
   "measure": "keep_one"
 }

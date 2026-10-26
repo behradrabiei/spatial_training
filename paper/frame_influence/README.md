@@ -103,6 +103,7 @@ Ablated log-probs are stored for every probe, so argmax flips can be counted.
 | `r1_influence` | LongNav-R1 (`+checkpoint=longnav`, sparse SFT + RPP RL, ckpt 231) | `+experiment=paper_influence`: full context on the prune substrate with an unreachable budget (`kv_budget=1e9`, nothing is ever pruned), `kv_prune_log_influence=true` on every step (evict-style probes: key columns hidden from the replayed decision) |
 | `r1_influence_recompute` | LongNav-R1, same checkpoint and trajectories | `+experiment=paper_influence_recompute`: `vlm.influence_recompute=true`; every probe re-prefills prefix + all turns from their stored post-filter embeddings with the removed frame's visual tokens deleted (leak-free: nothing survives from a cache that saw the frame). One full prefill per probe, so cost grows with T³; run on the 9 episodes shorter than 150 steps (`hm3d_v2_9_seed17_short.json`) |
 | `uninavid_influence` | Uni-NaVid-7B (`baselines/`) | official evaluator + `--frame-influence --sampling-seed 30` |
+| `lightnav_influence_keepone` | LightNav-0 (`baselines/`, keep-one only) | `baselines/run_lightnav.sh` with `INFLUENCE=1` (`lightnav_hm3d/eval_influence.py`): normal navigation on the eager masked kernel of `lightnav_ref`, then the keep-one probes after every decision (see the LightNav-0 paragraph below) |
 
 ## Leave-one-in variant (`paper_results/frame_influence_keepone/`)
 
@@ -145,24 +146,68 @@ measure: `infl` = keep-one KL, `logp_full` = the reference (no-visual) log-probs
 the only-frame log-probs, `flip` = the frame alone moves the argmax off the no-visual decision;
 `steps.csv`'s `sum_loo` is the sum of keep-one over the history frames.
 
+*LightNav-0 (arm `lightnav_influence_keepone`, added 2026-10-26; keep-one only).* The third
+model re-prefills its whole prompt inside vLLM every step, so `baselines/lightnav_hm3d/eval_influence.py`
+navigates on the eager masked-SDPA kernel of the information-horizon reference `lightnav_ref`
+(nothing hidden for the real decision; the trajectory is the model's own) and, after each decision,
+re-runs the same prompt with `<|video_pad|>` columns closed for every query on every layer
+(timestamps, vision markers and text stay; positions unchanged): once with every visual column
+closed (`visual_all_mask`, the reference), once with only the current tubelet open (`keep_one_age0`),
+once per history **tubelet** of age `t - f1 <= 33` (`MAX_AGE`; the current tubelet plus the whole
+fast tier, 16 two-frame tubelets at pool 2 — the mid/long tiers are not probed, which halves the
+cost and covers the ages the age curve is read on), plus one re-run with nothing hidden (the
+kernel's noise floor, `kl_live_vs_replay`). The frame unit is LightNav's 2-frame tubelet:
+`frame` = its newer frame `f1`, `age = t - f1`, `tier = p<pool>`, `weight` = 2, `n_slots` = its
+visual tokens. **Action distribution.** LightNav emits `<apos><opos><act_l0><act_l1><act_l2>`:
+two pointing tokens, then three residual-VQ codes whose coarse level `act_l0` (256 codes, ~0.9 m
+resolution; the two residual levels refine by 7 and 4 cm and change the executed command class
+for 4 % of code pairs) carries the motion. Every probe **free-runs its own two pointing tokens**
+under its mask (3-token greedy generate; nothing from the full-context decision enters a probe, as
+for the other two models, whose action word is the first generated token) and the logits of the
+third token are restricted to the 256 `<act_l0_*>` ids and log-softmaxed at T = 1 (`p_mass` = the
+full-vocabulary mass those ids hold). Two KLs are logged per probe: `kl` over the 256 codes (model
+label **LightNav-0**) and `kl_bin` over the same probabilities folded onto the six executed-action
+classes of the velocity controller — stop, forward, forward-left/right, rotate-left/right, from
+decoding each coarse code alone through LightNav's first-waypoint → `velocity_control` mapping
+(dt 1 s, 0–0.25 m/s, ±30 deg/s; 8 / 80 / 39 / 42 / 43 / 44 codes per class) — the alphabet closest
+to the other models' four words (label **LightNav-0 (6-bin)**, dashed; a lower bound of the
+256-way KL by data processing). The 256 log-probs of every probe are stored (float16) in
+`influence/<label>.jsonl` with the pointing tokens' top-1 probabilities (`p_apos`, `p_opos`: how
+confident the free-run prefix is), `meta.json` holds the code→class table. vLLM's prefix cache is
+reset before every generate and each prefill is asserted to cover the whole prompt, so K/V
+computed under one mask are never reused under another; the decision's logits are checked to
+reproduce the emitted tokens. Column semantics as for Uni-NaVid: `logp_full` = reference,
+`logp_removed` = only-tubelet (the 6-bin log-probs for the bin label, empty for the 256-way label
+whose `argmax_*` are code ids), `chosen_action` / `action_at_frame` = the executed class at `t` /
+at the frame's step; the joint leave-out probes (`history_all`, `visual_all`, `horizon_K`) do not
+exist for this arm. Unit tests: `baselines/tests/test_lightnav_influence.py` (client env).
+
 ```bash
-MEASURE=keep_one nohup bash paper/frame_influence/run_all.sh > /dev/null 2>&1 &   # Uni-NaVid (KEEP_ONE_MODE=mask|splice) then R1
+MEASURE=keep_one nohup bash paper/frame_influence/run_all.sh > /dev/null 2>&1 &   # Uni-NaVid (KEEP_ONE_MODE=mask|splice), R1, then LightNav-0
+bash paper/frame_influence/run_lightnav.sh                                         # LightNav-0 arm alone (MAX_AGE=33)
 python paper/frame_influence/aggregate.py --measure keep_one
 conda run -n vln python paper/frame_influence/plot.py --measure keep_one
 ```
 
-**Findings (runs of 2026-09-23, R1's 500-step episode added the same evening; `paper_results/frame_influence_keepone/results/summary.json`).**
-Both models on all 10 episodes (R1 trajectories identical to `r1_full`; Uni-NaVid the same
-seeded trajectories as the leave-one-out arm). Nats; age 0 = the current frame alone; single-frame
-rows are episode-balanced means.
+**Findings (runs of 2026-09-23, R1's 500-step episode added the same evening; LightNav-0 run
+2026-10-26; `paper_results/frame_influence_keepone/results/summary.json`).**
+All three models on all 10 episodes (R1 trajectories identical to `r1_full`; Uni-NaVid the same
+seeded trajectories as the leave-one-out arm; LightNav-0 its own eager-kernel trajectories, SR 0.9
+after forced-stop rescoring, 1 696 decisions, 24 416 tubelet probes in 90 min — they are not the
+trajectories of any earlier LightNav run: the closed loop diverges after the first few dozen
+steps as between every pair of LightNav runs so far, two episodes crawl to 485/500 steps here).
+Nats; age 0 = the current frame (LightNav: current tubelet) alone; single-frame rows are
+episode-balanced means. LightNav ages are even in steady state (the current tubelet holds frames
+`t-1` and `t`, so the newest history tubelet has age 2); odd ages exist only in the first 32 steps
+of an episode (10–150 rows each) and are left out of the row.
 
-|  | R1, keep-one | Uni-NaVid, keep-one (masked) | R1, leave-one-out | Uni-NaVid, leave-one-out |
-|---|---|---|---|---|
-| age 0 | 0.054 (pooled 0.038; the 500-step episode holds 45 % of the decisions) | 0.422 | 0.023 | 0.355 |
-| age 1 / 2 / 4 / 8 / 16 / 32 (balanced mean) | 0.031 / 0.021 / 0.0061 / 0.0013 / 0.0006 / 0.0004 | 0.161 / 0.162 / 0.170 / 0.153 / 0.137 / 0.100 | 0.0012 / — / 0.0003 / 0.0003 / — / — | 0.219 / — / 0.0045 / 0.0011 / — / — |
-| merged 64+ slots (Uni-NaVid) | — | 0.026 | — | 2e-4 |
-| floor | 3.8e-4 (replay) | 1e-5 (merged control) | 3.0e-4 | 1.1e-5 |
-| age-adjusted persistence ρ, shortest lag | 0.12 | 0.97 | 0.03 | 0.10 |
+|  | R1, keep-one | Uni-NaVid, keep-one (masked) | LightNav-0, keep-one (256 codes) | LightNav-0, keep-one (6-bin) | R1, leave-one-out | Uni-NaVid, leave-one-out |
+|---|---|---|---|---|---|---|
+| age 0 | 0.054 (pooled 0.038; the 500-step episode holds 45 % of the decisions) | 0.422 | 9.24 (median 9.9) | 3.33 | 0.023 | 0.355 |
+| age 1 / 2 / 4 / 8 / 16 / 32 (balanced mean) | 0.031 / 0.021 / 0.0061 / 0.0013 / 0.0006 / 0.0004 | 0.161 / 0.162 / 0.170 / 0.153 / 0.137 / 0.100 | — / 6.12 / 5.10 / 4.98 / 5.08 / 3.88 | — / 2.85 / 2.21 / 2.33 / 2.77 / 2.35 | 0.0012 / — / 0.0003 / 0.0003 / — / — | 0.219 / — / 0.0045 / 0.0011 / — / — |
+| merged 64+ slots (Uni-NaVid) | — | 0.026 | — (ages > 33 not probed) | — | — | 2e-4 |
+| floor | 3.8e-4 (replay) | 1e-5 (merged control) | 0 (replay; the eager masked kernel is bit-deterministic) | 0 | 3.0e-4 | 1.1e-5 |
+| age-adjusted persistence ρ, shortest lag | 0.12 | 0.97 | 0.67 (lag 2 = the same tubelet; lag 1 0.33 on the 160 steps where a tubelet keeps its `f1`) | 0.67 | 0.03 | 0.10 |
 
 * Both age-0 values reproduce Experiment 6's full-context keep-one probes (R1 leaky 0.060;
   Uni-NaVid layer 0: median difference 0 over the 650 decisions, worst 1.6e-2 from fp16 batch
@@ -179,6 +224,26 @@ rows are episode-balanced means.
   changes from one decision to the next; median SD 0.02 across decisions).
 * The splice form is kept for reference (`runs/uninavid_influence_keepone_splice/`): flat at 0.25
   nats by construction, not comparable.
+* **LightNav-0**: the curve is flat like Uni-NaVid's, not decaying like R1's — a lone tubelet of
+  age 32 is worth 3.9 nats against the no-visual prior where the current tubelet is worth 9.2
+  (ratio 0.42; Uni-NaVid 0.24, R1 0.007) — but the nats are two orders larger than the other
+  models' because the 256-code distributions are near one-hot: a probe either leaves the decision
+  at the prior (20 % of tubelet probes below 0.1 nats) or moves it with confidence to another code
+  (47 % above 7 nats ≈ −log of that code's prior probability); the 6-bin fold halves the level
+  (41 % below 0.1, 19 % above 7) and keeps the shape. So for LightNav the keep-one KL reads as
+  "how often does this tubelet alone override the prior, times how surprised the prior is": any
+  single fast-tier tubelet does so about as often as any other, and the current one almost always
+  (age-0 KL below 0.1 nats at 0.2 % of decisions). The flip rate is 0.98 on codes (the only-tubelet
+  argmax code differs from the no-visual argmax) and 0.83 on bins; the only-tubelet 6-bin argmax
+  equals the executed class at 16 % of pairs — a single tubelet almost never reproduces the
+  full-context decision. Persistence is 0.67 at lag 2 (a tubelet's value barely changes between
+  the two decisions it survives unchanged), between Uni-NaVid's 0.97 and R1's 0.12. The rank
+  heatmap blanks most LightNav cells: its noise rule (2× the row median) is above every cell when
+  the row median itself is 5 nats, so only decisions with a bimodal row show colour. Caveats: the
+  free-run pointing prefix is not confident (`p_apos` top-1 0.36, `p_opos` 0.92), so each probe's
+  action distribution is the one along the probe's own greedy pointing path, not a marginal over
+  pointings; only the current tubelet and the 16 fast-tier tubelets (14.4 older tubelets per
+  decision unprobed) are measured, so no statement about ages beyond 33 or the mid/long tiers.
 
 ## Statistics
 

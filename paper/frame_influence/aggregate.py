@@ -39,6 +39,7 @@ import argparse
 import csv
 import gzip
 import json
+from functools import partial
 import math
 import sys
 from pathlib import Path
@@ -46,7 +47,7 @@ from pathlib import Path
 import numpy as np
 
 from longnav.analysis import influence as inf
-from longnav.analysis.results_io import assert_split, load_manifest, load_r1_run, load_uninavid_run
+from longnav.analysis.results_io import assert_split, load_lightnav_run, load_manifest, load_r1_run, load_uninavid_run
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -61,7 +62,11 @@ MEASURES = {
         "Uni-NaVid": ("uninavid_influence", inf.load_uninavid_influence, load_uninavid_run, MANIFEST_10)}),
     "keep_one": (ROOT / "paper_results/frame_influence_keepone", {
         "LongNav-R1": ("r1_influence_keepone", inf.load_r1_influence, load_r1_run, MANIFEST_10),
-        "Uni-NaVid": ("uninavid_influence_keepone", inf.load_uninavid_influence, load_uninavid_run, MANIFEST_10)}),
+        "Uni-NaVid": ("uninavid_influence_keepone", inf.load_uninavid_influence, load_uninavid_run, MANIFEST_10),
+        # the same LightNav arm read twice: KL over the 256 coarse RVQ codes, and folded onto 6 executed-action bins
+        "LightNav-0": ("lightnav_influence_keepone", inf.load_lightnav_influence, load_lightnav_run, MANIFEST_10),
+        "LightNav-0 (6-bin)": ("lightnav_influence_keepone", partial(inf.load_lightnav_influence, space="bins"),
+                               load_lightnav_run, MANIFEST_10)}),
 }
 KS = inf.KS
 LAGS = (1, 2, 4, 8, 16)
@@ -208,11 +213,16 @@ def main() -> None:
             "flip_rate": float(np.mean([int(r["flip"]) for r in hist_rows if r["flip"] != ""])) if hist_rows else float("nan"),
             "revival": revival_all[model], "ols": ols_all[model],
         })
-        if model.startswith("LongNav-R1"):
-            floor = np.array([s["kl_live_vs_replay"] for s in steps if math.isfinite(s["kl_live_vs_replay"])])
-            summ.update({"replay_floor_kl_mean": float(floor.mean()) if floor.size else float("nan"),
-                         "replay_floor_kl_median": float(np.median(floor)) if floor.size else float("nan"),
-                         "replay_floor_kl_p90": float(np.percentile(floor, 90)) if floor.size else float("nan")})
+        floor = np.array([s["kl_live_vs_replay"] for s in steps if math.isfinite(s["kl_live_vs_replay"])])
+        if floor.size:  # LongNav-R1 (live vs replayed base) and LightNav-0 (decision vs an identical re-run)
+            summ.update({"replay_floor_kl_mean": float(floor.mean()), "replay_floor_kl_median": float(np.median(floor)),
+                         "replay_floor_kl_p90": float(np.percentile(floor, 90))})
+        if model.startswith("LightNav-0"):
+            summ.update({"p_mass_mean": float(np.nanmean([s["p_mass"] for s in steps])),
+                         "p_apos_mean": float(np.nanmean([s["p_apos"] for s in steps])),
+                         "p_opos_mean": float(np.nanmean([s["p_opos"] for s in steps])),
+                         "n_tubelets_unprobed_mean": float(np.mean([s["n_unprobed"] for s in steps])),
+                         "probe_seconds_total": float(np.nansum([s["probe_seconds"] for s in steps]))})
         if model == "Uni-NaVid":
             in_set = [s["sampled_in_set"] for s in steps if s["sampled_in_set"] is not None]
             agree = [s["chosen_action"] == s["argmax_action"] for s in steps]
@@ -292,9 +302,13 @@ def main() -> None:
         print(f"   revival {rv['revived']}/{rv['ever_dormant']} ({rv['events']} events); OLS R2 {o.get('r2', float('nan')):.3f} "
               f"(age only {o.get('r2_age_only', float('nan')):.3f}); partial R2 " +
               ", ".join(f"{k}={v:.3f}" for k, v in o.get("partial_r2", {}).items()))
-        if m.startswith("LongNav-R1"):
+        if "replay_floor_kl_mean" in d:
             print(f"   base-vs-live floor KL(live || rebuilt/replayed base): mean {d['replay_floor_kl_mean']:.2e}, "
                   f"median {d['replay_floor_kl_median']:.2e}, p90 {d['replay_floor_kl_p90']:.2e}")
+        if m.startswith("LightNav-0"):
+            print(f"   sanity: p_mass {d['p_mass_mean']:.3f}, free-run prefix top-1 p_apos {d['p_apos_mean']:.3f} / "
+                  f"p_opos {d['p_opos_mean']:.3f}, unprobed (old) tubelets/step {d['n_tubelets_unprobed_mean']:.1f}, "
+                  f"probes {d['probe_seconds_total']:.0f} s")
         if m == "Uni-NaVid":
             print(f"   sanity: sampled token in set {d['sampled_first_token_in_set_rate']:.3f}, argmax==sampled "
                   f"{d['argmax_vs_sampled_agreement']:.3f}, p_mass {d['p_mass_mean']:.3f}, merged_control KL "

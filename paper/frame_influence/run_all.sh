@@ -6,7 +6,8 @@
 #
 # Everything is appended to paper_results/frame_influence[_keepone]/runs/driver.log; both arm
 # scripts skip finished arms and resume partial ones, so re-running the chain after an
-# interruption is safe. MEASURE=keep_one runs uninavid_influence_keepone and r1_influence_keepone.
+# interruption is safe. MEASURE=keep_one runs uninavid_influence_keepone, r1_influence_keepone and
+# lightnav_influence_keepone (LightNav-0, keep-one only).
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
@@ -21,5 +22,8 @@ mkdir -p "$(dirname "$LOG")"
   echo "$(date '+%F %T')  chain start (measure $MEASURE)"
   MEASURE="$MEASURE" bash paper/frame_influence/run_uninavid.sh; echo "$(date '+%F %T')  uninavid exit $?"
   ARM="$R1_ARM" bash paper/frame_influence/run_r1.sh; echo "$(date '+%F %T')  r1 exit $?"
+  if [[ "$MEASURE" == keep_one ]]; then
+    bash paper/frame_influence/run_lightnav.sh; echo "$(date '+%F %T')  lightnav exit $?"
+  fi
   echo "$(date '+%F %T')  chain done"
 } >> "$LOG" 2>&1

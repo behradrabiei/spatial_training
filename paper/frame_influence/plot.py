@@ -43,7 +43,11 @@ RESULTS_ROOTS = {"leave_one": HERE.parents[1] / "paper_results/frame_influence",
 STYLE = {  # one color per model; the leak-free LongNav-R1 variant is dashed (same convention as ctx_ablation)
          "LongNav-R1": dict(color="tab:red", marker="o", markersize=4, linestyle="-"),
          "LongNav-R1 (leak-free)": dict(color="tab:red", marker="o", markersize=4, linestyle="--"),
-         "Uni-NaVid": dict(color="tab:blue", marker="o", markersize=4, linestyle="-")}
+         "Uni-NaVid": dict(color="tab:blue", marker="o", markersize=4, linestyle="-"),
+         # LightNav-0 (keep-one only): KL over the 256 coarse RVQ codes; dashed = the same probes folded
+         # onto the six executed-action classes
+         "LightNav-0": dict(color="tab:green", marker="o", markersize=4, linestyle="-"),
+         "LightNav-0 (6-bin)": dict(color="tab:green", marker="o", markersize=4, linestyle="--")}
 MAX_AGE_PLOT = 30  # the curves have plateaued by then
 MARK_EVERY = 2  # markers on every other age keep the curves legible
 NOISE_FACTOR = 2.0  # rank heatmap: a frame is above a decision's noise if > this multiple of the row median

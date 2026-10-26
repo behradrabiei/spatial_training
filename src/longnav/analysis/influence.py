@@ -26,7 +26,7 @@ from typing import Iterable
 
 import numpy as np
 
-from longnav.analysis.results_io import load_r1_run, load_uninavid_run
+from longnav.analysis.results_io import load_lightnav_run, load_r1_run, load_uninavid_run
 from longnav.analysis.stats import N_BOOT_CI, SEED
 
 ACTIONS = ("stop", "forward", "left", "right")
@@ -240,6 +240,77 @@ def load_uninavid_influence(run_dir: Path | str, model: str = "Uni-NaVid",
                     "flip": int(fr["argmax_action"] != ref_argmax) if ref_argmax else "",
                     "success": success, "n_history": t, "T": T,
                     "action_at_frame": actions_by_step.get(f, ""), "entropy_t": ent, "dtg_t": dtg,
+                })
+    return rows, steps
+
+
+LIGHTNAV_BINS = ("stop", "fwd", "fwd_L", "fwd_R", "rot_L", "rot_R")
+
+
+def _nan(x) -> float:
+    return float("nan") if x is None else float(x)
+
+
+def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", measure: str = "keep_one",
+                            space: str = "codes") -> tuple[list[dict], list[dict]]:
+    """(rows, steps) from a LightNav-0 run made with ``eval_influence.py`` (keep-one only).
+
+    The frame unit is the 2-frame tubelet (``frame`` = its newer frame ``f1``, ``age = t - f1``,
+    ``tier`` = ``p<pool>``, ``weight`` = 2 frames, ``n_slots`` = its visual tokens). The action is
+    the 256-way ``<act_l0_*>`` distribution read after a free-run pointing prefix; ``space`` picks
+    ``infl``: ``codes`` = KL over the 256 codes (``logp_*`` left empty: 256-vectors would bloat the
+    CSV; ``argmax_*`` = code ids) or ``bins`` = the same probes folded onto the six executed-action
+    classes (``logp_*`` = the 6-bin log-probs, ``argmax_*`` = bin names). ``chosen_action`` /
+    ``action_at_frame`` = the bin of the command actually executed at ``t`` / at the frame's step.
+    Joint leave-out probes (``history_all``, ``visual_all``, ``horizon``) do not exist for this arm.
+    """
+    if measure != "keep_one":
+        raise ValueError(f"LightNav-0 influence has the keep_one measure only, got {measure!r}")
+    if space not in ("codes", "bins"):
+        raise ValueError(f"space must be 'codes' or 'bins', got {space!r}")
+    k, lp, am = ("kl", "logp_bin", "bin_argmax") if space == "bins" else ("kl", None, "code")
+    if space == "bins":
+        k = "kl_bin"
+    run_dir = Path(run_dir)
+    results = load_lightnav_run(run_dir)
+    rows, steps = [], []
+    for path in sorted((run_dir / "influence").glob("*.jsonl")):
+        label = path.stem
+        success = results.get(label, {}).get("success")
+        T = results.get(label, {}).get("n_steps")
+        recs = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+        exec_at = {int(r["step"]): r["full"].get("exec_bin") or "" for r in recs}
+        for rec in recs:
+            t = int(rec["step"])
+            full, ref, age0 = rec["full"], rec["visual_all_mask"], rec.get("keep_one_age0") or {}
+            chosen = full.get("exec_bin") or ""
+            ref_argmax = str(ref.get(am, "")) if ref.get("code") is not None else ""
+            ref_logp = ref.get(lp, []) if lp else ""
+            ent = entropy(full["logp_bin"]) if (space == "bins" and full.get("logp_bin")) else _nan(full.get("entropy"))
+            p_chosen = (math.exp(full["logp_bin"][LIGHTNAV_BINS.index(chosen)])
+                        if space == "bins" and chosen in LIGHTNAV_BINS and full.get("logp_bin") else float("nan"))
+            frames = rec.get("keep_one", [])
+            steps.append({
+                "model": model, "episode": label, "step": t, "n_history": t, "T": T, "success": success,
+                "chosen_action": chosen, "argmax_action": str(full.get(am, "")), "entropy_t": ent, "dtg_t": float("nan"),
+                "p_chosen": p_chosen, "sum_loo": float(sum(_nan(fr[k]) for fr in frames)), "n_scored": len(frames),
+                "history_all": float("nan"), "visual_all": float("nan"), "age0": _nan(age0.get(k)), "horizon": {},
+                "p_mass": _nan(full.get("p_mass")), "sampled_in_set": None, "probe_seconds": _nan(rec.get("probe_seconds")),
+                "kl_live_vs_replay": _nan((rec.get("replay") or {}).get(k)),
+                "p_apos": _nan(full.get("p_apos")), "p_opos": _nan(full.get("p_opos")),
+                "n_unprobed": len(rec.get("frames_unprobed", [])),
+            })
+            for fr in frames:
+                f = int(fr["frame"])
+                argmax_removed = str(fr.get(am, "")) if fr.get("code") is not None else ""
+                rows.append({
+                    "model": model, "episode": label, "step": t, "frame": f, "age": t - f, "infl": _nan(fr.get(k)),
+                    "tier": f"p{fr['pool']}", "weight": 2, "n_slots": int(fr["n_tokens"]),
+                    "logp_full": ref_logp, "logp_removed": fr.get(lp, []) if lp else "",
+                    "chosen_action": chosen, "argmax_action": str(full.get(am, "")), "argmax_removed": argmax_removed,
+                    "flip": int(argmax_removed != ref_argmax) if (ref_argmax and argmax_removed) else "",
+                    "success": success, "n_history": t, "T": T,
+                    "action_at_frame": exec_at.get(f, ""), "entropy_t": ent, "dtg_t": float("nan"),
                 })
     return rows, steps
 

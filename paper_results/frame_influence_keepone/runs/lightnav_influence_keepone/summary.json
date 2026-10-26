@@ -1,0 +1,25 @@
+{
+  "expected_episodes": 10,
+  "completed_episodes": 10,
+  "missing_episodes": [],
+  "extra_episodes": [],
+  "success_rate": 1.0,
+  "spl": 0.43230156906398653,
+  "soft_spl": 0.41871038858132625,
+  "average_final_distance": 0.16984441317617893,
+  "average_steps": 169.7,
+  "termination_reasons": {
+    "agent_stop": 10
+  },
+  "forced_stops": 1,
+  "labels_sha256": "54855544b3fae118c511dde431c6b7005122017f04cb448a36529acc2274544d",
+  "results_files": [
+    "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/frame_influence_keepone/runs/lightnav_influence_keepone/raw/results.jsonl"
+  ],
+  "lightnav_summary": {
+    "SR_success_rate_pct": 100.0,
+    "SPL_pct": 43.23,
+    "SoftSPL_pct": 41.87,
+    "NE_navigation_error_m": 0.17
+  }
+}

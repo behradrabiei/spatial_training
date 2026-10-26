@@ -1,0 +1,153 @@
+{
+  "num_episodes": 10,
+  "metrics": {
+    "SR_success_rate_pct": 100.0,
+    "SPL_pct": 43.23,
+    "SoftSPL_pct": 41.87,
+    "NE_navigation_error_m": 0.17
+  },
+  "table_format": "100.0 / 43.2 / 41.9 / 0.17",
+  "per_category_sr": {
+    "bed": 100.0,
+    "chair": 100.0,
+    "sofa": 100.0,
+    "toilet": 100.0,
+    "tv_monitor": 100.0
+  },
+  "avg_steps": 169.7,
+  "total_time_sec": 5503.1,
+  "episodes": [
+    {
+      "episode_id": "episode_000",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00824-Dd4bFSTQ8gi/Dd4bFSTQ8gi.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.8683,
+      "soft_spl": 0.8456,
+      "object_category": "chair",
+      "steps": 52,
+      "final_distance": 0.147,
+      "min_distance": 0.122
+    },
+    {
+      "episode_id": "episode_001",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00880-Nfvxx8J5NCo/Nfvxx8J5NCo.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.5095,
+      "soft_spl": 0.4837,
+      "object_category": "tv_monitor",
+      "steps": 46,
+      "final_distance": 0.154,
+      "min_distance": 0.154
+    },
+    {
+      "episode_id": "episode_002",
+      "habitat_episode_id": "1",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00880-Nfvxx8J5NCo/Nfvxx8J5NCo.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.1165,
+      "soft_spl": 0.1079,
+      "object_category": "toilet",
+      "steps": 500,
+      "final_distance": 0.535,
+      "min_distance": 0.535
+    },
+    {
+      "episode_id": "episode_003",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00871-VBzV5z6i1WS/VBzV5z6i1WS.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.8258,
+      "soft_spl": 0.8131,
+      "object_category": "sofa",
+      "steps": 55,
+      "final_distance": 0.08,
+      "min_distance": 0.019
+    },
+    {
+      "episode_id": "episode_004",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00849-a8BtkwhxdRV/a8BtkwhxdRV.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.1987,
+      "soft_spl": 0.1934,
+      "object_category": "sofa",
+      "steps": 127,
+      "final_distance": 0.062,
+      "min_distance": 0.005
+    },
+    {
+      "episode_id": "episode_005",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00815-h1zeeAwLh9Z/h1zeeAwLh9Z.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.6986,
+      "soft_spl": 0.6813,
+      "object_category": "bed",
+      "steps": 52,
+      "final_distance": 0.102,
+      "min_distance": 0.102
+    },
+    {
+      "episode_id": "episode_006",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00803-k1cupFYWXJ6/k1cupFYWXJ6.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.0586,
+      "soft_spl": 0.0561,
+      "object_category": "sofa",
+      "steps": 485,
+      "final_distance": 0.151,
+      "min_distance": 0.149
+    },
+    {
+      "episode_id": "episode_007",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00844-q5QZSEeHe5g/q5QZSEeHe5g.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.3489,
+      "soft_spl": 0.3234,
+      "object_category": "sofa",
+      "steps": 53,
+      "final_distance": 0.158,
+      "min_distance": 0.15
+    },
+    {
+      "episode_id": "episode_008",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00802-wcojb4TFT35/wcojb4TFT35.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.4223,
+      "soft_spl": 0.4166,
+      "object_category": "tv_monitor",
+      "steps": 219,
+      "final_distance": 0.156,
+      "min_distance": 0.151
+    },
+    {
+      "episode_id": "episode_009",
+      "habitat_episode_id": "0",
+      "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00839-zt1RVoi7PcG/zt1RVoi7PcG.basis.glb",
+      "rollout_idx": 0,
+      "success": 1.0,
+      "spl": 0.2758,
+      "soft_spl": 0.266,
+      "object_category": "chair",
+      "steps": 108,
+      "final_distance": 0.153,
+      "min_distance": 0.153
+    }
+  ],
+  "model": "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/LightNav-0/checkpoints/LightNav-0",
+  "backend": "vllm_local"
+}
