@@ -265,37 +265,32 @@ def figure_rank_heatmap(rows, steps, summary, episode, out):
 
 def figure_lightnav_agreement(rows, summary, out):
     """LightNav-0 (keep-one): a lone tubelet scored against the FULL-context decision instead of the
-    no-visual prior, vs its age. Left: episode-balanced probability that the only-tubelet argmax is
-    the decision's argmax (solid: 6 executed-action bins; dashed: 256 codes), with +-1 SEM across
-    episodes, against the majority-class rate (always answering the most common executed class) and
-    the no-visual prior's own agreement. Right: KL(full || only tubelet). Steady-state ages only
-    (even: the current tubelet holds frames t-1 and t); odd ages exist only in the first 32 steps."""
+    no-visual prior, vs its age: the episode-balanced probability that the only-tubelet argmax over
+    the six executed-action classes is the decision's argmax, +-1 SEM across episodes, against the
+    majority-class rate (always answering the most common executed class). One series, labelled in
+    place. Steady-state ages only (even: the current tubelet holds frames t-1 and t); the 256-code
+    agreement, the no-visual prior's agreement and KL(full || only tubelet) stay in the CSV."""
     rs = sorted((r for r in rows if int(r["age"]) % 2 == 0 and int(r["age"]) <= MAX_AGE_PLOT + 2), key=lambda r: int(r["age"]))
     if not rs:
         return
     age = np.array([int(r["age"]) for r in rs])
+    mean = np.array([fl(r["agree_bin_balanced"]) for r in rs]); sem = np.nan_to_num(np.array([fl(r["agree_bin_sem"]) for r in rs]))
     fa = summary.get("LightNav-0", {}).get("full_agreement", {})
     green = STYLE["LightNav-0"]["color"]
     with plt.rc_context(LARGE_RC):
-        fig, (ax, ax2) = plt.subplots(1, 2, figsize=(10.0, 3.8))
-        for key, ls, label in (("agree_bin", "-", "6 action classes"), ("agree_code", "--", "256 codes")):
-            m = np.array([fl(r[f"{key}_balanced"]) for r in rs]); e = np.nan_to_num(np.array([fl(r[f"{key}_sem"]) for r in rs]))
-            ax.errorbar(age, m, yerr=e, color=green, linestyle=ls, marker="o", markersize=3, label=label,
-                        elinewidth=1.2, capsize=2.5, capthick=1.2)
+        fig, ax = plt.subplots(figsize=(6.0, 3.8))
+        ax.errorbar(age, mean, yerr=sem, color=green, linestyle="-", marker="o", markersize=3,
+                    elinewidth=1.2, capsize=2.5, capthick=1.2)
+        ax.annotate("one tubelet alone", (age[1], mean[1]), xytext=(age[1] + 2.5, mean[1] + 0.12), color=green, fontsize=12,
+                    arrowprops=dict(arrowstyle="-", color=green, lw=0.8))
         if fa:
-            ax.axhline(fa["majority_class_rate"], color="0.45", linestyle=":", linewidth=1.5,
-                       label=f"always '{fa['majority_class']}'")
-            ax.axhline(fa["reference_agree_bin"], color="0.45", linestyle="-.", linewidth=1.2, label="no-visual prior")
+            base = fa["majority_class_rate"]
+            ax.axhline(base, color="0.45", linestyle=":", linewidth=1.5)
+            ax.text(MAX_AGE_PLOT + 1.5, base + 0.02, f"always '{fa['majority_class']}' ({base:.2f})", color="0.3",
+                    fontsize=12, ha="right", va="bottom")
         ax.set_ylim(0, 1); ax.set_xlim(-1, MAX_AGE_PLOT + 2.5)
-        ax.set_xlabel("Tubelet age (steps)"); ax.set_ylabel("P(lone tubelet = full decision)")
-        ax.grid(True, alpha=0.3); ax.legend(fontsize=10, frameon=False, loc="upper right")
-        for key, ls, label in (("kl_full_only", "-", "256 codes"), ("kl_full_only_bin", "--", "6 action classes")):
-            m = np.array([fl(r[f"{key}_balanced"]) for r in rs]); e = np.nan_to_num(np.array([fl(r[f"{key}_sem"]) for r in rs]))
-            ax2.errorbar(age, m, yerr=[np.minimum(e, m - 1e-7), e], color=green, linestyle=ls, marker="o", markersize=3,
-                         label=label, elinewidth=1.2, capsize=2.5, capthick=1.2)
-        ax2.set_yscale("log"); ax2.set_xlim(-1, MAX_AGE_PLOT + 2.5)
-        ax2.set_xlabel("Tubelet age (steps)"); ax2.set_ylabel("KL(full || only tubelet) (nats)")
-        ax2.grid(True, alpha=0.3); ax2.legend(fontsize=10, frameon=False, loc="lower right")
+        ax.set_xlabel("Tubelet age (steps)"); ax.set_ylabel("P(same action as full context)")
+        ax.grid(True, alpha=0.3)
     save(fig, out)
 
 
