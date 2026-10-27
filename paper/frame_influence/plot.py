@@ -52,7 +52,8 @@ MAX_AGE_PLOT = 30  # the curves have plateaued by then
 MARK_EVERY = 2  # markers on every other age keep the curves legible
 NOISE_FACTOR = 2.0  # rank heatmap: a frame is above a decision's noise if > this multiple of the row median
 LARGE_RC = {"font.size": 13, "axes.titlesize": 14, "axes.labelsize": 14}  # paper-figure text sizes
-FIGURES = ("influence_vs_age", "influence_vs_age_box", "influence_vs_age_box_split", "influence_rank_heatmap")
+FIGURES = ("influence_vs_age", "influence_vs_age_box", "influence_vs_age_box_split", "influence_rank_heatmap",
+           "lightnav_agreement")
 
 
 def read_csv(path: Path) -> list[dict]:
@@ -262,6 +263,42 @@ def figure_rank_heatmap(rows, steps, summary, episode, out):
     plt.close(fig)
 
 
+def figure_lightnav_agreement(rows, summary, out):
+    """LightNav-0 (keep-one): a lone tubelet scored against the FULL-context decision instead of the
+    no-visual prior, vs its age. Left: episode-balanced probability that the only-tubelet argmax is
+    the decision's argmax (solid: 6 executed-action bins; dashed: 256 codes), with +-1 SEM across
+    episodes, against the majority-class rate (always answering the most common executed class) and
+    the no-visual prior's own agreement. Right: KL(full || only tubelet). Steady-state ages only
+    (even: the current tubelet holds frames t-1 and t); odd ages exist only in the first 32 steps."""
+    rs = sorted((r for r in rows if int(r["age"]) % 2 == 0 and int(r["age"]) <= MAX_AGE_PLOT + 2), key=lambda r: int(r["age"]))
+    if not rs:
+        return
+    age = np.array([int(r["age"]) for r in rs])
+    fa = summary.get("LightNav-0", {}).get("full_agreement", {})
+    green = STYLE["LightNav-0"]["color"]
+    with plt.rc_context(LARGE_RC):
+        fig, (ax, ax2) = plt.subplots(1, 2, figsize=(10.0, 3.8))
+        for key, ls, label in (("agree_bin", "-", "6 action classes"), ("agree_code", "--", "256 codes")):
+            m = np.array([fl(r[f"{key}_balanced"]) for r in rs]); e = np.nan_to_num(np.array([fl(r[f"{key}_sem"]) for r in rs]))
+            ax.errorbar(age, m, yerr=e, color=green, linestyle=ls, marker="o", markersize=3, label=label,
+                        elinewidth=1.2, capsize=2.5, capthick=1.2)
+        if fa:
+            ax.axhline(fa["majority_class_rate"], color="0.45", linestyle=":", linewidth=1.5,
+                       label=f"always '{fa['majority_class']}'")
+            ax.axhline(fa["reference_agree_bin"], color="0.45", linestyle="-.", linewidth=1.2, label="no-visual prior")
+        ax.set_ylim(0, 1); ax.set_xlim(-1, MAX_AGE_PLOT + 2.5)
+        ax.set_xlabel("Tubelet age (steps)"); ax.set_ylabel("P(lone tubelet = full decision)")
+        ax.grid(True, alpha=0.3); ax.legend(fontsize=10, frameon=False, loc="upper right")
+        for key, ls, label in (("kl_full_only", "-", "256 codes"), ("kl_full_only_bin", "--", "6 action classes")):
+            m = np.array([fl(r[f"{key}_balanced"]) for r in rs]); e = np.nan_to_num(np.array([fl(r[f"{key}_sem"]) for r in rs]))
+            ax2.errorbar(age, m, yerr=[np.minimum(e, m - 1e-7), e], color=green, linestyle=ls, marker="o", markersize=3,
+                         label=label, elinewidth=1.2, capsize=2.5, capthick=1.2)
+        ax2.set_yscale("log"); ax2.set_xlim(-1, MAX_AGE_PLOT + 2.5)
+        ax2.set_xlabel("Tubelet age (steps)"); ax2.set_ylabel("KL(full || only tubelet) (nats)")
+        ax2.grid(True, alpha=0.3); ax2.legend(fontsize=10, frameon=False, loc="lower right")
+    save(fig, out)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--measure", choices=sorted(RESULTS_ROOTS), default="leave_one",
@@ -283,6 +320,8 @@ def main() -> None:
     figure_age_box_split(rows, steps, args.out / "influence_vs_age_box_split")
     episode = args.episode or summary.get("representative_episode")
     figure_rank_heatmap(rows, steps, summary, episode, args.out / "influence_rank_heatmap")
+    if (R / "lightnav_agreement.csv").exists():  # keep_one with the LightNav-0 arm
+        figure_lightnav_agreement(read_csv(R / "lightnav_agreement.csv"), summary, args.out / "lightnav_agreement")
     stale = [p for p in args.out.glob("influence_*") if p.stem not in FIGURES]
     for p in stale:
         p.unlink()

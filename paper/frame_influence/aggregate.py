@@ -12,6 +12,9 @@ both against the 10-episode manifest, and writes:
                        goal). This is the join table for captured-influence analyses.
   steps.csv            one row per decision: full distribution, joint probes (history_all,
                        visual_all, age0, horizon_K), sum of single-frame influences, covariates.
+  lightnav_agreement.csv  (keep_one, LightNav-0 only) per age: a lone tubelet's agreement with the
+                       full-context decision (6-bin / 256-code argmax), p of the full decision's bin, and
+                       KL(full || only tubelet); pooled + episode-balanced means with SEMs
   age_curve.csv        mean/std/median/n per age with episode-cluster bootstrap CIs and the
                        episode-balanced mean, per model.
   age_bins.csv         mean/median/mass share per age bin, per model.
@@ -238,6 +241,13 @@ def main() -> None:
                          "merged_control_n": len(merged),
                          "probe_seconds_total": float(np.nansum([s["probe_seconds"] for s in steps]))})
 
+    # LightNav-0: the keep-one KL against the no-visual prior saturates (near one-hot codes), so also
+    # score every lone tubelet against the full-context decision from the stored 256-way log-probs.
+    agree_rows = []
+    if "LightNav-0" in per_model:
+        agree_rows, agree_summ = inf.lightnav_full_agreement(args.runs / ARMS["LightNav-0"][0])
+        summary["LightNav-0"]["full_agreement"] = agree_summ
+        write_csv(args.out / "lightnav_agreement.csv", agree_rows)
     summary["representative_episode"] = inf.pick_representative_episode(*(v[1] for v in per_model.values()))
     summary["measure"] = args.measure
     # Eviction leakage at the decision level: evict-style minus leak-free horizon probes, paired
@@ -309,6 +319,13 @@ def main() -> None:
             print(f"   sanity: p_mass {d['p_mass_mean']:.3f}, free-run prefix top-1 p_apos {d['p_apos_mean']:.3f} / "
                   f"p_opos {d['p_opos_mean']:.3f}, unprobed (old) tubelets/step {d['n_tubelets_unprobed_mean']:.1f}, "
                   f"probes {d['probe_seconds_total']:.0f} s")
+        if m == "LightNav-0" and agree_rows:
+            fa = d["full_agreement"]
+            print(f"   lone tubelet vs FULL decision (6-bin argmax agreement, balanced; majority class "
+                  f"{fa['majority_class']} {fa['majority_class_rate']:.2f}, no-visual prior {fa['reference_agree_bin']:.2f}): "
+                  + "  ".join(f"age{r['age']}={r['agree_bin_balanced']:.2f}" for r in agree_rows if r["age"] in (0, 2, 4, 8, 16, 32)))
+            print("   KL(full || only tubelet), 256 codes: "
+                  + "  ".join(f"age{r['age']}={r['kl_full_only_balanced']:.2f}" for r in agree_rows if r["age"] in (0, 2, 4, 8, 16, 32)))
         if m == "Uni-NaVid":
             print(f"   sanity: sampled token in set {d['sampled_first_token_in_set_rate']:.3f}, argmax==sampled "
                   f"{d['argmax_vs_sampled_agreement']:.3f}, p_mass {d['p_mass_mean']:.3f}, merged_control KL "
@@ -319,7 +336,7 @@ def main() -> None:
             print(f"   K={r['K']:>2}: evict {r['mean_a']:.4f}  leak-free {r['mean_b']:.4f}  delta {r['delta']:+.4f} "
                   f"[{r['lo']:+.4f}, {r['hi']:+.4f}]  n={r['n_steps']} steps / {r['n_episodes']} eps")
     print(f"\nwrote {args.out}/{{influence.csv.gz, steps.csv, age_curve.csv, cumulative_share.csv, horizon.csv, "
-          f"persistence.csv, covariates.csv, flips.csv, summary.csv, table.tex}}")
+          f"persistence.csv, covariates.csv, flips.csv, summary.csv, table.tex" + (", lightnav_agreement.csv" if agree_rows else "") + "}")
 
 
 if __name__ == "__main__":

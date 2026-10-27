@@ -244,6 +244,19 @@ of an episode (10–150 rows each) and are left out of the row.
   action distribution is the one along the probe's own greedy pointing path, not a marginal over
   pointings; only the current tubelet and the 16 fast-tier tubelets (14.4 older tubelets per
   decision unprobed) are measured, so no statement about ages beyond 33 or the mid/long tiers.
+* **LightNav-0 scored against the full decision instead of the prior** (`results/lightnav_agreement.csv`,
+  `figures/lightnav_agreement.*`; computed from the stored 256-way log-probs, no extra run): the
+  age structure the saturated keep-one KL hides. Episode-balanced probability that a lone
+  tubelet's argmax is the full-context decision's argmax over the six executed-action classes,
+  ages 0 / 2 / 4 / 8 / 16 / 32: 0.61 / 0.33 / 0.26 / 0.30 / 0.27 / 0.14 (256 codes: 0.20 at age 0,
+  ≤ 0.04 at any history age); always answering the most common class scores 0.62 and the
+  no-visual prior 0.06. KL(full ‖ only tubelet) rises monotonically 3.2 → 7.2 → 8.0 → 8.6 → 9.2 →
+  9.9 nats over the same ages. So a tubelet older than a few steps, on its own, yields a confident
+  action for a viewpoint the robot has left — below the majority-class rate — while the current
+  tubelet alone reproduces the decision 61 % of the time. Old frames are not each carrying the
+  current decision; what they carry is redundant across frames (random token pruning to a quarter
+  of the tokens costs nothing, Exp 4b) and lost only when the window drops them all (the K = 4 cut,
+  Exp 1).
 
 ## Statistics
 

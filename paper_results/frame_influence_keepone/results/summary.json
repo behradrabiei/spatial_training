@@ -121,7 +121,13 @@
     "p_apos_mean": 0.3558787368303868,
     "p_opos_mean": 0.9241185393843379,
     "n_tubelets_unprobed_mean": 14.441037735849056,
-    "probe_seconds_total": 5421.847200749209
+    "probe_seconds_total": 5421.847200749209,
+    "full_agreement": {
+      "n_decisions": 1696,
+      "majority_class": "fwd",
+      "majority_class_rate": 0.6161556603773585,
+      "reference_agree_bin": 0.0589622641509434
+    }
   },
   "LightNav-0 (6-bin)": {
     "n_episodes": 10,

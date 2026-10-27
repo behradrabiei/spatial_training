@@ -13,6 +13,7 @@ so run it with the client runtime:
 from __future__ import annotations
 
 import importlib.util
+import base64
 import json
 import math
 import tempfile
@@ -360,16 +361,28 @@ def write_fake_run(root: Path) -> None:
         "forced_stop": False}))
     lb = [math.log(x) for x in (0.1, 0.5, 0.1, 0.1, 0.1, 0.1)]
     lb_ref = [math.log(x) for x in (0.4, 0.2, 0.1, 0.1, 0.1, 0.1)]
+    # 256-way log-probs: code 12 (bin fwd) 0.7 and code 3 (bin stop) 0.3 for the full decision; the
+    # reference puts 0.9 on code 3; a probe peaked on code 12 reproduces the decision, one on code 5 does not
+    bins = ["stop", "fwd", "fwd_L", "fwd_R", "rot_L", "rot_R"]
+    code_bins = ["fwd"] * 256
+    code_bins[3] = "stop"; code_bins[5] = "rot_L"
+    (root / "influence" / "meta.json").write_text(json.dumps({"bins": bins, "code_bins": code_bins}))
+
+    def f16(peaks):
+        p = np.full(256, 1e-6); p[list(peaks)] = list(peaks.values()); p /= p.sum()
+        return base64.b64encode(np.log(p).astype(np.float16).tobytes()).decode("ascii")
+
     full = {"exec_bin": "fwd", "code": 12, "bin": "fwd", "bin_argmax": "fwd", "p_mass": 0.98, "entropy": 1.2,
-            "logp_bin": lb, "p_apos": 0.9, "p_opos": 0.8}
-    ref = {"code": 3, "bin": "stop", "bin_argmax": "stop", "logp_bin": lb_ref}
+            "logp_bin": lb, "p_apos": 0.9, "p_opos": 0.8, "logp_f16": f16({12: 0.7, 3: 0.3})}
+    ref = {"code": 3, "bin": "stop", "bin_argmax": "stop", "logp_bin": lb_ref, "logp_f16": f16({3: 0.9})}
     recs = [
         {"step": 0, "full": dict(full, exec_bin="rot_L"), "visual_all_mask": ref, "replay": {"kl": 1e-6, "kl_bin": 1e-7},
-         "keep_one_age0": {"kl": 0.5, "kl_bin": 0.4}, "keep_one": [], "frames_unprobed": [], "probe_seconds": 0.5},
+         "keep_one_age0": {"kl": 0.5, "kl_bin": 0.4, "logp_f16": f16({3: 0.95})}, "keep_one": [], "frames_unprobed": [],
+         "probe_seconds": 0.5},
         {"step": 2, "full": full, "visual_all_mask": ref, "replay": {"kl": 2e-6, "kl_bin": 1e-7},
-         "keep_one_age0": {"kl": 0.6, "kl_bin": 0.3},
+         "keep_one_age0": {"kl": 0.6, "kl_bin": 0.3, "logp_f16": f16({12: 0.95})},
          "keep_one": [{"frame": 1, "f0": 0, "pool": 2, "n_tokens": 28, "age": 1, "kl": 0.2, "kl_bin": 0.1,
-                       "code": 12, "bin": "fwd", "bin_argmax": "fwd", "logp_bin": lb},
+                       "code": 12, "bin": "fwd", "bin_argmax": "fwd", "logp_bin": lb, "logp_f16": f16({5: 0.95})},
                       {"frame": 0, "f0": 0, "pool": 4, "n_tokens": 8, "age": 2, "kl": None, "kl_bin": None,
                        "code": None, "bin": None, "truncated": True}],
          "frames_unprobed": [], "probe_seconds": 1.0},
@@ -411,6 +424,26 @@ class LoaderTest(unittest.TestCase):
                 inf.load_lightnav_influence(d, measure="leave_one")
             with self.assertRaises(ValueError):
                 inf.load_lightnav_influence(d, space="nope")
+
+    def test_full_agreement_by_age(self):
+        from longnav.analysis import influence as inf
+
+        with tempfile.TemporaryDirectory() as d:
+            write_fake_run(Path(d))
+            rows, summ = inf.lightnav_full_agreement(d)
+            by_age = {r["age"]: r for r in rows}
+            self.assertEqual(sorted(by_age), [0, 1])
+            # age 0: step 0's current-tubelet probe picks code 3 (stop) against a full decision of code 12
+            # (fwd); step 2's picks code 12 -> one agreement of two, in both spaces
+            self.assertEqual((by_age[0]["n"], by_age[0]["agree_bin"], by_age[0]["agree_code"]), (2, 0.5, 0.5))
+            # age 1: the only probe is peaked on code 5 (rot_L): wrong code and wrong bin
+            self.assertEqual((by_age[1]["n"], by_age[1]["agree_bin"], by_age[1]["agree_code"]), (1, 0.0, 0.0))
+            self.assertLess(by_age[1]["p_full_bin"], 1e-3)
+            self.assertGreater(by_age[1]["kl_full_only"], by_age[0]["kl_full_only"])
+            self.assertAlmostEqual(by_age[0]["agree_bin_balanced"], 0.5)  # one episode: balanced == pooled
+            self.assertTrue(math.isnan(by_age[0]["agree_bin_sem"]))
+            self.assertEqual((summ["n_decisions"], summ["majority_class"], summ["majority_class_rate"]), (2, "fwd", 1.0))
+            self.assertEqual(summ["reference_agree_bin"], 0.0)  # the no-visual prior says stop at both decisions
 
     def test_matrix_uses_age0_on_the_diagonal(self):
         from longnav.analysis import influence as inf

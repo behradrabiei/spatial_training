@@ -315,6 +315,84 @@ def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", meas
     return rows, steps
 
 
+def _unpack_f16(s: str) -> np.ndarray:
+    import base64
+
+    return np.frombuffer(base64.b64decode(s), dtype=np.float16).astype(np.float64)
+
+
+def _fold_logp(logp: np.ndarray, fold: np.ndarray) -> np.ndarray:
+    """Log-probs over the 6 bins from 256 code log-probs (``fold``: 256 x 6 one-hot)."""
+    return np.log(np.maximum(np.exp(logp) @ fold, 1e-30))
+
+
+def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[list[dict], dict]:
+    """How well a lone tubelet reproduces the FULL-context decision, per age (LightNav-0, keep-one).
+
+    Keep-one KL scores a tubelet against the no-visual prior, which for LightNav saturates (any
+    tubelet alone yields a confident code). This reads the stored 256-way log-probs instead and
+    scores each only-tubelet distribution against the decision the model took with everything
+    visible: ``agree_bin`` / ``agree_code`` = the probe's argmax equals the full decision's argmax
+    (6 executed-action bins / 256 codes), ``p_full_bin`` = the probability the probe gives the
+    full decision's bin, ``kl_full_only`` / ``kl_full_only_bin`` = KL(full || only tubelet). Age 0
+    is the current tubelet (``keep_one_age0``). Pooled means plus episode-balanced means and SEMs,
+    as in ``age_curve``. The summary carries the two reference levels: the no-visual prior's own
+    agreement with the full decision and the majority-class rate (always answering the most common
+    executed class).
+    """
+    run_dir = Path(run_dir)
+    meta = json.loads((run_dir / "influence" / "meta.json").read_text())
+    bins = list(meta["bins"]); code_bins = meta["code_bins"]
+    fold = np.zeros((len(code_bins), len(bins)))
+    for c, b in enumerate(code_bins):
+        fold[c, bins.index(b)] = 1.0
+
+    def kl(a, b):
+        pa = np.exp(a)
+        return float(np.sum(np.where(pa > 0, pa * (a - b), 0.0)))
+
+    per_age: dict[int, dict[str, list[dict]]] = {}
+    ref_agree, full_bins = [], []
+    for path in sorted((run_dir / "influence").glob("*.jsonl")):
+        label = path.stem
+        for line in path.read_text().splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            full = _unpack_f16(rec["full"]["logp_f16"]); fb = _fold_logp(full, fold)
+            fa, fab = int(full.argmax()), int(fb.argmax())
+            full_bins.append(fab)
+            ref = rec.get("visual_all_mask") or {}
+            if ref.get("logp_f16"):
+                ref_agree.append(int(_fold_logp(_unpack_f16(ref["logp_f16"]), fold).argmax() == fab))
+            probes = [(0, rec.get("keep_one_age0") or {})] + [(int(k["age"]), k) for k in rec.get("keep_one", [])]
+            for age, k in probes:
+                if not k.get("logp_f16"):
+                    continue
+                lp = _unpack_f16(k["logp_f16"]); lb = _fold_logp(lp, fold)
+                per_age.setdefault(min(age, max_age), {}).setdefault(label, []).append({
+                    "agree_bin": float(lb.argmax() == fab), "agree_code": float(lp.argmax() == fa),
+                    "p_full_bin": float(np.exp(lb[fab])), "kl_full_only": kl(full, lp), "kl_full_only_bin": kl(fb, lb)})
+    keys = ("agree_bin", "agree_code", "p_full_bin", "kl_full_only", "kl_full_only_bin")
+    out = []
+    for age in sorted(per_age):
+        eps = per_age[age]
+        row = {"age": age, "n": sum(len(v) for v in eps.values()), "n_episodes": len(eps)}
+        for key in keys:
+            pooled = np.array([x[key] for v in eps.values() for x in v])
+            ep_means = np.array([np.mean([x[key] for x in v]) for v in eps.values()])
+            row[key] = float(pooled.mean())
+            row[f"{key}_balanced"] = float(ep_means.mean())
+            row[f"{key}_sem"] = float(ep_means.std(ddof=1) / math.sqrt(len(ep_means))) if len(ep_means) > 1 else float("nan")
+        out.append(row)
+    counts = np.bincount(np.array(full_bins, dtype=int), minlength=len(bins)) if full_bins else np.zeros(len(bins))
+    summary = {"n_decisions": len(full_bins),
+               "majority_class": bins[int(counts.argmax())] if full_bins else "",
+               "majority_class_rate": float(counts.max() / counts.sum()) if full_bins else float("nan"),
+               "reference_agree_bin": float(np.mean(ref_agree)) if ref_agree else float("nan")}
+    return out, summary
+
+
 # ------------------------------------------------------------------------------- statistics
 def _finite(rows: list[dict], key: str = "infl") -> list[dict]:
     return [r for r in rows if isinstance(r[key], float) and math.isfinite(r[key])]
