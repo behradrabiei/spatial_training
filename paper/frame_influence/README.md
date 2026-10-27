@@ -250,7 +250,10 @@ of an episode (10–150 rows each) and are left out of the row.
   tubelet's argmax is the full-context decision's argmax over the six executed-action classes,
   ages 0 / 2 / 4 / 8 / 16 / 32: 0.61 / 0.33 / 0.26 / 0.30 / 0.27 / 0.14 (256 codes: 0.20 at age 0,
   ≤ 0.04 at any history age); always answering the most common class scores 0.62 and the
-  no-visual prior 0.06. KL(full ‖ only tubelet) rises monotonically 3.2 → 7.2 → 8.0 → 8.6 → 9.2 →
+  no-visual prior 0.06, but that constant scores 1 / 0 on decisions that were forward / a turn or
+  stop, whereas the current tubelet alone scores 0.73 / 0.43 (ages 2 / 8 / 32: 0.34 / 0.35 / 0.12
+  on forward decisions, 0.33 / 0.20 / 0.20 on turns and stops; Cohen's κ 0.36 at age 0, 0.14 at
+  age 2, 0.00 from age 8) — the figure draws this split. KL(full ‖ only tubelet) rises monotonically 3.2 → 7.2 → 8.0 → 8.6 → 9.2 →
   9.9 nats over the same ages. So a tubelet older than a few steps, on its own, yields a confident
   action for a viewpoint the robot has left — below the majority-class rate — while the current
   tubelet alone reproduces the decision 61 % of the time. Old frames are not each carrying the

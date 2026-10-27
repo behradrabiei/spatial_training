@@ -266,29 +266,26 @@ def figure_rank_heatmap(rows, steps, summary, episode, out):
 def figure_lightnav_agreement(rows, summary, out):
     """LightNav-0 (keep-one): a lone tubelet scored against the FULL-context decision instead of the
     no-visual prior, vs its age: the episode-balanced probability that the only-tubelet argmax over
-    the six executed-action classes is the decision's argmax, +-1 SEM across episodes, against the
-    majority-class rate (always answering the most common executed class). One series, the
-    baseline labelled in place. Steady-state ages only (even: the current tubelet holds frames t-1 and t); the 256-code
-    agreement, the no-visual prior's agreement and KL(full || only tubelet) stay in the CSV."""
+    the six executed-action classes is the decision's argmax, +-1 SEM across episodes, split by what
+    the full decision was (forward, the majority class, vs a turn or stop). A constant "forward"
+    answer would sit at 1 on the first line and 0 on the second, so the split shows what the frame
+    knows beyond the class prior. Steady-state ages only (even: the current tubelet holds frames
+    t-1 and t); the overall, 256-code and KL(full || only tubelet) columns stay in the CSV."""
     rs = sorted((r for r in rows if int(r["age"]) % 2 == 0 and int(r["age"]) <= MAX_AGE_PLOT + 2), key=lambda r: int(r["age"]))
-    if not rs:
+    if not rs or "agree_bin_turn_balanced" not in rs[0]:
         return
     age = np.array([int(r["age"]) for r in rs])
-    mean = np.array([fl(r["agree_bin_balanced"]) for r in rs]); sem = np.nan_to_num(np.array([fl(r["agree_bin_sem"]) for r in rs]))
-    fa = summary.get("LightNav-0", {}).get("full_agreement", {})
     green = STYLE["LightNav-0"]["color"]
     with plt.rc_context(LARGE_RC):
         fig, ax = plt.subplots(figsize=(6.0, 3.8))
-        ax.errorbar(age, mean, yerr=sem, color=green, linestyle="-", marker="o", markersize=3,
-                    elinewidth=1.2, capsize=2.5, capthick=1.2)
-        if fa:
-            base = fa["majority_class_rate"]
-            ax.axhline(base, color="0.45", linestyle=":", linewidth=1.5)
-            ax.text(MAX_AGE_PLOT + 1.5, base + 0.02, f"always '{fa['majority_class']}' ({base:.2f})", color="0.3",
-                    fontsize=12, ha="right", va="bottom")
+        for key, ls, label in (("agree_bin_fwd", "-", "full context said: move forward"),
+                               ("agree_bin_turn", "--", "full context said: turn or stop")):
+            m = np.array([fl(r[f"{key}_balanced"]) for r in rs]); e = np.nan_to_num(np.array([fl(r[f"{key}_sem"]) for r in rs]))
+            ax.errorbar(age, m, yerr=e, color=green, linestyle=ls, marker="o", markersize=3, label=label,
+                        elinewidth=1.2, capsize=2.5, capthick=1.2)
         ax.set_ylim(0, 1); ax.set_xlim(-1, MAX_AGE_PLOT + 2.5)
-        ax.set_xlabel("Tubelet age (steps)"); ax.set_ylabel("P(same action as full context)")
-        ax.grid(True, alpha=0.3)
+        ax.set_xlabel("Tubelet age (steps)"); ax.set_ylabel("P(same action from this\ntubelet alone)")
+        ax.grid(True, alpha=0.3); ax.legend(fontsize=11, frameon=False, loc="upper right")
     save(fig, out)
 
 

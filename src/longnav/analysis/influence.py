@@ -333,7 +333,9 @@ def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[li
     tubelet alone yields a confident code). This reads the stored 256-way log-probs instead and
     scores each only-tubelet distribution against the decision the model took with everything
     visible: ``agree_bin`` / ``agree_code`` = the probe's argmax equals the full decision's argmax
-    (6 executed-action bins / 256 codes), ``p_full_bin`` = the probability the probe gives the
+    (6 executed-action bins / 256 codes), ``agree_bin_fwd`` / ``agree_bin_turn`` = the same split by
+    whether the full decision was ``fwd`` or a turn/stop (a constant ``fwd`` answer scores 1 / 0;
+    the current tubelet alone gets turns right that no constant can), ``p_full_bin`` = the probability the probe gives the
     full decision's bin, ``kl_full_only`` / ``kl_full_only_bin`` = KL(full || only tubelet). Age 0
     is the current tubelet (``keep_one_age0``). Pooled means plus episode-balanced means and SEMs,
     as in ``age_curve``. The summary carries the two reference levels: the no-visual prior's own
@@ -370,19 +372,26 @@ def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[li
                 if not k.get("logp_f16"):
                     continue
                 lp = _unpack_f16(k["logp_f16"]); lb = _fold_logp(lp, fold)
+                agree = float(lb.argmax() == fab)
                 per_age.setdefault(min(age, max_age), {}).setdefault(label, []).append({
-                    "agree_bin": float(lb.argmax() == fab), "agree_code": float(lp.argmax() == fa),
+                    "agree_bin": agree, "agree_code": float(lp.argmax() == fa),
+                    # the same agreement split by what the full decision was: the majority class
+                    # ("fwd") or a turn/stop -- a constant "fwd" answer scores 1 / 0 on this split
+                    "agree_bin_fwd": agree if bins[fab] == "fwd" else float("nan"),
+                    "agree_bin_turn": agree if bins[fab] != "fwd" else float("nan"),
                     "p_full_bin": float(np.exp(lb[fab])), "kl_full_only": kl(full, lp), "kl_full_only_bin": kl(fb, lb)})
-    keys = ("agree_bin", "agree_code", "p_full_bin", "kl_full_only", "kl_full_only_bin")
+    keys = ("agree_bin", "agree_code", "agree_bin_fwd", "agree_bin_turn", "p_full_bin", "kl_full_only", "kl_full_only_bin")
     out = []
     for age in sorted(per_age):
         eps = per_age[age]
         row = {"age": age, "n": sum(len(v) for v in eps.values()), "n_episodes": len(eps)}
         for key in keys:
             pooled = np.array([x[key] for v in eps.values() for x in v])
-            ep_means = np.array([np.mean([x[key] for x in v]) for v in eps.values()])
-            row[key] = float(pooled.mean())
-            row[f"{key}_balanced"] = float(ep_means.mean())
+            pooled = pooled[np.isfinite(pooled)]
+            ep_means = np.array([np.nanmean([x[key] for x in v]) for v in eps.values()
+                                 if np.isfinite([x[key] for x in v]).any()])
+            row[key] = float(pooled.mean()) if pooled.size else float("nan")
+            row[f"{key}_balanced"] = float(ep_means.mean()) if ep_means.size else float("nan")
             row[f"{key}_sem"] = float(ep_means.std(ddof=1) / math.sqrt(len(ep_means))) if len(ep_means) > 1 else float("nan")
         out.append(row)
     counts = np.bincount(np.array(full_bins, dtype=int), minlength=len(bins)) if full_bins else np.zeros(len(bins))
