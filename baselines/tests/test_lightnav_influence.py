@@ -430,7 +430,9 @@ class LoaderTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as d:
             write_fake_run(Path(d))
-            rows, summ = inf.lightnav_full_agreement(d)
+            rows, summ, eps = inf.lightnav_full_agreement(d)
+            self.assertEqual(eps, [{"age": 0, "episode": "ep_a", "n": 2, "agree_bin": 0.5},
+                                   {"age": 1, "episode": "ep_a", "n": 1, "agree_bin": 0.0}])
             by_age = {r["age"]: r for r in rows}
             self.assertEqual(sorted(by_age), [0, 1])
             # age 0: step 0's current-tubelet probe picks code 3 (stop) against a full decision of code 12

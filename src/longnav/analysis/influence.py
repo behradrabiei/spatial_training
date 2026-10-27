@@ -326,7 +326,7 @@ def _fold_logp(logp: np.ndarray, fold: np.ndarray) -> np.ndarray:
     return np.log(np.maximum(np.exp(logp) @ fold, 1e-30))
 
 
-def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[list[dict], dict]:
+def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[list[dict], dict, list[dict]]:
     """How well a lone tubelet reproduces the FULL-context decision, per age (LightNav-0, keep-one).
 
     Keep-one KL scores a tubelet against the no-visual prior, which for LightNav saturates (any
@@ -340,7 +340,8 @@ def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[li
     is the current tubelet (``keep_one_age0``). Pooled means plus episode-balanced means and SEMs,
     as in ``age_curve``. The summary carries the two reference levels: the no-visual prior's own
     agreement with the full decision and the majority-class rate (always answering the most common
-    executed class).
+    executed class). The third value is the per-(age, episode) table behind the balanced means
+    (``agree_bin`` and ``n`` per episode), for box plots over episodes.
     """
     run_dir = Path(run_dir)
     meta = json.loads((run_dir / "influence" / "meta.json").read_text())
@@ -394,12 +395,14 @@ def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[li
             row[f"{key}_balanced"] = float(ep_means.mean()) if ep_means.size else float("nan")
             row[f"{key}_sem"] = float(ep_means.std(ddof=1) / math.sqrt(len(ep_means))) if len(ep_means) > 1 else float("nan")
         out.append(row)
+    episode_rows = [{"age": age, "episode": e, "n": len(v), "agree_bin": float(np.mean([x["agree_bin"] for x in v]))}
+                    for age in sorted(per_age) for e, v in sorted(per_age[age].items())]
     counts = np.bincount(np.array(full_bins, dtype=int), minlength=len(bins)) if full_bins else np.zeros(len(bins))
     summary = {"n_decisions": len(full_bins),
                "majority_class": bins[int(counts.argmax())] if full_bins else "",
                "majority_class_rate": float(counts.max() / counts.sum()) if full_bins else float("nan"),
                "reference_agree_bin": float(np.mean(ref_agree)) if ref_agree else float("nan")}
-    return out, summary
+    return out, summary, episode_rows
 
 
 # ------------------------------------------------------------------------------- statistics

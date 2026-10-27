@@ -15,6 +15,7 @@ both against the 10-episode manifest, and writes:
   lightnav_agreement.csv  (keep_one, LightNav-0 only) per age: a lone tubelet's agreement with the
                        full-context decision (6-bin / 256-code argmax), p of the full decision's bin, and
                        KL(full || only tubelet); pooled + episode-balanced means with SEMs
+  lightnav_agreement_episodes.csv  the per-(age, episode) 6-bin agreement behind those means (box plot)
   age_curve.csv        mean/std/median/n per age with episode-cluster bootstrap CIs and the
                        episode-balanced mean, per model.
   age_bins.csv         mean/median/mass share per age bin, per model.
@@ -245,9 +246,10 @@ def main() -> None:
     # score every lone tubelet against the full-context decision from the stored 256-way log-probs.
     agree_rows = []
     if "LightNav-0" in per_model:
-        agree_rows, agree_summ = inf.lightnav_full_agreement(args.runs / ARMS["LightNav-0"][0])
+        agree_rows, agree_summ, agree_eps = inf.lightnav_full_agreement(args.runs / ARMS["LightNav-0"][0])
         summary["LightNav-0"]["full_agreement"] = agree_summ
         write_csv(args.out / "lightnav_agreement.csv", agree_rows)
+        write_csv(args.out / "lightnav_agreement_episodes.csv", agree_eps)
     summary["representative_episode"] = inf.pick_representative_episode(*(v[1] for v in per_model.values()))
     summary["measure"] = args.measure
     # Eviction leakage at the decision level: evict-style minus leak-free horizon probes, paired
@@ -336,7 +338,7 @@ def main() -> None:
             print(f"   K={r['K']:>2}: evict {r['mean_a']:.4f}  leak-free {r['mean_b']:.4f}  delta {r['delta']:+.4f} "
                   f"[{r['lo']:+.4f}, {r['hi']:+.4f}]  n={r['n_steps']} steps / {r['n_episodes']} eps")
     print(f"\nwrote {args.out}/{{influence.csv.gz, steps.csv, age_curve.csv, cumulative_share.csv, horizon.csv, "
-          f"persistence.csv, covariates.csv, flips.csv, summary.csv, table.tex" + (", lightnav_agreement.csv" if agree_rows else "") + "}")
+          f"persistence.csv, covariates.csv, flips.csv, summary.csv, table.tex" + (", lightnav_agreement.csv, lightnav_agreement_episodes.csv" if agree_rows else "") + "}")
 
 
 if __name__ == "__main__":
