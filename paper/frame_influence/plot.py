@@ -267,8 +267,8 @@ def figure_lightnav_agreement(rows, summary, out):
     """LightNav-0 (keep-one): a lone tubelet scored against the FULL-context decision instead of the
     no-visual prior, vs its age: the episode-balanced probability that the only-tubelet argmax over
     the six executed-action classes is the decision's argmax, +-1 SEM across episodes, against the
-    majority-class rate (always answering the most common executed class). One series, labelled in
-    place. Steady-state ages only (even: the current tubelet holds frames t-1 and t); the 256-code
+    majority-class rate (always answering the most common executed class). One series, the
+    baseline labelled in place. Steady-state ages only (even: the current tubelet holds frames t-1 and t); the 256-code
     agreement, the no-visual prior's agreement and KL(full || only tubelet) stay in the CSV."""
     rs = sorted((r for r in rows if int(r["age"]) % 2 == 0 and int(r["age"]) <= MAX_AGE_PLOT + 2), key=lambda r: int(r["age"]))
     if not rs:
@@ -281,8 +281,6 @@ def figure_lightnav_agreement(rows, summary, out):
         fig, ax = plt.subplots(figsize=(6.0, 3.8))
         ax.errorbar(age, mean, yerr=sem, color=green, linestyle="-", marker="o", markersize=3,
                     elinewidth=1.2, capsize=2.5, capthick=1.2)
-        ax.annotate("one tubelet alone", (age[1], mean[1]), xytext=(age[1] + 2.5, mean[1] + 0.12), color=green, fontsize=12,
-                    arrowprops=dict(arrowstyle="-", color=green, lw=0.8))
         if fa:
             base = fa["majority_class_rate"]
             ax.axhline(base, color="0.45", linestyle=":", linewidth=1.5)
