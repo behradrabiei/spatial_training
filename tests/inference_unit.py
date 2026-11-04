@@ -127,6 +127,55 @@ class ServerTests(unittest.TestCase):
             self.assertIn('table', str(worker.turns[-1]))
         self.assertEqual(len(builds), 1)
 
+    def test_health_reset_and_step_log(self):
+        import json
+        import tempfile
+        from fastapi.testclient import TestClient
+        from longnav.scripts.serve import create_app
+        worker = FakeWorker()
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / 'steps.jsonl'
+            app = create_app(lambda: worker, info={'context_frames': 8, 'deterministic': True}, step_log=log)
+            image = io.BytesIO()
+            Image.new('RGB', (10, 10)).save(image, format='JPEG')
+            files = {'file': ('obs.jpg', image.getvalue(), 'image/jpeg')}
+            with TestClient(app) as client:
+                health = client.get('/health').json()
+                self.assertTrue(health['ok'])
+                self.assertEqual(health['context_frames'], 8)
+                client.post('/act', files=files, data={'instr_or_goal': 'tray'})
+                client.post('/act', files=files)
+                self.assertEqual(client.post('/reset').json(), {'ok': True})
+                self.assertEqual(worker.reset_count, 2)
+                self.assertEqual(client.post('/act', files=files).status_code, 400)  # goal required again
+                client.post('/act', files=files, data={'instr_or_goal': 'chair'})
+            records = [json.loads(line) for line in log.read_text().splitlines()]
+        self.assertEqual([(r['episode'], r['step'], r['goal']) for r in records],
+                         [(1, 1, 'tray'), (1, 2, 'tray'), (2, 1, 'chair')])
+        self.assertEqual(records[0]['action_id'], 1)
+        self.assertIsNone(records[0]['kv_len'])  # FakeWorker has no cache
+
+    def test_overrides_and_presets(self):
+        from dataclasses import asdict
+        from longnav.config_schema import RolloutConfig, VLMConfig
+        from longnav.scripts.serve import apply_overrides
+        vlm, rollout = apply_overrides(asdict(VLMConfig()), asdict(RolloutConfig()), experiment='paper_ctx',
+                                       sets=['vlm.context_frames=8', 'vlm.context_window_mode=evict',
+                                             'rollout.stop_prob_threshold=null', 'rollout.temperature=0.5'])
+        self.assertTrue(rollout['deterministic'])  # from the preset: argmax actions
+        self.assertEqual(rollout['max_steps'], 500)
+        self.assertEqual((vlm['use_sparse'], vlm['sparse_threshold'], vlm['context_cut']), (True, 0.95, 'frame'))
+        self.assertEqual((vlm['context_frames'], vlm['context_window_mode']), (8, 'evict'))
+        self.assertIsNone(rollout['stop_prob_threshold'])
+        self.assertEqual(rollout['temperature'], 0.5)
+        self.assertIsNone(VLMConfig().context_frames)  # inputs were copied, defaults untouched
+        with self.assertRaises(ValueError):
+            apply_overrides(asdict(VLMConfig()), asdict(RolloutConfig()), sets=['vlm.no_such_option=1'])
+        with self.assertRaises(ValueError):
+            apply_overrides(asdict(VLMConfig()), asdict(RolloutConfig()), sets=['context_frames=8'])
+        with self.assertRaises(FileNotFoundError):
+            apply_overrides(asdict(VLMConfig()), asdict(RolloutConfig()), experiment='no_such_preset')
+
 
 class Ref:
     def __init__(self, value): self.value = value
