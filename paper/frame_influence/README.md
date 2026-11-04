@@ -260,6 +260,19 @@ of an episode (10–150 rows each) and are left out of the row.
   current decision; what they carry is redundant across frames (random token pruning to a quarter
   of the tokens costs nothing, Exp 4b) and lost only when the window drops them all (the K = 4 cut,
   Exp 1).
+* **LightNav-0 action spread: single- or multi-modal?** (`paper/frame_influence/action_spread.py`,
+  `conda run -n vln`, writes to `outputs/validation/lightnav_action_spread/`; computed from the
+  same stored 256-way log-probs, no run, 2026-10-28.) The 256-way entropy is metric-free, so the
+  stored distribution is pushed through the action decoder exactly (probability-weighted moments
+  of the 256 coarse codes decoded alone, no sampling) and a Gaussian is fitted to the chunk's
+  endpoint pose (x, y, unwrapped heading; ridge 1e-4). Per step: `H_cat`, the Gaussian entropy
+  `H_gauss`, and `d_exec`, the Mahalanobis distance of the greedy code's endpoint from the
+  pushforward mean. Result: effectively unimodal in trajectory space. `d_exec` median 0.72, p90
+  1.12, above 1.5 on 1.1 % of steps (19, mostly an episode's first steps where rotate-in-place and
+  go-forward compete); endpoint spread median 13 cm forward / 10 cm lateral / 11° heading.
+  Spearman ρ(`H_cat`, `H_gauss`) 0.74 over steps, rotate steps above the trend and forward steps
+  below; `H_gauss` falls over the episode in 9/10 episodes (sign test p = 0.02) against 8/10
+  (p = 0.11) for `H_cat`. Figures `spread_scatter`, `spread_over_time`, `spread_showcase`.
 
 ## Statistics
 
