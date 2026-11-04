@@ -1,0 +1,25 @@
+{
+  "expected_episodes": 100,
+  "completed_episodes": 100,
+  "missing_episodes": [],
+  "extra_episodes": [],
+  "success_rate": 0.03,
+  "spl": 0.021192717908500306,
+  "soft_spl": 0.05523882024642102,
+  "average_final_distance": 5.618887298256158,
+  "average_steps": 491.26,
+  "termination_reasons": {
+    "agent_stop": 100
+  },
+  "forced_stops": 98,
+  "labels_sha256": "5cedbdad1d885981d40e3400e5ff8036ff6cc76a1de9ce5564a3e77dbb847121",
+  "results_files": [
+    "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/lightnav_blind_l20/raw/results.jsonl"
+  ],
+  "lightnav_summary": {
+    "SR_success_rate_pct": 3.0,
+    "SPL_pct": 2.12,
+    "SoftSPL_pct": 5.52,
+    "NE_navigation_error_m": 5.619
+  }
+}

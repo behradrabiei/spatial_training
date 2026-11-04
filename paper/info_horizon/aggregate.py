@@ -3,8 +3,9 @@
 
 Reads the KL probe arms (runs/r1_probe_leaky, runs/r1_probe: rollout/*/*/sequence.json;
 runs/uninavid_probe: horizon/*.jsonl), the visual-blind SR/SPL arms (runs/r1_blind_l<L>,
-runs/uninavid_blind_l<L>) and the references (paper_results/ctx_ablation/runs/r1_full for
-LongNav-R1, runs/uninavid_ref for Uni-NaVid), and writes:
+runs/uninavid_blind_l<L>, runs/lightnav_blind_l<L>) and the references
+(paper_results/ctx_ablation/runs/r1_full for LongNav-R1, runs/uninavid_ref for Uni-NaVid,
+runs/lightnav_ref for LightNav-0 -- SR/SPL only, no KL probe; HM3D only), and writes:
   horizon.csv      long form, one row per (curve, layer): keep-one-in / leave-one-out KL of the
                    current frame (pooled mean over scored steps, episode-cluster bootstrap CI,
                    balanced mean) and SR / SPL of the blind arm at that layer (mean, CI, paired
@@ -26,7 +27,7 @@ from pathlib import Path
 import numpy as np
 
 from longnav.analysis import horizon as hz
-from longnav.analysis.results_io import load_manifest, load_r1_run, load_uninavid_run, split_status
+from longnav.analysis.results_io import load_lightnav_run, load_manifest, load_r1_run, load_uninavid_run, split_status
 from longnav.analysis.stats import bootstrap_mean_ci, paired_delta, stars
 
 HERE = Path(__file__).resolve().parent
@@ -40,16 +41,24 @@ DATASETS = {  # results root, SR/SPL manifest, KL-probe manifest, LongNav-R1 ref
 RESULTS_ROOT = DATASETS["hm3d"][0]
 MANIFEST_100 = ROOT / "src/longnav/conf/episode_jsons/hm3d_v2_100.json"
 MANIFEST_9 = ROOT / "src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json"
-N_LAYERS = {"LongNav-R1": 28, "Uni-NaVid": 32}
+N_LAYERS = {"LongNav-R1": 28, "Uni-NaVid": 32, "LightNav-0": 36}
 # KL curves: label -> (arm dir, loader, model the SR/SPL arms belong to)
 PROBES = {"LongNav-R1": ("r1_probe_leaky", hz.load_r1_horizon, "LongNav-R1"),
           "LongNav-R1 (leak-free)": ("r1_probe", hz.load_r1_horizon, "LongNav-R1"),
           "Uni-NaVid": ("uninavid_probe", hz.load_uninavid_horizon, "Uni-NaVid")}
+# SR/SPL-only curves (no KL probe): label -> model; rows follow the PROBES rows
+PERF_ONLY = {"LightNav-0": "LightNav-0"}
 # SR/SPL arms: model -> (blind arm template, run loader, reference dir)
 BLIND = {"LongNav-R1": ("r1_blind_l{L}", load_r1_run, ROOT / "paper_results/ctx_ablation/runs/r1_full"),
-         "Uni-NaVid": ("uninavid_blind_l{L}", load_uninavid_run, RESULTS_ROOT / "runs/uninavid_ref")}
-LAYERS = {"LongNav-R1": [8, 12, 14, 16, 18, 20, 24], "Uni-NaVid": [8, 12, 16, 18, 20, 24, 28]}
+         "Uni-NaVid": ("uninavid_blind_l{L}", load_uninavid_run, RESULTS_ROOT / "runs/uninavid_ref"),
+         # LightNav-0 forced stops at the 500-step cap are re-scored as failures (results_io)
+         "LightNav-0": ("lightnav_blind_l{L}", load_lightnav_run, RESULTS_ROOT / "runs/lightnav_ref")}
+LAYERS = {"LongNav-R1": [8, 12, 14, 16, 18, 20, 24], "Uni-NaVid": [8, 12, 16, 18, 20, 24, 28],
+          "LightNav-0": [12, 16, 18, 20, 22, 24, 26]}
 OPTIONAL = {"r1_probe"}  # the leak-free LongNav-R1 probe: drawn if present, not required
+# lightnav_ref reruns the model through the eager masked-attention path of the blind arms; the
+# compiled-graph FlashAttention run it should agree with (kernel / eager check in summary.json)
+LIGHTNAV_FULL = ROOT / "paper_results/ctx_ablation/runs/lightnav_full"
 
 
 def fmt(v, nd=3):
@@ -90,6 +99,11 @@ def main() -> None:
     args.out = args.out or root / "results"
     BLIND["LongNav-R1"] = (BLIND["LongNav-R1"][0], BLIND["LongNav-R1"][1], r1_ref)
     BLIND["Uni-NaVid"] = (BLIND["Uni-NaVid"][0], BLIND["Uni-NaVid"][1], args.runs / "uninavid_ref")
+    if args.dataset == "hm3d":
+        BLIND["LightNav-0"] = (BLIND["LightNav-0"][0], BLIND["LightNav-0"][1], args.runs / "lightnav_ref")
+    else:  # the LightNav harness runs HM3D only
+        BLIND.pop("LightNav-0", None)
+        PERF_ONLY.clear()
     args.out.mkdir(parents=True, exist_ok=True)
     labels_100 = load_manifest(ROOT / "src/longnav/conf/episode_jsons" / m100)
     labels_9 = load_manifest(ROOT / "src/longnav/conf/episode_jsons" / m9)
@@ -162,6 +176,15 @@ def main() -> None:
             m, lo, hi = bootstrap_mean_ci([r["n_steps"] for r in rows.values()])
             rec |= {"steps": m}
             perf[model][L] = rec
+        if model == "LightNav-0" and ref and LIGHTNAV_FULL.is_dir():
+            full = load_lightnav_run(LIGHTNAV_FULL)
+            if full:
+                d = {key: paired_delta(ref, full, key) for key in ("success", "spl")}
+                summary["checks"].append(
+                    f"lightnav_ref (eager, masked SDPA) vs lightnav_full (compiled, FlashAttention), paired over "
+                    f"{len(set(ref) & set(full))} episodes: dSR={d['success']['delta']:+.3f} (p={d['success']['p']:.2f}), "
+                    f"dSPL={d['spl']['delta']:+.3f} (p={d['spl']['p']:.2f}); "
+                    f"SR {np.mean([r['success'] for r in ref.values()]):.2f} vs {np.mean([r['success'] for r in full.values()]):.2f}")
 
     if incomplete and not args.allow_partial:
         sys.exit("incomplete arms (pass --allow-partial for an interim look):\n  " + "\n  ".join(incomplete))
@@ -169,7 +192,9 @@ def main() -> None:
 
     # -- long-form table ----------------------------------------------------------------
     out_rows = []
-    for curve, (arm, _, model) in PROBES.items():
+    curve_list = [(curve, arm, model) for curve, (arm, _, model) in PROBES.items()]
+    curve_list += [(curve, "", model) for curve, model in PERF_ONLY.items()]  # SR/SPL-only models
+    for curve, arm, model in curve_list:
         n = N_LAYERS[model]
         c = curves.get(curve)
         if c is None and arm in OPTIONAL:
@@ -179,7 +204,7 @@ def main() -> None:
         probed = sorted(set(c["layers"]) | set(LAYERS[model])) if c else list(LAYERS[model])
         for L in [x for x in probed if x < n] + [n]:
             row = {"curve": curve, "model": model, "arm": arm, "layer": L, "n_layers": n, "layer_frac": L / n,
-                   "source": "reference (nothing hidden)" if L == n else "probe"}
+                   "source": "reference (nothing hidden)" if L == n else "probe" if c is not None else "blind"}
             if c is not None:
                 if L == n:
                     row |= {"keep_one_mean": 0.0, "keep_one_lo": 0.0, "keep_one_hi": 0.0,
@@ -212,7 +237,7 @@ def main() -> None:
     lines = ["% Generated by paper/info_horizon/aggregate.py -- do not edit by hand.",
              r"\begin{tabular}{l r cc cc}", r"\toprule",
              r"model & $L$ & keep-one-in & leave-one-out & SR & SPL \\", r"\midrule"]
-    for curve, (arm, _, model) in PROBES.items():
+    for curve, arm, model in curve_list:
         lines.append(rf"\multicolumn{{6}}{{l}}{{\emph{{{curve}}}}} \\")
         for r in (x for x in out_rows if x["curve"] == curve):
             L = "none" if r["layer"] == r["n_layers"] else str(r["layer"])

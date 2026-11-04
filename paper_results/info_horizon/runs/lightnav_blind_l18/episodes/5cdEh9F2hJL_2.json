@@ -1,0 +1,25 @@
+{
+  "episode_label": "5cdEh9F2hJL_2",
+  "episode_id": "2",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00853-5cdEh9F2hJL/5cdEh9F2hJL.basis.glb",
+  "goal": "chair",
+  "instruction": "Find the chair.",
+  "steps": 500,
+  "inference_calls": 499,
+  "termination_reason": "agent_stop",
+  "forced_stop": true,
+  "oracle_success": false,
+  "min_distance": 2.6981143951416016,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/lightnav_blind_l18/raw/results.jsonl",
+    "line": 6,
+    "lightnav_episode_id": "episode_005",
+    "habitat_episode_id": "2"
+  },
+  "metrics": {
+    "success": 0.0,
+    "spl": 0.0,
+    "soft_spl": 0.00011696924212500903,
+    "distance_to_goal": 2.6983954906463623
+  }
+}

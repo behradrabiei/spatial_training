@@ -9,10 +9,11 @@ figures to paper_results/info_horizon[_mp3d]/figures/, one per data source:
   information_kl_keep / information_kl_leave.{pdf,png}  the two KL panels as standalone figures
   information_perf_sr / information_perf_spl.{pdf,png}  the two SR/SPL panels as standalone figures
 against the decoder layer L (visual tokens hidden from L on). Curves: LongNav-R1 red solid,
-LongNav-R1 (leak-free re-prefill, optional arm) red dashed, Uni-NaVid blue solid; the SR/SPL
-figure carries one LongNav-R1 curve (the blind rollout is leak-free by construction). Means
-only; CIs are in results/horizon.csv. 1-based layer index on x (axis label $\ell_0$), each model's
-"nothing hidden" point at its own depth L+1 (29 / 33, hollow marker; the last tick reads "L+1").
+LongNav-R1 (leak-free re-prefill, optional arm) red dashed, Uni-NaVid blue solid, LightNav-0
+green solid (SR/SPL only: no KL probe for that model); the SR/SPL figure carries one LongNav-R1
+curve (the blind rollout is leak-free by construction). Means only; CIs are in
+results/horizon.csv. 1-based layer index on x (axis label $\ell_0$), each model's "nothing hidden"
+point at its own depth L+1 (29 / 33 / 37, hollow marker; the last tick reads "L+1").
 No horizon line unless --horizon is given.
 
 Needs matplotlib, so run in the vln env:
@@ -30,7 +31,8 @@ HERE = Path(__file__).resolve().parent
 RESULTS_ROOT = HERE.parents[1] / "paper_results/info_horizon"
 STYLE = {"LongNav-R1": dict(color="tab:red", marker="o", markersize=3, linestyle="-"),
          "LongNav-R1 (leak-free)": dict(color="tab:red", marker="o", markersize=3, linestyle="--"),
-         "Uni-NaVid": dict(color="tab:blue", marker="o", markersize=3, linestyle="-")}
+         "Uni-NaVid": dict(color="tab:blue", marker="o", markersize=3, linestyle="-"),
+         "LightNav-0": dict(color="tab:green", marker="o", markersize=3, linestyle="-")}
 HORIZON_COLOR = "tab:purple"
 FIGURES = {  # the KL panels come from the probe episodes, SR/SPL from the 100-episode blind runs
     "information_kl": (("keep_one_mean", "Keep-one-in KL (nats)"), ("leave_one_mean", "Leave-one-out KL (nats)")),
@@ -79,11 +81,11 @@ def draw_panel(ax, rows, curves, key, title, horizon):
     for h in horizon:
         ax.axvline(h, color=HORIZON_COLOR, linestyle="--", linewidth=1.2)
     ax.set_title(title, fontsize=10)
-    ticks = [1, 8, 16, 24, 33]  # 1-based; the last tick is Uni-NaVid's L+1 (LongNav-R1's sits at 29)
+    ticks = [1, 8, 16, 24, 32, 37]  # 1-based; the last tick is LightNav-0's L+1 (LongNav-R1 29, Uni-NaVid 33)
     ax.set_xticks(ticks)
-    ax.set_xticklabels(["1", "8", "16", "24", "L+1"])
+    ax.set_xticklabels(["1", "8", "16", "24", "32", "L+1"])
     ax.get_xticklabels()[-1].set_horizontalalignment("left")
-    ax.set_xlim(-0.5, 34.5)
+    ax.set_xlim(-0.5, 38.5)
     ax.grid(alpha=0.3)
 
 
