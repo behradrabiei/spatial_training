@@ -136,3 +136,115 @@ pre-pass over the unpruned prompt is not what is counted), `cuda_peak_bytes`
 (`torch.cuda.max_memory_allocated()` over the call, after a reset) and
 `cuda_allocated_bytes` (resident after the call: weights + the per-frame feature
 cache). Older runs can lack these fields; missing telemetry is not a measured zero.
+
+## LightNav-0 baseline
+
+[LightNav-0](https://github.com/lightorigins/LightNav-0) (Qwen3-VL-4B with RVQ action tokens,
+Apache-2.0) is evaluated with its own, unmodified Habitat pipeline on the same 100 HM3D-v2
+labels. The upstream clone is pinned at `3015508b` and nothing in it is edited; the glue under
+`lightnav_hm3d/` only prepares the episode subset and converts the outputs. Nothing is
+installed into `vln`, `longnav_vlm`, or the Uni-NaVid prefix.
+
+Layout (relative to `baselines/`, all ignored by Git except `lightnav_hm3d/`, the scripts
+and `tests/test_lightnav*.py`):
+
+- `.envs/lightnav-habitat`: Python 3.9 + habitat-sim 0.3.1 + habitat-lab 0.3.20231024, the
+  env-server stack upstream verified (`habitat_server/environment.yml`).
+- `.envs/lightnav`: Python 3.11 + torch 2.10 / transformers 5.8.0 / vLLM 0.19.1 for the GPU client.
+- `LightNav-0`: pinned editable upstream clone; the checkpoint
+  (`LightOriginsHQ/LightNav-0`, 9.7 GB, ships `eval_config.json` + `action_tokenizer/`) is
+  downloaded to `LightNav-0/checkpoints/LightNav-0`.
+- `.cache/datasets/objectnav_hm3d_v2_100`: filtered copy of the HM3D-v2 val dataset
+  (stub + one `content/` shard per scene) holding exactly the 100 labelled episodes.
+  Upstream's server has no episode filter, so it is pointed at this copy with
+  `--data-path`. The labels name the k-th episode of each scene shard (habitat-lab renumbers
+  episode ids on load); the generator rewrites each kept episode's id to that index, which
+  the loader then reports as `raw_episode_id`, so every result maps back to its label.
+- `results/lightnav_hm3d_v2_100[_native]`: `raw/` holds LightNav's own `results.jsonl`,
+  `summary.json` and the server/client logs; `episodes/<label>.json`, `summary.json` and
+  `run.json` are the converted Uni-NaVid-layout records read by `longnav.analysis.results_io`.
+
+```bash
+bash baselines/setup_lightnav.sh
+bash baselines/run_lightnav.sh download
+bash baselines/run_lightnav.sh validate      # boots the env server on the subset and probes it
+bash baselines/run_lightnav.sh smoke         # 1 episode, comparable protocol (+ overlay video)
+bash baselines/run_lightnav.sh full          # 100 episodes, success radius 1.0 m
+bash baselines/run_lightnav.sh full-native   # 100 episodes, LightNav's published protocol
+python3 -m unittest baselines.tests.test_lightnav
+```
+
+Each run starts upstream's ZMQ env server (`lightnav_habitat.serve --task objectnav`, 480x270
+RGB at 120 deg hfov, 0.88 m camera, `velocity_control` with 0.25 m / 30 deg per step, 500-step
+budget, episodes in dataset order) and upstream's client (`lightnav.cli.eval_habitat`, greedy
+decoding, the checkpoint's own history window and RVQ decoder, an explicit STOP on the last
+budget step, after which Habitat scores the final pose; the paper aggregators re-score these
+`forced_stop` episodes as failures via `longnav.analysis.results_io.load_lightnav_run`, since
+the LongNav-R1 and Uni-NaVid harnesses cannot succeed at the cap). The two variants differ only
+in server flags: `full` passes
+`--success-distance 1.0` on the shipped navmesh, matching the Uni-NaVid and LongNav
+protocol in this repository; `full-native` keeps LightNav's default 0.1 m radius and
+`--navmesh-cell-height 0.05`, the setting its paper numbers use (HM3D-v2 goal view points sit
+0.05-0.15 m below the shipped navmesh, which floors `distance_to_goal`). The camera and
+action space are the model's and are not changed for either variant, so LightNav sees a
+different view of the same episodes than the discrete-action 640x480 / 79 deg agent used by
+Uni-NaVid. `results.jsonl` is append-only, so a run directory is never reused; `BACKEND=hf`
+switches the client off vLLM, `GPU_MEM_UTIL` caps the vLLM fraction (the simulator renders
+on the same GPU). `run.json` records both command lines, the upstream and checkpoint
+revisions, package versions, the label checksum and the server-log counts the launcher checks
+(navmesh re-bakes, server errors).
+
+Two launcher knobs serve the paper's context-window ablation (`paper/ctx_ablation/`):
+`RUN_DIR=<abs dir>` writes the run somewhere other than `results/$RUN_NAME`, and
+`CONTEXT_FRAMES=K` runs the client through `lightnav_hm3d/eval_ctx.py` instead of
+`lightnav.cli.eval_habitat`. The wrapper cuts the visual history to the newest `K` observed
+frames (current frame included) and hands every other argument to upstream. LightNav-0 keeps
+the whole episode and samples it by age with the checkpoint's SlowFast tiers
+(`--num_history_frames` does not shorten that buffer for SlowFast checkpoints), so the wrapper
+rebinds `lightnav.inference.samples.slowfast_video_segments` in-process: with more than `K`
+frames observed it builds the segment layout upstream uses at step `K-1` of a fresh episode,
+shifts the frame ids by the number of dropped frames and indexes the full buffer. The frame
+timestamps are age-relative and the ViT cache is keyed by absolute frame id, so the model
+input equals that of an episode that started `K` steps ago (the clone is still not edited;
+`baselines/tests/test_lightnav_ctx.py` checks the equivalence). `run.json` records
+`context_frames` and `client_entry`.
+
+A third knob serves the information-horizon experiment (`paper/info_horizon/`):
+`BLIND_LAYER=L` runs the client through `lightnav_hm3d/eval_blind.py`, which hides every
+`<|video_pad|>` token from decoder layer `L` on (history and current frame; vision markers and
+timestamps stay visible). LightNav decodes inside vLLM, whose FlashAttention kernel takes no
+mask and whose compiled CUDA-graph decode runs no Python hook, so the wrapper forces eager vLLM
+(`VLN_VLLM_ENFORCE_EAGER=1`) and replaces `FlashAttentionImpl.forward` on every decoder layer
+with an exact masked attention (SDPA over the K/V gathered from the paged cache); layers `>= L`
+additionally drop the visual columns. `L = 36` (the model's depth) hides nothing and is the
+matched reference for the blind arms, since the kernel path differs from the unmodified run.
+Before each `LLM.generate` the wrapper records the prompt's visual positions and afterwards
+checks the masked kernel ran on every layer of every forward. `BLIND_LAYER` and
+`CONTEXT_FRAMES` are not combined. `run.json` records `blind_layer` and `enforce_eager`;
+`baselines/tests/test_lightnav_blind.py` checks the kernel and the hook offline.
+
+A fourth knob serves the flat token-prune study (`paper/token_prune/`, "Flat variant"):
+`PRUNE_METHOD=M PRUNE_K=k` (M in `random|fastv|divprune|dart`) runs the client through
+`lightnav_hm3d/eval_prune.py`, which keeps `k x 14` of the prompt's history visual tokens under
+rule M and hides the rest from every query on every layer, on the same eager masked-attention
+kernel as `BLIND_LAYER` (the information-horizon reference `lightnav_ref` is therefore its
+unpruned reference). Deletions are permanent through a per-episode ledger keyed by tubelet
+identity `(frame0, frame1, pool, cell)`; the current 2-frame tubelet is exempt. FastV and DART
+score the prompt in a pre-pass (`generate` with one token, ledger hidden) that captures the
+last prompt token's layer-0 attention row, the layer-0 keys and the layer-1 input, then the real
+generate runs with the dropped columns hidden; random and DivPrune (LLM input embeddings) need no
+pre-pass. One record per inference lands in `raw/prune/episode_NNN.jsonl`, which the converter
+moves to `prune/<label>.jsonl`. Not combined with the other two wrappers. `run.json` records
+`prune_method`, `prune_k` and the wrapper's `meta.json`; `baselines/tests/test_lightnav_prune.py`
+checks the layout, the ledger, the selection rules and the hooks offline.
+
+`lightnav_hm3d/serve_navverse.py` serves the same model and wrappers over HTTP for a simulator
+that is not Habitat: it speaks the `/act` contract of `longnav.scripts.serve` (one JPEG per step,
+the goal on the first step, a discrete `action_id` back), so NavVerse's LongNav client drives
+LightNav-0 on its Isaac Sim benchmark (`paper/ctx_ablation/run_navverse_lightnav.sh`). It
+discretizes LightNav's 1 s velocity step into STOP / FORWARD / TURN (Habitat's stop guard, then the
+larger normalized component), feeds frames at their native aspect ratio (`--aspect-mode keep`;
+640x480 -> 384x288, 30 tokens per pooled history pair, so `--prune-tokens-per-frame 15`), and can
+install the pruning wrapper (`--prune-method ... --prune-k ...`) before the engine is built.
+`baselines/tests/test_lightnav_serve_navverse.py` checks the rule, the contract and the step-log
+merge offline.
