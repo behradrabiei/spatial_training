@@ -1,0 +1,25 @@
+{
+  "expected_episodes": 100,
+  "completed_episodes": 100,
+  "missing_episodes": [],
+  "extra_episodes": [],
+  "success_rate": 0.81,
+  "spl": 0.4544761695458106,
+  "soft_spl": 0.45246000932119723,
+  "average_final_distance": 2.7202701228903607,
+  "average_steps": 159.64,
+  "termination_reasons": {
+    "agent_stop": 100
+  },
+  "forced_stops": 13,
+  "labels_sha256": "5cedbdad1d885981d40e3400e5ff8036ff6cc76a1de9ce5564a3e77dbb847121",
+  "results_files": [
+    "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/results/lightnav_hm3d_v2_100/raw/results.jsonl"
+  ],
+  "lightnav_summary": {
+    "SR_success_rate_pct": 81.0,
+    "SPL_pct": 45.45,
+    "SoftSPL_pct": 45.25,
+    "NE_navigation_error_m": 2.72
+  }
+}

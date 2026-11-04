@@ -1,0 +1,25 @@
+{
+  "expected_episodes": 100,
+  "completed_episodes": 100,
+  "missing_episodes": [],
+  "extra_episodes": [],
+  "success_rate": 0.84,
+  "spl": 0.46846539963723693,
+  "soft_spl": 0.4644677165547047,
+  "average_final_distance": 2.1245602728333326,
+  "average_steps": 176.89,
+  "termination_reasons": {
+    "agent_stop": 100
+  },
+  "forced_stops": 16,
+  "labels_sha256": "5cedbdad1d885981d40e3400e5ff8036ff6cc76a1de9ce5564a3e77dbb847121",
+  "results_files": [
+    "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation/runs/lightnav_k32/raw/results.jsonl"
+  ],
+  "lightnav_summary": {
+    "SR_success_rate_pct": 84.0,
+    "SPL_pct": 46.85,
+    "SoftSPL_pct": 46.45,
+    "NE_navigation_error_m": 2.125
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "info": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "arm": "nvl_keep_k8",
+    "model": "LightNav-0",
+    "model_path": "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/LightNav-0/checkpoints/LightNav-0",
+    "backend": "vllm_local",
+    "aspect_mode": "keep",
+    "expect_video_size": [
+      288,
+      384
+    ],
+    "gpu_memory_utilization": 0.65,
+    "max_num_seqs": 1,
+    "max_new_tokens": 64,
+    "instruction_template": "Find the {goal}.",
+    "prune": {
+      "method": "recency",
+      "k": 6,
+      "tokens_per_frame": 15,
+      "budget": 90,
+      "current_frames": 2,
+      "log_dir": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation_navverse/runs/nvl_keep_k8/prune"
+    },
+    "discretization": {
+      "dt_s": 1.0,
+      "lin_vel_range_mps": [
+        0.0,
+        0.25
+      ],
+      "ang_vel_range_dps": [
+        -30.0,
+        30.0
+      ],
+      "stop_guard": {
+        "min_abs_lin_mps": 0.025,
+        "min_abs_ang_dps": 1.0
+      },
+      "forward_m": 0.25,
+      "turn_deg": 15.0,
+      "rule": "STOP if both stop guards fire; else argmax(lin*dt/forward_m, |ang|*dt/turn_deg), ties -> FORWARD; TURN_LEFT for ang > 0 (CCW)",
+      "action_ids": {
+        "STOP": 0,
+        "FORWARD": 1,
+        "TURN_LEFT": 2,
+        "TURN_RIGHT": 3
+      }
+    },
+    "kv_len_meaning": "prompt tokens of the step (LightNav-0 re-prefills its whole prompt every step)",
+    "engine": {
+      "num_history_frames": 64,
+      "base_video_size": [
+        256,
+        448
+      ],
+      "action_method": "rvq",
+      "max_new_tokens_before": 64,
+      "max_new_tokens": 64,
+      "enforce_eager": true,
+      "max_model_len": 2560,
+      "cudagraph_mode": "NONE"
+    }
+  },
+  "argv": [
+    "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/lightnav_hm3d/serve_navverse.py",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8000",
+    "--arm",
+    "nvl_keep_k8",
+    "--model-path",
+    "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/LightNav-0/checkpoints/LightNav-0",
+    "--backend",
+    "vllm_local",
+    "--gpu-memory-utilization",
+    "0.65",
+    "--aspect-mode",
+    "keep",
+    "--expect-video-size",
+    "288",
+    "384",
+    "--turn-deg",
+    "15",
+    "--prune-method",
+    "recency",
+    "--prune-k",
+    "6",
+    "--prune-tokens-per-frame",
+    "15",
+    "--prune-log-dir",
+    "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation_navverse/runs/nvl_keep_k8/prune",
+    "--config-out",
+    "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation_navverse/runs/nvl_keep_k8/server_config.json",
+    "--step-log",
+    "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation_navverse/runs/nvl_keep_k8/server_steps.jsonl"
+  ],
+  "time": "2026-10-29T10:18:33",
+  "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "VLN_VLLM_ENFORCE_EAGER": "1",
+    "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+    "HF_HUB_OFFLINE": "1"
+  },
+  "versions": {
+    "torch": "2.10.0+cu128",
+    "vllm": "0.19.1",
+    "transformers": "5.8.0",
+    "lightnav": "0.1.0",
+    "fastapi": "0.143.0"
+  },
+  "repo_sha": "4f2980440602c0854a602e70c0d0777606b7fcc0",
+  "lightnav_sha": "3015508b70fb6e30bbd66701e94c9b916dcb8df8",
+  "checkpoint": {
+    "repo_id": "LightOriginsHQ/LightNav-0",
+    "revision": "826dc5fbfa37afa8293d2e336d329b6ffc0bfb64",
+    "local_dir": "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/LightNav-0/checkpoints/LightNav-0"
+  },
+  "engine": {
+    "num_history_frames": 64,
+    "base_video_size": [
+      256,
+      448
+    ],
+    "action_method": "rvq",
+    "max_new_tokens_before": 64,
+    "max_new_tokens": 64,
+    "enforce_eager": true,
+    "max_model_len": 2560,
+    "cudagraph_mode": "NONE"
+  },
+  "prune": {
+    "method": "recency",
+    "k": 6,
+    "tokens_per_frame": 15,
+    "budget": 90,
+    "pivots": null,
+    "seed": null,
+    "prepass": false,
+    "ledger": "tubelet (f0, f1, pool, cell)",
+    "current_tubelet_exempt": true,
+    "current_frames": 2,
+    "log_dir": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/ctx_ablation_navverse/runs/nvl_keep_k8/prune/20261029_101824"
+  }
+}

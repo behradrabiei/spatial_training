@@ -1,0 +1,13 @@
+arm,K,n,success,fell,cap_never_near_goal,cap_near_goal_no_stop,wrong_stop
+nv_full,full,100,10,21,31,11,27
+nv_evict_k32,32,100,10,24,32,5,29
+nv_evict_k16,16,100,9,31,28,15,17
+nv_evict_k8,8,100,13,23,37,12,15
+nv_evict_k4,4,100,4,32,39,16,9
+nv_evict_k1,1,100,0,26,70,4,0
+nvl_full,full,100,12,21,20,1,46
+nvl_keep_k32,32,100,15,23,19,1,42
+nvl_keep_k16,16,100,12,23,19,6,40
+nvl_keep_k8,8,100,6,12,34,11,37
+nvl_keep_k4,4,100,4,21,37,6,32
+nvl_keep_k1,1,100,1,23,53,13,10

@@ -1,0 +1,25 @@
+{
+  "episode_label": "TEEsavR23oF_1",
+  "episode_id": "1",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00800-TEEsavR23oF/TEEsavR23oF.basis.glb",
+  "goal": "bed",
+  "instruction": "Find the bed.",
+  "steps": 96,
+  "inference_calls": 96,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.15076415240764618,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/results/lightnav_hm3d_v2_100/raw/results.jsonl",
+    "line": 44,
+    "lightnav_episode_id": "episode_043",
+    "habitat_episode_id": "1"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.8747578333093752,
+    "soft_spl": 0.8623932440271889,
+    "distance_to_goal": 0.1529436558485031
+  }
+}

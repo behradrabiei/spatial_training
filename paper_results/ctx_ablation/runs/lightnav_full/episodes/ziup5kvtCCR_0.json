@@ -1,0 +1,25 @@
+{
+  "episode_label": "ziup5kvtCCR_0",
+  "episode_id": "0",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00848-ziup5kvtCCR/ziup5kvtCCR.basis.glb",
+  "goal": "plant",
+  "instruction": "Find the potted plant.",
+  "steps": 194,
+  "inference_calls": 194,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.016776813194155693,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/baselines/results/lightnav_hm3d_v2_100/raw/results.jsonl",
+    "line": 97,
+    "lightnav_episode_id": "episode_096",
+    "habitat_episode_id": "0"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.23781021313143919,
+    "soft_spl": 0.23706639940856108,
+    "distance_to_goal": 0.016776813194155693
+  }
+}

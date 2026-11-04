@@ -1,0 +1,177 @@
+{
+  "info": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "checkpoint": "/home/brabiei/.cache/huggingface/hub/models--Aasdfip--hm3d_rpp_ke_standard-checkpoint_231/snapshots/de338927c8c96d1629ded0d042581776a960a465",
+    "experiment": "paper_ctx",
+    "sets": [
+      "vlm.context_frames=8",
+      "vlm.context_window_mode=evict"
+    ],
+    "model_id": "Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800",
+    "context_frames": 8,
+    "context_window": null,
+    "context_window_mode": "evict",
+    "context_cut": "frame",
+    "use_sparse": true,
+    "deterministic": true,
+    "stop_prob_threshold": null
+  },
+  "checkpoint": "/home/brabiei/.cache/huggingface/hub/models--Aasdfip--hm3d_rpp_ke_standard-checkpoint_231/snapshots/de338927c8c96d1629ded0d042581776a960a465",
+  "vlm": {
+    "model_id": "Phyllis1/qwen3_sft_sft_sparse_03drop_single_action_20260103_210803_ckpt10800",
+    "attn_impl": "sdpa",
+    "dtype": "bfloat16",
+    "prefix": "<|im_start|>assistant\n**",
+    "postfix": "**<|im_end|>\n",
+    "vocab": [
+      "stop",
+      "forward",
+      "left",
+      "right"
+    ],
+    "offload_cache": false,
+    "use_sparse": true,
+    "sparse_threshold": 0.95,
+    "context_frames": 8,
+    "context_window": null,
+    "context_cut": "frame",
+    "context_window_mode": "evict",
+    "kv_budget": null,
+    "kv_prune_recent_turns": 2,
+    "kv_prune_ema_beta": 0.7,
+    "kv_prune_importance": "attn",
+    "kv_prune_candidate_scope": "all",
+    "kv_prune_seed": 17,
+    "kv_prune_log_influence": false,
+    "kv_prune_influence_stride": 1,
+    "kv_prune_influence_horizons": [
+      4,
+      8,
+      16,
+      32
+    ],
+    "kv_prune_influence_measures": [
+      "leave_one"
+    ],
+    "influence_recompute": false,
+    "token_info_probe": false,
+    "horizon_probe_layers": [],
+    "selector_probe": false,
+    "selector_probe_budgets": [
+      4,
+      8,
+      16,
+      32
+    ],
+    "selector_probe_measures": [
+      "keep_cur",
+      "leave"
+    ],
+    "kv_prune_layer_start": 0,
+    "kv_prune_layer_end": null,
+    "kv_prune_score_layers": "pruned",
+    "kv_prune_score_layer": null,
+    "kv_prune_visual_blind": false,
+    "kv_prune_log_layer_influence": false,
+    "kv_prune_layer_influence_starts": [
+      0,
+      4,
+      8,
+      12,
+      16,
+      20,
+      24,
+      28
+    ],
+    "kv_prune_log_keep_one": false,
+    "kv_prune_budget_frames": null,
+    "kv_prune_stages": null,
+    "kv_prune_stage_importance": null,
+    "kv_prune_budget_scope": "last_stage",
+    "kv_prune_schedule_anchor": "original",
+    "kv_prune_tail_budget_frames": null,
+    "kv_prune_dart_pivots": 8,
+    "kv_prune_seed_per_step": false,
+    "kv_prune_log_masks": false,
+    "attn_weighting": "raw"
+  },
+  "rollout": {
+    "max_steps": 500,
+    "temperature": 1.0,
+    "deterministic": true,
+    "action_space_str": "[stop, forward, left, right, up, down]",
+    "system_prompt": "You are a visual navigation agent tasked with finding \"$instr_or_goal\" in an unknown environment.\nYou will receive a sequence of observations showing your movement history up to the current moment.\n\n**Action Space:**\n$action_space_str\n\n**Your Mission:**\n1. Analyze the observation history to understand your current location and orientation.\n2. Select the next discrete action to navigate efficiently towards the goal.\n\n**Critical Constraints:**\n* **Collision Detection:** If your previous action was **forward** but the visual observation did not change significantly, you have collided. You MUST turn or move away immediately. Do not keep pushing forward.\n* **Success Condition:** Output **stop** ONLY when the target is plainly in view, centered, and within 1 meter (close enough to touch).\n\n**Output Format:**\nRespond with the selected action inside double asterisks.\n",
+    "action_space": [
+      "stop",
+      "forward",
+      "left",
+      "right"
+    ],
+    "convo_start_template": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "You are a visual navigation agent tasked with finding \"$instr_or_goal\" in an unknown environment.\nYou will receive a sequence of observations showing your movement history up to the current moment.\n\n**Action Space:**\n$action_space_str\n\n**Your Mission:**\n1. Analyze the observation history to understand your current location and orientation.\n2. Select the next discrete action to navigate efficiently towards the goal.\n\n**Critical Constraints:**\n* **Collision Detection:** If your previous action was **forward** but the visual observation did not change significantly, you have collided. You MUST turn or move away immediately. Do not keep pushing forward.\n* **Success Condition:** Output **stop** ONLY when the target is plainly in view, centered, and within 1 meter (close enough to touch).\n\n**Output Format:**\nRespond with the selected action inside double asterisks.\n"
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "image"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "**forward**"
+          }
+        ]
+      }
+    ],
+    "convo_turn_template": [
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "**$action**"
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "image"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "**forward**"
+          }
+        ]
+      }
+    ],
+    "stop_prob_threshold": null,
+    "visualize_token_filtering": false,
+    "visualize_attention": false,
+    "visualize_attention_heads": false,
+    "visualize_attention_3d": false,
+    "attn3d_layers": [
+      -1
+    ],
+    "pos_id_mode": "auto"
+  }
+}
