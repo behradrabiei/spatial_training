@@ -1,0 +1,9 @@
+{
+  "success_rate": {
+    "BinFill": 0.46,
+    "PickXtimes": 0.86,
+    "SwingXtimes": 0.9,
+    "StopCube": 0.46
+  },
+  "total_success_rate": 0.67
+}
