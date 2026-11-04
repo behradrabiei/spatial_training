@@ -197,26 +197,27 @@ The experiment above confounds the selector with two other choices: the 32-frame
 recency prior, and layer placement decides how much the shallow layers still see (Q2: PyramidDrop's
 win is "layers 0–6 see everything"). The flat variant removes both. Data: `paper_results/token_prune_flat/`.
 
-| | LongNav-R1 | Uni-NaVid |
-|---|---|---|
-| context | **full episode** (`context_frames=null`; nothing is ever evicted by age) | `--context-frames 64`, the widest window the pruner supports: at 65 frames the model's own long-term tier starts (1-token slots merged in place), which is a time-dependent compression of its own and breaks the 4-token layout |
-| budget `B'_t` | `round(k · V0_t / h_t)` with `h_t = t` — `k` × the running mean post-filter visual count over *every* history frame | `k · 4` |
-| where | every method scores **and** deletes at decoder layer 0; all layers lose the token, so arms are memory-matched (`kv_len_mean` equal across methods at a given `k`) | same, by **row removal** for all four methods (deleted rows and an emptied frame's `<image_sep>` leave the prompt, positions compact) |
+| | LongNav-R1 | Uni-NaVid | LightNav-0 (2026-10-19) |
+|---|---|---|---|
+| context | **full episode** (`context_frames=null`; nothing is ever evicted by age) | `--context-frames 64`, the widest window the pruner supports: at 65 frames the model's own long-term tier starts (1-token slots merged in place), which is a time-dependent compression of its own and breaks the 4-token layout | **full episode**, the model's own SlowFast sampling of it (current pair at 112 tokens, 16 fast + 10 burst tubelets at 28, 13 span + 1 anchor tubelet at 8: 840 history tokens at the plateau); the current 2-frame tubelet is exempt, the anchor pair is a candidate |
+| budget `B'_t` | `round(k · V0_t / h_t)` with `h_t = t` — `k` × the running mean post-filter visual count over *every* history frame | `k · 4` | `k · 14`: a fast-tier tubelet (2 frames, pool 2) holds 28 tokens, what the model spends on a recent history frame; `k = 32` is the whole fast tier (448 of 840) |
+| where | every method scores **and** deletes at decoder layer 0; all layers lose the token, so arms are memory-matched (`kv_len_mean` equal across methods at a given `k`) | same, by **row removal** for all four methods (deleted rows and an emptied frame's `<image_sep>` leave the prompt, positions compact) | same, by **column masking** on every layer of the eager masked-attention kernel the information-horizon arms use (a hidden token influences nothing; survivors keep their mRoPE positions, as LongNav-R1's survivors keep theirs) |
 
 Methods (PyramidDrop is layer-staged by construction and is left out; its code is unchanged):
 
-| method | rule at layer 0 | LongNav-R1 overrides on `+experiment=paper_prune_flat` | Uni-NaVid flags |
-|---|---|---|---|
-| `random` | as above | `vlm.kv_prune_importance=random` | `--prune-method random --prune-layer 0` |
-| `divprune` | as above (input embeddings) | `vlm.kv_prune_importance=divprune` | `--prune-method divprune --prune-layer 0` |
-| `fastv` | last-text-token attention **of decoder layer 0**, mean over heads → top-`B'` | `vlm.kv_prune_importance=attn vlm.kv_prune_score_layer=0` | `--prune-method fastv --prune-layer 0` |
-| `dart` | pivots = L1 norm of the **layer-0 keys**, cosine on the **layer-0 output** hidden states (the layer-0 *input* is DivPrune's embedding DB) | `vlm.kv_prune_importance=dart` (`kv_prune_layer_start` stays 0) | `--prune-method dart --prune-layer 0` |
-| `kl_keep_one` (2026-10-09) | **whole frames**: keep exactly the `k` pool frames with the largest keep-one-in KL, `KL(P(action \| only frame f's visual tokens) ‖ P(action \| no visual tokens))`; reference = every visual token hidden, the current frame's included (Exp 3's `keep_one` measure); ties → the newer frame | `vlm.kv_prune_importance=kl_keep_one` | `--prune-method kl_keep_one --prune-layer 0` |
-| `recency` (2026-10-09) | **whole frames**: keep the `k` newest pool frames (the control for `kl_keep_one`: what age alone buys in this exact regime) | `vlm.kv_prune_importance=recency` | `--prune-method recency --prune-layer 0` |
-| `entropy_keep_one` (2026-10-12) | **whole frames**: the same only-f probes as `kl_keep_one` (only frame f's visual tokens visible, the current frame's hidden too) scored by the entropy of `P(action \| only frame f)` instead of its KL to the no-visual reference; keep the `k` pool frames with the **lowest** entropy (the frames that alone make the decision most certain); no reference replay; ties → the newer frame | `vlm.kv_prune_importance=entropy_keep_one` | `--prune-method entropy_keep_one --prune-layer 0` |
+| method | rule at layer 0 | LongNav-R1 overrides on `+experiment=paper_prune_flat` | Uni-NaVid flags | LightNav-0 knobs (`baselines/run_lightnav.sh`) |
+|---|---|---|---|---|
+| `random` | as above | `vlm.kv_prune_importance=random` | `--prune-method random --prune-layer 0` | `PRUNE_METHOD=random PRUNE_K=k` |
+| `divprune` | as above (input embeddings) | `vlm.kv_prune_importance=divprune` | `--prune-method divprune --prune-layer 0` | `PRUNE_METHOD=divprune PRUNE_K=k` |
+| `fastv` | last-text-token attention **of decoder layer 0**, mean over heads → top-`B'` | `vlm.kv_prune_importance=attn vlm.kv_prune_score_layer=0` | `--prune-method fastv --prune-layer 0` | `PRUNE_METHOD=fastv PRUNE_K=k` |
+| `dart` | pivots = L1 norm of the **layer-0 keys**, cosine on the **layer-0 output** hidden states (the layer-0 *input* is DivPrune's embedding DB) | `vlm.kv_prune_importance=dart` (`kv_prune_layer_start` stays 0) | `--prune-method dart --prune-layer 0` | `PRUNE_METHOD=dart PRUNE_K=k` |
+| `kl_keep_one` (2026-10-09) | **whole frames**: keep exactly the `k` pool frames with the largest keep-one-in KL, `KL(P(action \| only frame f's visual tokens) ‖ P(action \| no visual tokens))`; reference = every visual token hidden, the current frame's included (Exp 3's `keep_one` measure); ties → the newer frame | `vlm.kv_prune_importance=kl_keep_one` | `--prune-method kl_keep_one --prune-layer 0` | — |
+| `recency` (2026-10-09) | **whole frames**: keep the `k` newest pool frames (the control for `kl_keep_one`: what age alone buys in this exact regime) | `vlm.kv_prune_importance=recency` | `--prune-method recency --prune-layer 0` | — |
+| `entropy_keep_one` (2026-10-12) | **whole frames**: the same only-f probes as `kl_keep_one` (only frame f's visual tokens visible, the current frame's hidden too) scored by the entropy of `P(action \| only frame f)` instead of its KL to the no-visual reference; keep the `k` pool frames with the **lowest** entropy (the frames that alone make the decision most certain); no reference replay; ties → the newer frame | `vlm.kv_prune_importance=entropy_keep_one` | `--prune-method entropy_keep_one --prune-layer 0` | — |
 
 `k ∈ {32, 16, 8, 4}` → 2 models × 4 methods × 4 budgets = 32 arms + 2 identity arms (plus the
-3 whole-frame methods below: 24 more arms, 58 in all), same arm names as above under the flat root (LongNav-R1 logs to its own wandb project `longnav_paper_flat`,
+3 whole-frame methods below: 24 more arms, 58 in all; plus LightNav-0's 16 token-budget arms and
+its identity, 75 in all), same arm names as above under the flat root (LongNav-R1 logs to its own wandb project `longnav_paper_flat`,
 because wandb resume keys on project + run name).
 
 *LongNav-R1 mechanics.* Same prune substrate and one-step lag as above: the layer-0 decision row is
@@ -231,6 +232,38 @@ step), so there is no retention figure; `sup/mean_vtp_n_new` is still logged.
 assembled prompt (rows deleted by earlier inferences already absent), select, drop the fresh rows,
 then the real prefill — so the budget holds inside the same inference and the four methods differ in
 the selection rule only. Up to two frames enter per inference, so the pool is at most `B' + 8`.
+
+*LightNav-0 mechanics (added 2026-10-19; `baselines/lightnav_hm3d/eval_prune.py`, upstream clone
+untouched).* LightNav rebuilds its prompt every step (anchor, span, burst, fast tubelets oldest
+first, then the current pair, one `<t seconds>` per 2-frame tubelet; 952 visual tokens at the
+plateau) and prefills it inside vLLM, so the wrapper reuses the information-horizon kernel path:
+eager vLLM, `FlashAttentionImpl.forward` replaced on every layer by the exact masked SDPA of
+`eval_blind.py`, and the **pruned** `<|video_pad|>` columns hidden from every query on every
+layer (timestamps, vision markers and the task text stay visible). Deletions are **permanent**
+through a per-episode ledger keyed by tubelet identity `(frame0, frame1, pool, cell)`: each
+step the candidates are the history tokens not in the ledger, the current tubelet is exempt,
+and when they exceed `B' = 14k` the rule keeps `B'` and the rest join the ledger. The fast and
+mid tiers pair consecutive frames, so the pairing flips parity every step: a tubelet recurs
+every other step and the two parity classes are pruned independently (each holds `≤ B'`
+visible tokens; the model sees one class per step), fast→mid keeps the pair and pool (same
+identity), mid→long re-pools (2→4) and the span tier re-places its pairs as the episode grows,
+so those 8-token tubelets (≤ 112 tokens, ~12% of the history) re-enter as fresh candidates.
+Steps 0–1 have no history and are unpruned. `fastv` and `dart` need layer-0 quantities of the
+current prompt and run a **scoring pre-pass** (a `generate` with `max_tokens=1`, ledger columns
+hidden): at layer 0 of the prefill the post-softmax attention row of the last prompt token (the
+`\n` after `assistant`, whose logits emit the first action token `<apos_*>`; mean over the 32
+query heads, all visible causal keys) and the rotated keys (8 KV heads concatenated, L1 norm for
+DART's 8 pivots), and at the input of layer 1 the residual stream (deepstack-0 injection
+included — what LongNav-R1's layer-1 pre-hook captures); the real generate then hides the dropped
+columns from layer 0 on, Uni-NaVid's pre-pass semantics (one extra prefill per pruning step,
+~10% wall). `random` draws `randperm` seeded per (episode, step) with the shared formula;
+`divprune` reads the LLM input embeddings of the visual tokens (the main channels of
+`video_embeds`, pre-deepstack). The selection rules are copies of LongNav-R1's. Per inference
+the wrapper logs `prune/<label>.jsonl` in Uni-NaVid's schema (one entry per history tubelet,
+its newer frame as the frame id, `n_tokens` 28 / 8), so `masks.parquet` / `n_tokens.csv` hold
+LightNav rows too. `lightnav_identity` is the information-horizon reference `lightnav_ref`
+(nothing hidden, same kernel path), imported rather than rerun; the ctx-ablation windows
+`lightnav_k<k>` (forced stops re-scored, see `paper/ctx_ablation`) are the `window` rows.
 
 *Whole-frame arms (`kl_keep_one`, `recency`; added 2026-10-09; `entropy_keep_one` 2026-10-12).* These
 test the **measure itself**: is the keep-one-in KL — the quantity the paper uses to define a
@@ -271,6 +304,8 @@ VARIANT=flat ARMS="r1_fastv_b8" bash paper/token_prune/run_r1.sh            # or
 export VARIANT=flat EXTRA_OVERRIDES="resources.osm_gb=10"
 nohup bash paper/token_prune/run_worker.sh A r1_divprune_b32 r1_divprune_b16 r1_dart_b32 > /dev/null 2>&1 &
 nohup bash paper/token_prune/run_worker.sh B uninavid_random_b8 r1_random_b16     > /dev/null 2>&1 &
+# LightNav-0 (isolated runtime, GPU to itself, ~1-1.2 h per navigating arm, ~4 h per arm at the 500-step cap)
+VARIANT=flat nohup bash paper/token_prune/run_lightnav.sh > paper_results/token_prune_flat/runs/lightnav_driver.log 2>&1 &
 python paper/token_prune/aggregate.py --variant flat --status              # progress
 python paper/token_prune/aggregate.py --variant flat --strict              # results/ (deltas vs same-k random, vs identity)
 conda run -n vln python paper/token_prune/plot.py --variant flat
@@ -278,15 +313,24 @@ conda run -n vln python paper/token_prune/plot.py --variant flat
 
 Identity: `r1_identity` must reproduce the ctx ablation's `r1_full` episode for episode
 (`aggregate.py --variant flat --check-identity`); `uninavid_identity` at 64 frames is a new unpruned
-reference with no ctx-ablation counterpart. `figures/budget_curves.{pdf,png}`: SR and SPL vs frames'
-worth, one plain line per method — no reference line, no error bars (the CIs are in
-`results/summary.csv`); since 2026-10-09 the ctx-ablation recency windows are the black squares.
+reference with no ctx-ablation counterpart; `lightnav_identity` (= `lightnav_ref`) is checked
+against the ctx ablation's `lightnav_full` as a noise-level pair only (different kernel path, vLLM
+not bit-reproducible). `figures/budget_curves.{pdf,png}`: SR and SPL vs frames'
+worth, one column per model (LightNav-0 third since 2026-10-19), one plain line per method — no reference line, no error bars (the CIs are in
+`results/summary.csv`); since 2026-10-09 the ctx-ablation recency windows are the black squares. Since
+2026-10-28 the LightNav-0 Random line continues below the k grid through the layout-check arms `random_b2` /
+`b1` / `b0` (k = 2 / 1 / 0, the last with no visual history; `plot.py` `FLAT_EXTRA`), so the x axis starts at 0;
+`table.tex` stays on the k grid.
+`figures/budget_curves_keep_one.{pdf,png}` is the same figure restricted to the two keep-one arms, random, FastV and whole-frame recency
+(`plot.py --variant flat --methods random,fastv,kl_keep_one,entropy_keep_one,recency --name budget_curves_keep_one`).
 Tests: `tests/vtp_flat_smoke.py` (incl. the whole-frame checks 5–7: stubbed-score selection on CPU,
 and on the GPU the selectors' scores equal the `keep_one` diagnostic's KL row / the entropy of its
 only-f log-prob rows on the same cache),
-`baselines/tests/test_prune.py` (`FlatHookTests`, `WholeFrameTests`).
+`baselines/tests/test_prune.py` (`FlatHookTests`, `WholeFrameTests`),
+`baselines/tests/test_lightnav_prune.py` (layout, ledger, the four rules against naive references,
+the scoring hook; client runtime) and the prune-log case of `baselines/tests/test_lightnav.py`.
 
-### Flat-variant findings (sweep complete 2026-09-18; 100 episodes per arm; SR / SPL / mean steps)
+### Flat-variant findings (sweep complete 2026-09-18; LightNav-0 arms 2026-10-23, see the section at the end; 100 episodes per arm; SR / SPL / mean steps)
 
 | method | LongNav-R1 k=4 | k=8 | k=16 | k=32 | Uni-NaVid k=4 | k=8 | k=16 | k=32 |
 |---|---|---|---|---|---|---|---|---|
@@ -461,3 +505,182 @@ time on one GPU, so `vlm_latency_ms` is not comparable across arms or with Exp 4
 is launch-bound (B' sequential GPU iterations per step: 33/64 ms per step at k = 4/8 alone, ≈0.8 s at k = 32
 when the GPU is shared) — schedule those arms alone and last.
 
+
+### LightNav-0 arms (sweep complete 2026-10-23; 100 episodes per arm; SR / SPL / mean steps; forced stops at the 500-step cap scored as failures)
+
+| method | k=4 (56 tokens) | k=8 (112) | k=16 (224) | k=32 (448 = fast tier) |
+|---|---|---|---|---|
+| random | .81/.450/160 | .82/.506/140 | .82/.466/153 | .82/.460/139 |
+| fastv (layer 0, pre-pass) | .77/.440/164 | .80/.446/170 | .81/.446/162 | .83/.451/147 |
+| divprune | .77/.447/185 | .80/.464/149 | .80/.473/133 | .78/.454/140 |
+| dart (layer 0, pre-pass) | .80/.443/171 | .80/.450/163 | .78/.433/144 | .85/.469/152 |
+| window (ctx ablation, k frames) | .34/.188/376 | .68/.365/236 | .80/.444/189 | .82/.467/177 |
+| unpruned (`lightnav_identity` = `lightnav_ref`) | .84/.458/139 | | | |
+
+`lightnav_identity` vs the compiled `lightnav_full`: dSR +0.04 (p = 0.39), dSPL +0.008 (p = 0.67), 95 of 100
+episodes differ in some metric — the eager masked-SDPA kernel is not bit-identical to the compiled path (known
+from the information-horizon arm), hence the non-exact identity entry. Budget audit over all 16 arms (~230k
+inference steps): on every pruning step the visible history equals the budget exactly, the ledger is monotone,
+7 forwards per step plus exactly one pre-pass forward on FastV/DART pruning steps.
+
+**F11 — on LightNav-0 no selector beats random, and random is flat down to 7 % of the history.** Random holds
+SR .81–.82 at every budget (vs the unpruned .84: −0.02 … −0.03, all p ≥ 0.54) and its only cost at k = 4 is
++21 steps (p = 0.08). No method differs from random on SR at any k (|ΔSR| ≤ 0.04, all p ≥ 0.34). On SPL the
+selectors are below random at k = 8 (FastV −0.060, p = 0.017; DART −0.056, p = 0.059; DivPrune −0.042,
+p = 0.079) and tied elsewhere; the k = 8 random SPL (.506) is the one arm above the reference (+0.048,
+p = 0.053). Unlike LongNav-R1 (F2), DivPrune and DART do not collapse without a window: the worst arm of the
+grid is DivPrune at k = 32 (SR .78, −0.06 vs reference, p = 0.07).
+
+**F12 — token pruning at matched budget beats the frame window by a wide margin.** At k = 8 random is +0.14 SR
+and +0.14 SPL above the 8-frame window (both p ≤ 0.004, −96 steps); at k = 4 it is +0.47 SR / +0.26 SPL
+(p < 0.001, −216 steps; the window has 65 forced stops, random 9). All three selectors show the same gap
+(k = 8: +0.12 SR, p ≤ 0.027; k = 4: +0.43 … +0.46, p < 0.001). At k = 16/32 the window ties on SR/SPL but takes
++38 … +49 more steps than the reference (p ≤ 0.008). Same reading as F3 on LongNav-R1: what the policy needs from its history is
+spread over the whole episode, and a few tokens from everywhere beat every token from the last k frames.
+
+**What survives under permanent deletion (keep masks, step ≥ 120, kept fraction by tier).** With a ledger, random
+pruning is a geometric decay: a token survives each of its candidate steps with probability
+1 − (drop / candidates), so at k = 8 (34 of 146 dropped per step) a fast-tier tubelet retains ≈ 1 % of its tokens
+by the time it ages into the mid tier. Measured: random keeps 20 % of the fast tier, 0 % of the mid tier and 19 %
+of the span tier at k = 8 (10 / 0 / 10 % at k = 4; 66 / 32 / 57 % at k = 32); FastV 21 / 6 / 0 %, DART 19 / 8 / 3 %,
+DivPrune 16 / 10 / 14 % at k = 8. The span tier survives under random only because its pairs are re-placed as the
+episode grows and re-enter as fresh identities (~12 % of history tokens). So the random arm's content is the
+newest fast-tier pairs plus a thin, periodically refreshed sketch of the whole episode, and that is enough for
+the reference SR; FastV and DART concentrate on the fast tier and forgo the span tier entirely, with no gain.
+
+Caveats: text (timestamps, `<|vision_start|>`/`<|vision_end|>`, task) is never pruned, so even at k = 4 the model
+sees the full temporal skeleton; the window arms remove whole tubelets including their timestamps — part of
+F12's gap may be that skeleton (same protocol difference as F7 on LongNav-R1; a text-only window would test it).
+The two parity classes of the fast tier carry independent ledgers (README mechanics paragraph); the FastV/DART
+pre-pass doubles the prefill on pruning steps (≈ +0.19 s/step at the 1.2k-token plateau), so `seconds` in the
+prune logs is not comparable across methods. Wall: 1–1.9 h per arm, 16 arms over 2026-10-19 … 10-23 with two
+pauses for the GPU.
+
+### Layout check (audit 2026-10-23; random at k = 2 / 1 / 0, the window-content control `recency_b{2,6,14,30}` of 2026-10-25/27 and its K = 1 point `recency_b0_cur1`, 100 episodes; the random arms extend the figure's Random line, the rest are summary.csv only)
+
+F12 looked too good next to the context-window ablation (LightNav-0 window K = 8 → SR .68, K = 4 → .34, while
+random pruning holds .81–.82 down to k = 4), so the pruning path was audited for a logical bug before the numbers
+were trusted. **No bug was found.** Verified: the masked kernel gathers K/V through the block table and removes
+the hidden columns on all 36 layers, for the prefill and the six decode forwards alike (the hidden set is held
+for the whole generate call); vLLM writes K/V before the patched attention runs; eager mode, no CUDA graphs, no
+chunked prefill, one request per forward are asserted; vLLM's prefix cache is on but LightNav salts every video
+hash with the clock, and vLLM keys every block overlapping a video placeholder on that hash, so neither
+consecutive steps nor the FastV/DART pre-pass and its real generate can share a visual block (only the text
+blocks before the first `<|video_pad|>` can hit, and they never attend to visual tokens; the pre-pass also asserts
+that no candidate lies inside the cached offset). The logged keep masks are the tensor handed to the kernel;
+across the 15,979 steps of `random_b4` the visible history never exceeds 56 tokens and equals 56 at every step
+≥ 100, the current pair is always the remaining 112, and log lines equal inference calls. Both the prune arms
+and the window rows hold the 100 manifest episodes and are re-scored for forced stops by the same loader.
+
+What differs is the protocol, in three ways. (i) **The window rewrites the prompt skeleton; pruning keeps it.**
+`eval_ctx.py` lays the newest K frames out as a *fresh K-step episode*: older segments vanish with their
+`<t seconds>` timestamps and vision markers, the anchor pair (frames 0/1) is gone, and the oldest visible
+timestamp reads (K − 1)/4 s. Pruning hides pad columns only, so all ~41 timestamps stay and the model still
+reads e.g. "37 seconds" of elapsed time at step 150 — the prompt itself says "You may be at the beginning,
+middle, or end of the task". (ii) **Budgets are not matched at the same k.** Window K counts the two current
+frames and holds K − 2 history frames at pool 2 = 14 (K − 2) tokens (anchor/mid/long tiers are empty for
+K ≤ 34): K = 4 is 28 history tokens (= prune k = 2), K = 8 is 84 (= k = 6); the aggregator plots the window at
+K − 1. (iii) **Kernel path:** the window arms ran on upstream's compiled FlashAttention (`lightnav_full` .80, 13
+forced stops), the prune arms on the eager masked SDPA (`lightnav_identity` .84, 5 forced stops; paired ΔSR
++.04, p = .39) — noise-level, but it favours the prune side by a few points at k ≥ 16.
+
+The existing data already shows which of these drives F12. Splitting every arm into episodes the agent ended
+itself and episodes forced to stop at the 500-step cap:
+
+| arm | forced stops | SR among self-stopped | oracle SR | steps (self-stopped) |
+|---|---|---|---|---|
+| window `lightnav_full` / k32 / k16 / k8 / k4 | 13 / 16 / 19 / 27 / 65 | .92 / .98 / .99 / .93 / .97 | .89 / .90 / .92 / .85 / .67 | 109 / 115 / 115 / 139 / 147 |
+| prune identity / random b32 / b16 / b8 / b4 | 5 / 7 / 8 / 9 / 9 | .88 / .88 / .89 / .90 / .89 | .87 / .86 / .87 / .86 / .86 | 120 / 112 / 123 / 105 / 126 |
+
+Under the window, whenever the agent chooses to stop it succeeds (.93–.99, above the unpruned .88); the SR cliff
+is entirely episodes that never emit stop (65 of 100 at K = 4, 15 of them parked within 1 m of the goal), and
+forced stops already rise at K = 32/16 where SR is intact. The pruned arms keep 5–11 forced stops at every
+budget. So the window ablation on LightNav-0 measures the stop decision under a prompt that says the episode just
+began, not the visual memory; F12's "+.47 SR at k = 4" is mostly that skeleton (the same protocol difference as
+F7 on LongNav-R1, now with the mechanism visible). What random k = 4 actually keeps at the plateau is ~45 tokens
+scattered over 7–8 fast-tier tubelets plus ~11 over 4 long-tier tubelets (median age 14 steps, mid tier ~0): the
+model navigates on fragments of ~12 low-res history tubelets, the full-resolution current pair and the complete
+timestamp skeleton.
+
+Direct test (run 2026-10-23, `ARMS="lightnav_random_b2 lightnav_random_b1 lightnav_random_b0"`, same wrapper,
+`k = 0` = every history token hidden, current pair + text skeleton only): `random_b2` holds the window K = 4 arm's
+28 history tokens with the skeleton kept; `random_b1` 14; `random_b0` none. Paired against `lightnav_k4`
+(content match for b2, an upper bound on history for b1/b0), `random_b4` and the identity arm; since 2026-10-28
+the left end of the LightNav-0 Random line in `figures/budget_curves.*` (x = 2 / 1 / 0), out of `table.tex`. Smoke (episode 0, k = 0): success at 481 steps vs 63 unpruned — the agent wanders without
+history but still stops.
+
+| arm (history tokens) | SR | SPL | steps | forced stops | SR among self-stopped | ΔSR vs window K=4 (p) | ΔSR vs random k=4 (p) | ΔSR vs identity (p) |
+|---|---|---|---|---|---|---|---|---|
+| window `lightnav_k4` (28, fresh-episode skeleton) | .34 | .188 | 376 | 65 | .97 | — | −.47 (<.001) | −.50 (<.001) |
+| `random_b4` (56) | .81 | .450 | 160 | 9 | .89 | +.47 (<.001) | — | −.03 (.54) |
+| `random_b2` (28) | .82 | .463 | 165 | 13 | .94 | +.48 (<.001) | +.01 (1.0) | −.02 (.80) |
+| `random_b1` (14) | .77 | .428 | 178 | 16 | .92 | +.43 (<.001) | −.04 (.50) | −.07 (.18) |
+| `random_b0` (0, no visual history) | .59 | .332 | 286 | 38 | .95 | +.25 (<.001) | −.22 (<.001) | −.25 (<.001) |
+
+**F13 — the window's K = 4 collapse is the prompt layout, not the visual memory.** With exactly the window's 28
+history tokens but the full timestamp skeleton, random is at .82 (ΔSR +.48 vs the window, p < .001; indistinguishable
+from random k = 4 and from the unpruned .84). Fourteen tokens still give .77. Even with *no* visual history at all —
+the current pair, the task and 41 empty timestamped segments — the model scores .59, +.25 above a window that
+holds 28 history tokens (p < .001), and once more the deficit is forced stops (38 of 100; among self-stopped episodes
+it succeeds .95, oracle success .80). So visual history is worth about −.25 SR / −.13 SPL / +147 steps on
+LightNav-0 (b0 vs identity, all p ≤ .001) and 14–28 random tokens of it recover nearly all of that; the K = 4
+window's −.50 is mostly the model being told the episode just began. Read the LightNav-0 rows of the
+context-window ablation as a stop-decision result, and F12 as "pruning keeps the skeleton that the window removes"
+rather than as a memory-efficiency gain of the same size. Keep-mask audit of the three arms: 0 over-budget steps,
+visible history == budget and current pair == 112 at every step ≥ 100 (62,821 steps). Wall: b2 72 min, b1 77 min,
+b0 130 min (2026-10-23 16:38 → 21:18).
+
+**Window-content control (run 2026-10-25, `ARMS="lightnav_recency_b2"`, `--prune-method recency`).** The user asked
+for the K = 4 window's exact visual content with the old blocks' timestamps kept: the model sees image tokens of
+the four newest frames only — the current pair at full resolution (112 tokens) and the previous pair at the
+model's own 2× pooling (28 tokens; LightNav-0 never shows a history pair at more than 28) — and every older block
+is blanked but keeps its `<t seconds>` tag and vision markers. `recency` keeps the newest candidates by tubelet
+age; at k = 2 that is exactly the newest history tubelet, frames (t − 3, t − 2) at pool 2, the pair the window
+shows (verified on upstream's layout at every step ≥ 34; before step 34 the sampler pads the history on even steps,
+so the newest history tubelet is (t − 2, t − 2) there — 1,493 of 19,924 steps). Keep-mask audit: 0 violations,
+visible history == 28 and current pair == 112 at every step ≥ 4. Paired against the K = 4 window (same content),
+`random_b2` (same count) and identity; out of the figure and `table.tex`. 100 episodes, 118 min.
+
+| arm (image tokens visible) | SR | SPL | steps | forced stops | SR among self-stopped | ΔSR vs window K=4 (p) | ΔSR vs random k=2 (p) | ΔSR vs identity (p) |
+|---|---|---|---|---|---|---|---|---|
+| window `lightnav_k4` (4 newest frames, old blocks deleted) | .34 | .188 | 376 | 65 | .97 | — | −.48 (<.001) | −.50 (<.001) |
+| `recency_b2` (4 newest frames, old blocks kept) | .79 | .431 | 203 | 18 | .96 | +.45 (<.001) | −.03 (.55) | −.05 (.30) |
+| `random_b2` (28 history tokens spread over time) | .82 | .463 | 165 | 13 | .94 | +.48 (<.001) | — | −.02 (.80) |
+| `random_b0` (current pair only) | .59 | .332 | 286 | 38 | .95 | +.25 (<.001) | −.23 (<.001) | −.25 (<.001) |
+
+**F14 — same four frames, blocks kept: .79 vs .34.** Holding the window's visual content fixed and restoring only
+the empty old blocks with their timestamps recovers +.45 SR (p < .001), cuts forced stops from 65 to 18 and steps
+from 376 to 203, and brings SPL from .19 to .43. The arm is not significantly different from `random_b2` or from
+the unpruned model on SR or SPL, but it does take more steps (+38 vs `random_b2`, p < .001; +64 vs identity) and
+keeps 18 forced stops against 13 and 5: seeing only the newest history pair costs some efficiency that 28 tokens
+spread over the episode do not. So the window's K = 4 collapse is the deleted skeleton — the model's sense of
+elapsed time — almost entirely, with a small genuine memory cost on top. F13 stands, and the context-window
+ablation's LightNav-0 rows should be read as a stop-decision result.
+
+The same control at the other window sizes (`lightnav_recency_b6` / `b14` / `b30` = window `K` = 8 / 16 / 32,
+run 2026-10-27; `k = K − 2` is the window's history-frame count, verified equal to the newest tubelets of the full
+layout at every `K`): SR / SPL / steps / forced stops .84 / .475 / 164 / 11, .79 / .439 / 174 / 14,
+.81 / .445 / 155 / 10 against the windows' .68 / .365 / 236 / 27, .80 / .444 / 189 / 19, .82 / .467 / 177 / 16.
+Keep-mask audit: 0 violations. The control is flat from `K = 32` to `K = 4`; the window's `K = 8` loss (−.12 SR
+vs full, p = .02) is also the skeleton (keep − window +.16 SR, p = .0002). These four arms are the dashed
+"LightNav-0 (old blocks kept)" line of the context-window figure (`paper/ctx_ablation`, which reads them from
+this study's run directory as `lightnav_keep_k{K}`); here they are `summary.csv`-only rows paired against the
+window at the same `K` and the nearest random grid arm.
+
+**The K = 1 point (`lightnav_recency_b0_cur1`, run 2026-10-27 11:10 → 15:00, `PRUNE_CURRENT_FRAMES=1`).** The
+K = 1 window shows one frame: upstream's step-0 layout, the current frame doubled into a single pool-1 tubelet.
+The control reproduces that content with the skeleton kept: `--prune-k 0` hides every history image token and
+`--prune-current-frames 1` replaces the current pair (t − 1, t) with (t, t) in the sampler's layout (the two
+frames of a tubelet share one 112-token block, so column masking alone cannot drop frame t − 1), every older
+block blanked but keeping its `<t seconds>` tag and markers. Keep-mask audit: 100 episodes, 45,123 step
+records, 0 violations (no history token visible, 112 current tokens, no tubelet containing t or t − 1, 7
+forwards per step, no pre-pass). Result: SR .02 / SPL .014 / 452 steps / 88 forced stops against the window's
+.00 / .000 / 500 / 100 (ΔSR +.02, p = .51; Δsteps −48, p = .001) and `random_b0`'s .59 / .332 / 286 / 38
+(ΔSR −.57, p < .001). The model stops on its own in 12 episodes, 2 of them at the goal (oracle success 5/100).
+So the skeleton rescues the window from K = 4 up but not at K = 1: with a single frame the model has no motion
+cue at all, and the whole K = 1 collapse is the missing second current frame — `random_b0`, which keeps the
+full-resolution current pair and nothing else, is .57 SR above it. Read the LightNav-0 window curve as two
+different failures: K = 1 is the loss of the current pair, K = 4 / 8 is the loss of elapsed time. This arm is
+the dashed line's K = 1 point in the context-window figure (`lightnav_keep_k1`), and `random_b0` is its K = 2
+point (`lightnav_keep_k2`: the current pair with no history; there is no K = 2 window arm); paired here against
+`lightnav_k1` (merged into `summary.csv` as method `window_lo`, out of the figure) and `random_b0`.

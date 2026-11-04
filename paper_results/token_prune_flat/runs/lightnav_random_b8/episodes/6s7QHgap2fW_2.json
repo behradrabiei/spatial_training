@@ -1,0 +1,25 @@
+{
+  "episode_label": "6s7QHgap2fW_2",
+  "episode_id": "2",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00890-6s7QHgap2fW/6s7QHgap2fW.basis.glb",
+  "goal": "plant",
+  "instruction": "Find the potted plant.",
+  "steps": 491,
+  "inference_calls": 491,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.05052162706851959,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune_flat/runs/lightnav_random_b8/raw/results.jsonl",
+    "line": 9,
+    "lightnav_episode_id": "episode_008",
+    "habitat_episode_id": "2"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.11731630043350773,
+    "soft_spl": 0.11597684006907132,
+    "distance_to_goal": 0.0764307826757431
+  }
+}

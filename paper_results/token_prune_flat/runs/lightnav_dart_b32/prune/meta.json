@@ -1,0 +1,11 @@
+{
+  "method": "dart",
+  "k": 32,
+  "tokens_per_frame": 14,
+  "budget": 448,
+  "pivots": 8,
+  "seed": null,
+  "prepass": true,
+  "ledger": "tubelet (f0, f1, pool, cell)",
+  "current_tubelet_exempt": true
+}

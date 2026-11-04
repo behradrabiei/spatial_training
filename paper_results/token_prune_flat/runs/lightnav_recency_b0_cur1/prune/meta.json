@@ -1,0 +1,12 @@
+{
+  "method": "recency",
+  "k": 0,
+  "tokens_per_frame": 14,
+  "budget": 0,
+  "pivots": null,
+  "seed": null,
+  "prepass": false,
+  "ledger": "tubelet (f0, f1, pool, cell)",
+  "current_tubelet_exempt": true,
+  "current_frames": 1
+}

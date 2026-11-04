@@ -31,44 +31,74 @@ ctx-ablation references and exits 1 on a mismatch. Runs in longnav_vlm:
 64 frames for Uni-NaVid, every method at layer 0) from paper_results/token_prune_flat/: methods
 without pyramiddrop, k in {32,16,8,4}, no recency / reference rows; the paired deltas are
 against the same-k random arm (`*_vs_random`) and the family's identity arm (`*_vs_ref`), and
---check-identity compares r1_identity with the ctx ablation's r1_full.
+--check-identity compares r1_identity with the ctx ablation's r1_full. The flat variant also
+holds the LightNav-0 arms (lightnav_identity, imported from the information-horizon reference
+lightnav_ref, and lightnav_<method>_b<k>; episodes/*.json + prune/<label>.jsonl written by
+baselines/lightnav_hm3d/convert_results.py, loaded with the step-cap rule of
+results_io.load_lightnav_run) with the ctx ablation's lightnav_k<k> windows as its 'window' rows.
 """
 from __future__ import annotations
 
 import argparse
 import base64
 import csv
+import functools
 import json
 import sys
 from pathlib import Path
 
 import numpy as np
 
-from longnav.analysis.results_io import assert_split, load_manifest, load_r1_run, load_uninavid_run, split_status
+from longnav.analysis.results_io import (assert_split, load_lightnav_run, load_manifest, load_r1_run, load_uninavid_run,
+                                         split_status)
 from longnav.analysis.stats import bootstrap_mean_ci, paired_delta, stars
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 CTX_PER_EPISODE = ROOT / "paper_results/ctx_ablation/results/per_episode.csv"
-MODELS = {"r1": "LongNav-R1", "uninavid": "Uni-NaVid"}
-# window: history frames the arm can hold (None = the whole episode); baseline: the tag of the
-# same-k comparison arm the table's stars refer to; identity: (arm, ctx-ablation arm, exact).
+MODELS = {"r1": "LongNav-R1", "uninavid": "Uni-NaVid", "lightnav": "LightNav-0"}
+LOADERS = {"r1": load_r1_run, "uninavid": load_uninavid_run,
+           "lightnav": load_lightnav_run}  # LightNav: forced stops at the cap re-scored as failures
+CTX_TPL = {"r1": "r1_evict_k{}", "uninavid": "uninavid_k{}", "lightnav": "lightnav_k{}"}  # ctx-ablation arm names
+# models: the families the variant runs; window: history frames the arm can hold (None = the whole
+# episode); baseline: the tag of the same-k comparison arm the table's stars refer to; identity:
+# (arm, ctx-ablation arm, exact).
 VARIANTS = {
-    "window": dict(root=ROOT / "paper_results/token_prune",
+    "window": dict(root=ROOT / "paper_results/token_prune", models=("r1", "uninavid"),
                    methods=("random", "fastv", "pyramiddrop", "divprune", "dart"), k_list=(16, 8, 4, 1),
                    window={"r1": 31, "uninavid": 31}, baseline="recency",
                    # ctx-ablation rows merged in: the recency windows (tagged ctx_method) and the
                    # 32-frame reference; paired deltas reported for delta_tags.
                    ctx_recency=True, ctx_reference=True, ctx_method="recency", delta_tags=("recency", "ref"),
                    identity=(("r1_identity", "r1_evict_k32", True), ("uninavid_identity", "uninavid_k32", False))),
-    "flat": dict(root=ROOT / "paper_results/token_prune_flat",
+    "flat": dict(root=ROOT / "paper_results/token_prune_flat", models=("r1", "uninavid", "lightnav"),
                  methods=("random", "fastv", "divprune", "dart", "kl_keep_one", "entropy_keep_one", "recency"),
                  k_list=(32, 16, 8, 4),
-                 window={"r1": None, "uninavid": 63}, baseline="random",
+                 # LightNav-0 keeps the whole episode (its own SlowFast sampling); its four arms are the
+                 # token-budget methods only (no whole-frame selectors).
+                 window={"r1": None, "uninavid": 63, "lightnav": None}, baseline="random",
+                 model_methods={"lightnav": ("random", "fastv", "divprune", "dart")},
+                 # Layout check (2026-10-23): random below the grid, summary/per_episode/n_tokens only
+                 # (method labels unknown to plot.py / the k-grid table). (arm, model, method, k,
+                 # partner overrides): the 28-token window lightnav_k4 is the content match of random_b2
+                 # and an upper bound on history for b1 / b0; random partner = the smallest grid arm.
+                 # recency_b2 (2026-10-25) keeps the window's own history pair (newest tubelet, 28 tokens) with
+                 # the skeleton: paired against the K = 4 window and random_b2 (same token count).
+                 extra_arms=(("lightnav_random_b2", "lightnav", "random_lo", 2, {"window": "lightnav_k4", "random": "lightnav_random_b4"}),
+                             ("lightnav_recency_b2", "lightnav", "recency_lo", 2, {"window": "lightnav_k4", "random": "lightnav_random_b2"}),
+                             # 2026-10-27: the same control at the other window sizes (k = K - 2 history frames at
+                             # pool 2 = the window's content); random partner = the nearest grid arm (k = 8/16/32).
+                             ("lightnav_recency_b6", "lightnav", "recency_lo", 6, {"window": "lightnav_k8", "random": "lightnav_random_b8"}),
+                             ("lightnav_recency_b14", "lightnav", "recency_lo", 14, {"window": "lightnav_k16", "random": "lightnav_random_b16"}),
+                             ("lightnav_recency_b30", "lightnav", "recency_lo", 30, {"window": "lightnav_k32", "random": "lightnav_random_b32"}),
+                             # K = 1 point of the control: no history and the current frame doubled (--prune-current-frames 1).
+                             ("lightnav_recency_b0_cur1", "lightnav", "nohistory_cur1", 0, {"window": "lightnav_k1", "random": "lightnav_random_b0"}),
+                             ("lightnav_random_b1", "lightnav", "random_lo", 1, {"window": "lightnav_k4", "random": "lightnav_random_b4"}),
+                             ("lightnav_random_b0", "lightnav", "nohistory", 0, {"window": "lightnav_k4", "random": "lightnav_random_b4"})),
                  # The ctx-ablation recency windows are merged as method 'window' (the flat variant has
                  # its own whole-frame 'recency' arm); the reference stays the identity arm.
                  ctx_recency=True, ctx_reference=False, ctx_method="window", delta_tags=("random", "window", "ref"),
-                 identity=(("r1_identity", "r1_full", True),)),
+                 identity=(("r1_identity", "r1_full", True), ("lightnav_identity", "lightnav_full", False))),
 }
 # Flat arms that keep exactly k frames (results/kl_select.csv). Their logged score is the measure itself:
 # keep-one KL (larger = kept), only-f entropy (LOWER = kept) or frame id.
@@ -83,21 +113,34 @@ MASK_COLS = ["arm", "model", "method", "k", "episode", "step", "frame", "age", "
 
 def arm_specs():
     """(arm, model key, method, k) for every arm this experiment runs. Identity has k=None."""
-    for m in MODELS:
+    for m in V["models"]:
         yield f"{m}_identity", m, "identity", None
         for k in V["k_list"]:
-            for method in V["methods"]:
+            for method in V.get("model_methods", {}).get(m, V["methods"]):
                 yield f"{m}_{method}_b{k}", m, method, k
+    for arm, m, method, k, _ in V.get("extra_arms", ()):
+        yield arm, m, method, k
 
 
 def ctx_specs():
     """(ctx arm, model key, method, k, frames_worth) of the ctx-ablation rows merged in."""
-    for m, tpl in (("r1", "r1_evict_k{}"), ("uninavid", "uninavid_k{}")):
+    for m in V["models"]:
+        tpl = CTX_TPL[m]
         if V["ctx_reference"]:
             yield tpl.format(32), m, "reference", None, V["window"][m]
         if V["ctx_recency"]:
             for k in V["k_list"]:
                 yield tpl.format(k), m, V["ctx_method"], k, k - 1
+    # ctx windows named only as an extra arm's partner (e.g. lightnav_k1 for lightnav_recency_b0_cur1):
+    # merged under a method label plot.py has no style for, so they stay out of the figure and table
+    grid = {tpl.format(k) for tpl in CTX_TPL.values() for k in V["k_list"]}
+    seen = set()
+    for _, m, _, _, partners in V.get("extra_arms", ()):
+        win = partners.get("window")
+        if win and win not in grid and win not in seen and win.startswith(CTX_TPL[m].split("{")[0]):
+            seen.add(win)
+            k = int(win[len(CTX_TPL[m].split("{")[0]):])
+            yield win, m, V["ctx_method"] + "_lo", k, k - 1
 
 
 def frames_worth(model, k):
@@ -107,9 +150,12 @@ def frames_worth(model, k):
     return float("inf") if V["window"][model] is None else V["window"][model]
 
 
-def partner_arm(model, k, tag):
+def partner_arm(model, k, tag, arm=None):
     """The arm a paired delta of `tag` is taken against (None = not applicable)."""
-    ctx = "r1_evict_k{}" if model == "r1" else "uninavid_k{}"
+    override = {a: p for a, _, _, _, p in V.get("extra_arms", ())}.get(arm)
+    if override and tag in override:
+        return override[tag]
+    ctx = CTX_TPL[model]
     if tag == V["ctx_method"]:
         return ctx.format(k) if k is not None else None
     if tag == "random":
@@ -167,7 +213,9 @@ def mask_rows_r1(run_dir: Path, arm: str, method: str, k):
                        "n_kept": int(kp), "keep_bits": kb}
 
 
-def mask_rows_uninavid(run_dir: Path, arm: str, method: str, k):
+def mask_rows_uninavid(run_dir: Path, arm: str, method: str, k, model: str = "uninavid"):
+    """Rows from prune/<label>.jsonl (Uni-NaVid; LightNav-0 writes the same schema with one entry
+    per history tubelet, its newer frame as the frame id)."""
     for path in sorted(run_dir.glob("prune/*.jsonl")):
         label = path.stem
         with path.open() as f:
@@ -181,7 +229,7 @@ def mask_rows_uninavid(run_dir: Path, arm: str, method: str, k):
                 step = int(rec["step"])
                 per_frame = unpack_bits(rec["bits"], rec["n_tokens"])
                 for fr, n, kp, kb in zip(rec["frames"], rec["n_tokens"], rec["n_kept"], per_frame):
-                    yield {"arm": arm, "model": MODELS["uninavid"], "method": method, "k": k, "episode": label,
+                    yield {"arm": arm, "model": MODELS[model], "method": method, "k": k, "episode": label,
                            "step": step, "frame": int(fr), "age": step - int(fr), "n_tokens": int(n),
                            "n_kept": int(kp), "keep_bits": kb}
 
@@ -248,7 +296,8 @@ def select_summary(rows, arm, model, method, k):
 
 
 def per_episode_token_stats(mask_rows):
-    """{episode: (n_per_frame, tokens_kept_mean)}: mean original tokens per history frame and the
+    """{episode: (n_per_frame, tokens_kept_mean)}: mean original tokens per history frame (LightNav: per
+    history tubelet entry, a mix of 28- and 8-token tubelets, not per frame) and the
     mean over steps of the total tokens kept in the window."""
     by_ep = {}
     for r in mask_rows:
@@ -300,7 +349,7 @@ def load_arms(runs_root: Path, labels, mode: str):
         if not run_dir.is_dir():
             missing.append(arm)
             continue
-        rows = load_r1_run(run_dir) if model == "r1" else load_uninavid_run(run_dir)
+        rows = LOADERS[model](run_dir)
         partial = bool(split_status(rows, labels)[0])
         if partial:
             if mode == "skip":
@@ -366,12 +415,12 @@ def write_parquet(path: Path, rows, cols):
 # --- modes --------------------------------------------------------------------------------
 def status(runs_root: Path, labels):
     print(f"{'arm':<26}{'episodes':>10}")
-    for arm, *_ in arm_specs():
+    for arm, model, *_ in arm_specs():
         run_dir = runs_root / arm
         if not run_dir.is_dir():
             print(f"{arm:<26}{'-':>10}")
             continue
-        rows = load_r1_run(run_dir) if arm.startswith("r1_") else load_uninavid_run(run_dir)
+        rows = LOADERS[model](run_dir)
         n = len([l for l in labels if l in rows])
         print(f"{arm:<26}{n:>6}/{len(labels)}" + ("" if n == len(labels) else "  (partial)"))
 
@@ -400,7 +449,7 @@ def check_identity(runs, ctx, labels, tolerance: bool) -> bool:
         if n_bad == 0:
             continue
         if not exact and tolerance and abs(d_sr["delta"]) <= 0.04 and d_sr["p"] > 0.05 and d_spl["p"] > 0.05:
-            print(f"[identity] {arm}: within Uni-NaVid's documented sampling noise, accepted (--identity-tolerance)")
+            print(f"[identity] {arm}: non-exact kernel/decoding path, within the +-0.04 SR tolerance, accepted (--identity-tolerance)")
             continue
         for key, bad in mism.items():
             for l in bad[:5]:
@@ -426,7 +475,8 @@ def main() -> None:
     ap.add_argument("--check-identity", action="store_true",
                     help="compare the identity arms with the ctx-ablation K=32 arms and exit 1 on a mismatch")
     ap.add_argument("--identity-tolerance", action="store_true",
-                    help="with --check-identity: accept Uni-NaVid differences within its +-0.04 SR sampling noise")
+                    help="with --check-identity: accept non-exact identity pairs (Uni-NaVid sampling noise, LightNav "
+                         "eager-vs-compiled kernel) within +-0.04 SR and p > 0.05")
     args = ap.parse_args()
     global V
     V = VARIANTS[args.variant]
@@ -459,7 +509,7 @@ def main() -> None:
     # --- keep masks, retention, per-episode token stats ---------------------------------
     masks, retention, tok_stats = [], [], {}
     for arm, (rows, model, method, k, partial) in runs.items():
-        gen = mask_rows_r1 if model == "r1" else mask_rows_uninavid
+        gen = mask_rows_r1 if model == "r1" else functools.partial(mask_rows_uninavid, model=model)
         arm_masks = [r for r in gen(runs_root / arm, arm, method, k) if r["episode"] in rows]
         tok_stats[arm] = per_episode_token_stats(arm_masks)
         retention.extend(retention_rows(arm_masks, arm, MODELS[model], method, k, labels))
@@ -528,7 +578,7 @@ def main() -> None:
         # Paired deltas vs the same-k baseline arm (recency window / random), the flat variant's
         # same-k ctx-ablation window, and vs the unpruned reference (labels both hold).
         for tag in V["delta_tags"]:
-            partner = partner_arm(model, k, tag)
+            partner = partner_arm(model, k, tag, arm)
             other = all_rows.get(partner) if partner and partner != arm else None
             common = [l for l in labels if other is not None and l in rows and l in other]
             for key, name in METRICS:
@@ -562,12 +612,13 @@ def main() -> None:
              " & & " + " & ".join(rf"\multicolumn{{2}}{{c}}{{$k={k}$}}" for k in K_LIST) + r" \\",
              " ".join(rf"\cmidrule(lr){{{3 + 2 * i}-{4 + 2 * i}}}" for i in range(len(K_LIST))),
              "model & method & " + " & ".join("SR & SPL" for _ in K_LIST) + r" \\", r"\midrule"]
-    for m, tpl in (("r1", "r1_evict_k{}"), ("uninavid", "uninavid_k{}")):
+    for m in V["models"]:
+        tpl = CTX_TPL[m]
         ref = by_arm.get(partner_arm(m, None, "ref"))
         ref_txt = f"{ref['sr']:.2f} / {ref['spl']:.3f}" if ref else "--"
         ref_name = "unpruned reference" if flat else "32-frame reference"
         lines.append(rf"\multicolumn{{{2 + 2 * len(K_LIST)}}}{{l}}{{\emph{{{MODELS[m]}}}, {ref_name} SR / SPL = {ref_txt}}} \\")
-        for method in ((ctx_method,) if ctx_method else ()) + METHODS:
+        for method in ((ctx_method,) if ctx_method else ()) + tuple(V.get("model_methods", {}).get(m, METHODS)):
             cells = []
             for k in K_LIST:
                 arm = tpl.format(k) if method == ctx_method else f"{m}_{method}_b{k}"
@@ -577,7 +628,8 @@ def main() -> None:
     lines[-1] = r"\bottomrule"
     lines += [r"\end{tabular}"]
     lines += [r"% $k$ = frames' worth of history tokens kept; every method scores and deletes at decoder layer 0",
-              r"% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window). kl\_keep\_one / entropy\_keep\_one /",
+              r"% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window, LightNav-0: its own full-episode",
+              r"% SlowFast sampling, 14 tokens per frame' worth). kl\_keep\_one / entropy\_keep\_one /",
               r"% recency keep exactly $k$ whole frames. window row: the ctx-ablation recency arm with $k$ frames visible",
               r"% including the current one ($k-1$ history frames, text history cut too). Stars: paired sign-flip",
               r"% test vs the same-$k$ random arm, *p<0.05 **p<0.01 ***p<0.001; $\dagger$ = arm still partial.",

@@ -1,0 +1,25 @@
+{
+  "episode_label": "BAbdmeyTvMZ_2",
+  "episode_id": "2",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00827-BAbdmeyTvMZ/BAbdmeyTvMZ.basis.glb",
+  "goal": "bed",
+  "instruction": "Find the bed.",
+  "steps": 197,
+  "inference_calls": 197,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.1505700945854187,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune_flat/runs/lightnav_recency_b30/raw/results.jsonl",
+    "line": 15,
+    "lightnav_episode_id": "episode_014",
+    "habitat_episode_id": "2"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.18966101549751835,
+    "soft_spl": 0.18333570235578142,
+    "distance_to_goal": 0.15669938921928406
+  }
+}

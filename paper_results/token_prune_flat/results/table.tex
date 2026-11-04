@@ -24,10 +24,18 @@ Uni-NaVid & dart & 0.74 & 0.369 & 0.74 & 0.358 & 0.69 & 0.338 & 0.69 & 0.349 \\
 Uni-NaVid & kl_keep_one & 0.80$^{*}$ & 0.426 & 0.73 & 0.339 & 0.67 & 0.338 & 0.64 & 0.314 \\
 Uni-NaVid & entropy_keep_one & 0.75 & 0.394 & 0.64 & 0.325$^{*}$ & 0.71 & 0.337 & 0.60 & 0.289 \\
 Uni-NaVid & recency & 0.70 & 0.391 & 0.74 & 0.424 & 0.71 & 0.394 & 0.55$^{*}$ & 0.321 \\
+\midrule
+\multicolumn{10}{l}{\emph{LightNav-0}, unpruned reference SR / SPL = 0.84 / 0.458} \\
+LightNav-0 & window & 0.82 & 0.467 & 0.80 & 0.444 & 0.68$^{**}$ & 0.365$^{***}$ & 0.34$^{***}$ & 0.188$^{***}$ \\
+LightNav-0 & random & 0.82 & 0.460 & 0.82 & 0.466 & 0.82 & 0.506 & 0.81 & 0.450 \\
+LightNav-0 & fastv & 0.83 & 0.451 & 0.81 & 0.446 & 0.80 & 0.446$^{*}$ & 0.77 & 0.440 \\
+LightNav-0 & divprune & 0.78 & 0.454 & 0.80 & 0.473 & 0.80 & 0.464 & 0.77 & 0.447 \\
+LightNav-0 & dart & 0.85 & 0.469 & 0.78 & 0.433 & 0.80 & 0.450 & 0.80 & 0.443 \\
 \bottomrule
 \end{tabular}
 % $k$ = frames' worth of history tokens kept; every method scores and deletes at decoder layer 0
-% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window). kl\_keep\_one / entropy\_keep\_one /
+% (LongNav-R1: full episode context, Uni-NaVid: 64-frame window, LightNav-0: its own full-episode
+% SlowFast sampling, 14 tokens per frame' worth). kl\_keep\_one / entropy\_keep\_one /
 % recency keep exactly $k$ whole frames. window row: the ctx-ablation recency arm with $k$ frames visible
 % including the current one ($k-1$ history frames, text history cut too). Stars: paired sign-flip
 % test vs the same-$k$ random arm, *p<0.05 **p<0.01 ***p<0.001; $\dagger$ = arm still partial.

@@ -1,0 +1,25 @@
+{
+  "episode_label": "bxsVRursffK_2",
+  "episode_id": "2",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00873-bxsVRursffK/bxsVRursffK.basis.glb",
+  "goal": "bed",
+  "instruction": "Find the bed.",
+  "steps": 65,
+  "inference_calls": 65,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.1508985161781311,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune_flat/runs/lightnav_random_b8/raw/results.jsonl",
+    "line": 60,
+    "lightnav_episode_id": "episode_059",
+    "habitat_episode_id": "2"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.7747682326270682,
+    "soft_spl": 0.74644822289067,
+    "distance_to_goal": 0.15529371798038483
+  }
+}

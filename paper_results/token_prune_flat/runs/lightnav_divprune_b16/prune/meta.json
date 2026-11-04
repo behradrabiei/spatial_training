@@ -1,0 +1,11 @@
+{
+  "method": "divprune",
+  "k": 16,
+  "tokens_per_frame": 14,
+  "budget": 224,
+  "pivots": null,
+  "seed": null,
+  "prepass": false,
+  "ledger": "tubelet (f0, f1, pool, cell)",
+  "current_tubelet_exempt": true
+}

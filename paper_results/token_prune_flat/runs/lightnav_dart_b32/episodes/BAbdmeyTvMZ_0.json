@@ -1,0 +1,25 @@
+{
+  "episode_label": "BAbdmeyTvMZ_0",
+  "episode_id": "0",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00827-BAbdmeyTvMZ/BAbdmeyTvMZ.basis.glb",
+  "goal": "chair",
+  "instruction": "Find the chair.",
+  "steps": 138,
+  "inference_calls": 138,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.15015344321727753,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune_flat/runs/lightnav_dart_b32/raw/results.jsonl",
+    "line": 13,
+    "lightnav_episode_id": "episode_012",
+    "habitat_episode_id": "0"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.4151886592526867,
+    "soft_spl": 0.4006566232197199,
+    "distance_to_goal": 0.15866737067699432
+  }
+}

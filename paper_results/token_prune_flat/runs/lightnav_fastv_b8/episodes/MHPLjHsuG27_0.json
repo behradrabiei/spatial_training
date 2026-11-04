@@ -1,0 +1,25 @@
+{
+  "episode_label": "MHPLjHsuG27_0",
+  "episode_id": "0",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00869-MHPLjHsuG27/MHPLjHsuG27.basis.glb",
+  "goal": "toilet",
+  "instruction": "Find the toilet.",
+  "steps": 154,
+  "inference_calls": 154,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.015365381725132465,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune_flat/runs/lightnav_fastv_b8/raw/results.jsonl",
+    "line": 34,
+    "lightnav_episode_id": "episode_033",
+    "habitat_episode_id": "0"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.284147551196143,
+    "soft_spl": 0.2833348127094179,
+    "distance_to_goal": 0.015365381725132465
+  }
+}

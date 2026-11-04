@@ -1,0 +1,25 @@
+{
+  "episode_label": "h1zeeAwLh9Z_1",
+  "episode_id": "1",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00815-h1zeeAwLh9Z/h1zeeAwLh9Z.basis.glb",
+  "goal": "tv_monitor",
+  "instruction": "Find the TV monitor.",
+  "steps": 199,
+  "inference_calls": 199,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.07603306323289871,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/info_horizon/runs/lightnav_ref/raw/results.jsonl",
+    "line": 68,
+    "lightnav_episode_id": "episode_067",
+    "habitat_episode_id": "1"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.3927371159740121,
+    "soft_spl": 0.38986159916179736,
+    "distance_to_goal": 0.07603306323289871
+  }
+}

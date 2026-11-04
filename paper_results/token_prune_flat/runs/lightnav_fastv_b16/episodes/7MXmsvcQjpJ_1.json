@@ -1,0 +1,25 @@
+{
+  "episode_label": "7MXmsvcQjpJ_1",
+  "episode_id": "1",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00823-7MXmsvcQjpJ/7MXmsvcQjpJ.basis.glb",
+  "goal": "sofa",
+  "instruction": "Find the sofa.",
+  "steps": 500,
+  "inference_calls": 499,
+  "termination_reason": "agent_stop",
+  "forced_stop": true,
+  "oracle_success": false,
+  "min_distance": 1.8082752227783203,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune_flat/runs/lightnav_fastv_b16/raw/results.jsonl",
+    "line": 11,
+    "lightnav_episode_id": "episode_010",
+    "habitat_episode_id": "1"
+  },
+  "metrics": {
+    "success": 0.0,
+    "spl": 0.0,
+    "soft_spl": 0.17410045547775208,
+    "distance_to_goal": 2.41158390045166
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "episode_label": "TEEsavR23oF_2",
+  "episode_id": "2",
+  "scene_id": "/home/brabiei/vault/habitat_data/scenes/HM3D/v2/hm3d_v0.2/val/00800-TEEsavR23oF/TEEsavR23oF.basis.glb",
+  "goal": "sofa",
+  "instruction": "Find the sofa.",
+  "steps": 75,
+  "inference_calls": 75,
+  "termination_reason": "agent_stop",
+  "forced_stop": false,
+  "oracle_success": true,
+  "min_distance": 0.15081633627414703,
+  "source": {
+    "results_jsonl": "/home/brabiei/Projects/World-Modelling/spatial_training/paper_results/token_prune_flat/runs/lightnav_fastv_b32/raw/results.jsonl",
+    "line": 45,
+    "lightnav_episode_id": "episode_044",
+    "habitat_episode_id": "2"
+  },
+  "metrics": {
+    "success": 1.0,
+    "spl": 0.7177406837222196,
+    "soft_spl": 0.7002509836143846,
+    "distance_to_goal": 0.15544334053993225
+  }
+}
