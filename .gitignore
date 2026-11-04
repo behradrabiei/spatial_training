@@ -17,3 +17,8 @@ venv/
 htmlcov/
 *.egg-info/
 .cleanup_archive/
+
+# External benchmark clones with their own git history (NavVerse branch ctx-ablation-timeout,
+# RoboMME branch local-ablation + policy submodule branch ablation); see their README/SETUP notes.
+NavVerse-Benchmark/
+robomme_benchmark/
