@@ -1,0 +1,14 @@
+{
+  "pretrained_checkpoint": "/mnt/vault/robomme/ckpts/simplememvla/simplememvla_robomme",
+  "dataset_split": "test",
+  "execute_horizon": 16,
+  "max_steps": 1300,
+  "num_denoising_steps": 10,
+  "eval_temperature": 1.0,
+  "max_subtask_tokens": 64,
+  "pipelined": false,
+  "compute_dtype": "bfloat16",
+  "attn_implementation": "sdpa",
+  "seed": 0,
+  "context_frames": 32
+}

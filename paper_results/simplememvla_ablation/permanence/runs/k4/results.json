@@ -1,0 +1,26 @@
+{
+  "tasks": {
+    "VideoUnmask": {
+      "success_rate": 0.28,
+      "n": 50,
+      "oom": false
+    },
+    "ButtonUnmask": {
+      "success_rate": 0.2,
+      "n": 50,
+      "oom": false
+    },
+    "VideoUnmaskSwap": {
+      "success_rate": 0.14,
+      "n": 50,
+      "oom": false
+    },
+    "ButtonUnmaskSwap": {
+      "success_rate": 0.0,
+      "n": 50,
+      "oom": false
+    }
+  },
+  "macro_avg": 0.15500000000000003,
+  "n_excluded_na": 0
+}
