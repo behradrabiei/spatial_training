@@ -91,7 +91,8 @@ class VLMConfig:
     # visual_all probe; expectation under the only-f distribution, as in the other keep-one
     # diagnostics (kv_prune_log_keep_one, horizon_probe_layers). Logged as sup/kl_influence_keep_one
     # (t+1 KLs) and sup/kl_influence_keep_one_logp (the only-f action log-probs). One replay per
-    # frame per measure; the joint probes are logged whatever the measures.
+    # frame per measure; the joint probes are logged whatever the measures. An empty list logs
+    # the joint probes alone (+experiment=paper_influence_recent: a dense K sweep of the bands).
     kv_prune_influence_measures: List[str] = field(default_factory=lambda: ["leave_one"])
     # Leak-free variant of the same probes (+experiment=paper_influence_recompute): instead of
     # hiding a frame's key columns from the replayed decision, every probe re-prefills prefix +

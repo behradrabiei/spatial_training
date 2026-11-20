@@ -35,6 +35,8 @@ ROW_FIELDS = ("model", "episode", "step", "frame", "age", "infl", "tier", "weigh
               "success", "n_history", "T", "action_at_frame", "entropy_t", "dtg_t")
 AGE_BINS = ((0, 0), (1, 1), (2, 3), (4, 7), (8, 15), (16, 31), (32, 63), (64, 10 ** 9))
 KS = (1, 4, 8, 16, 32)
+RECENT_KS = tuple(range(0, 33))  # recent_k: frames kept incl. the current one (0 = no visual, 1 = current only)
+RECENT_FIXED_MIN = 32  # recent_k fixed-set curve: decisions with at least this many history frames
 MIN_FRAMES = 8  # per-step rank correlations need this many scored frames
 
 
@@ -71,12 +73,19 @@ def _r1_sequences(run_dir: Path):
         yield label, json.loads(seq.read_text())
 
 
-MEASURES = ("leave_one", "keep_one")
+MEASURES = ("leave_one", "keep_one", "keep_one_full", "recent_k")
 
 
 def _check_measure(measure: str) -> None:
     if measure not in MEASURES:
         raise ValueError(f"measure must be one of {MEASURES}, got {measure!r}")
+
+
+def kl_from_logp(a, b) -> float:
+    """KL(a || b) in nats between two log-prob vectors; terms with p_a = 0 contribute nothing."""
+    a = np.asarray(a, dtype=float); b = np.asarray(b, dtype=float)
+    pa = np.exp(a)
+    return float(np.sum(np.where(pa > 0, pa * (a - b), 0.0)))
 
 
 def load_r1_influence(run_dir: Path | str, model: str = "LongNav-R1",
@@ -88,16 +97,24 @@ def load_r1_influence(run_dir: Path | str, model: str = "LongNav-R1",
     ``flip`` = argmax moved from the full decision) or ``keep_one`` (sup/kl_influence_keep_one:
     KL(only that frame's visual slots || no visual); then ``logp_full`` holds the REFERENCE, the
     no-visual decision, ``logp_removed`` the only-frame decision and ``flip`` says whether the
-    frame alone moves the argmax off the no-visual one). ``age0`` is the row's last entry (the
-    current frame) either way; the joint probes and ``sum_loo`` (sum of the chosen measure over
-    the history frames) are unchanged in meaning.
+    frame alone moves the argmax off the no-visual one). ``keep_one_full`` is derived offline from
+    the same keep-one run: KL(replayed full decision || only that frame's visual slots), i.e. how
+    far the lone frame is from reproducing the decision the agent took (``logp_full`` = the
+    replayed full decision, ``logp_removed`` = the only-frame decision, ``flip`` = the lone frame's
+    argmax differs from the full one); its ceiling for an uninformative frame is the ``visual_all``
+    joint probe, KL(full || no visual). ``age0`` is the current frame alone under the chosen
+    measure; the joint probes and ``sum_loo`` (sum of the chosen measure over the history frames)
+    are unchanged in meaning.
     """
     _check_measure(measure)
     run_dir = Path(run_dir)
+    if measure == "recent_k":
+        return [], _r1_recent_steps(run_dir, model)
     results = load_r1_run(run_dir)
     rows, steps = [], []
     row_key, logp_key = (("sup/kl_influence", "sup/kl_influence_logp") if measure == "leave_one"
                          else ("sup/kl_influence_keep_one", "sup/kl_influence_keep_one_logp"))
+    full_ref = measure == "keep_one_full"  # score the only-frame log-probs against the replayed full decision
     for label, d in _r1_sequences(run_dir):
         kls = d.get(row_key)
         if not kls:
@@ -120,6 +137,12 @@ def load_r1_influence(run_dir: Path | str, model: str = "LongNav-R1",
             ent = entropy(base) if base else float("nan")
             chosen = actions[t] if t < len(actions) else ""
             argmax = _argmax_action(base) if base else ""
+            cur_logp = logps[t][t] if t < len(logps) and t < len(logps[t]) else []
+            age0_scored = (t < len(vis_new) and vis_new[t]) or t >= len(vis_new)
+            if full_ref:  # the current frame alone vs the replayed full decision
+                age0 = kl_from_logp(base, cur_logp) if (age0_scored and base and cur_logp) else float("nan")
+            else:
+                age0 = row[t] if age0_scored else float("nan")
             step_rec = {
                 "model": model, "episode": label, "step": t, "n_history": t, "T": T, "success": success,
                 "chosen_action": chosen, "argmax_action": argmax, "entropy_t": ent,
@@ -128,7 +151,7 @@ def load_r1_influence(run_dir: Path | str, model: str = "LongNav-R1",
                 "sum_loo": float("nan"), "n_scored": 0,
                 "history_all": hist[t][0] if t < len(hist) and hist[t] else float("nan"),
                 "visual_all": vis[t][0] if t < len(vis) and vis[t] else float("nan"),
-                "age0": row[t] if (t < len(vis_new) and vis_new[t]) or t >= len(vis_new) else float("nan"),
+                "age0": age0,
                 "horizon": {int(h[0]): float(h[1]) for h in (horiz[t] if t < len(horiz) else [])},
                 "p_mass": float("nan"), "sampled_in_set": None, "probe_seconds": float("nan"),
                 # bf16 single-token replay vs the live multi-token forward of the same decision:
@@ -137,16 +160,20 @@ def load_r1_influence(run_dir: Path | str, model: str = "LongNav-R1",
             }
             if math.isfinite(step_rec["history_all"]):
                 step_rec["horizon"].setdefault(1, step_rec["history_all"])
-            # keep_one rows are scored against the no-visual decision (the visual_all logp)
-            ref = base if measure == "leave_one" else (vis[t][1] if t < len(vis) and vis[t] else [])
+            # keep_one rows are scored against the no-visual decision (the visual_all logp);
+            # keep_one_full rows against the replayed full decision
+            ref = base if measure in ("leave_one", "keep_one_full") else (vis[t][1] if t < len(vis) and vis[t] else [])
             ref_argmax = _argmax_action(ref) if ref else ""
             loo = []
             for f in range(t):  # history frames only; the current frame is the age0 probe
                 n_slots = vis_new[f] if f < len(vis_new) else None
                 scored = n_slots is None or n_slots > 0
                 lp = logps[t][f] if t < len(logps) and f < len(logps[t]) else []
-                infl = float(row[f]) if scored else float("nan")
-                if scored:
+                if full_ref:
+                    infl = kl_from_logp(base, lp) if (scored and base and lp) else float("nan")
+                else:
+                    infl = float(row[f]) if scored else float("nan")
+                if scored and math.isfinite(infl):
                     loo.append(infl)
                 rows.append({
                     "model": model, "episode": label, "step": t, "frame": f, "age": t - f, "infl": infl,
@@ -162,6 +189,56 @@ def load_r1_influence(run_dir: Path | str, model: str = "LongNav-R1",
             step_rec["n_scored"] = len(loo)
             steps.append(step_rec)
     return rows, steps
+
+
+def _r1_recent_steps(run_dir: Path, model: str) -> list[dict]:
+    """Step records of the ``recent_k`` measure, KL(full || only the K most recent frames' visual
+    slots), from the joint probes every influence run logs: ``horizon[0]`` = ``visual_all`` (no
+    frame), ``horizon[1]`` = ``history_all`` (the current frame only), ``horizon[K]`` = the logged
+    age band (frames of age >= K hidden). ``horizon_flip[K]`` says whether the argmax moved off the
+    replayed full decision. No per-frame row is read, so this works on a joint-probes-only run
+    (``vlm.kv_prune_influence_measures=[]``) and on the older per-frame runs alike."""
+    results = load_r1_run(run_dir)
+    steps = []
+    for label, d in _r1_sequences(run_dir):
+        bases = d.get("sup/kl_influence_base_logp")
+        if not bases:
+            continue
+        hist = d.get("sup/kl_influence_history_all") or []
+        vis = d.get("sup/kl_influence_visual_all") or []
+        horiz = d.get("sup/kl_influence_horizon") or []
+        live = d.get("sup/action_probs") or []
+        actions = [_action_name(a) for a in (d.get("action_history") or [])]
+        dtg = d.get("distance_to_goal") or []
+        T = len(bases)
+        success = results.get(label, {}).get("success")
+        for t, base in enumerate(bases):
+            if not base:
+                continue  # stride-skipped step
+            chosen = actions[t] if t < len(actions) else ""
+            argmax = _argmax_action(base)
+            probes = {}  # K -> (kl, logp)
+            if t < len(vis) and vis[t]:
+                probes[0] = (float(vis[t][0]), vis[t][1])
+            if t < len(hist) and hist[t]:
+                probes[1] = (float(hist[t][0]), hist[t][1])
+            for h in (horiz[t] if t < len(horiz) else []):
+                probes[int(h[0])] = (float(h[1]), h[2])
+            steps.append({
+                "model": model, "episode": label, "step": t, "n_history": t, "T": T, "success": success,
+                "chosen_action": chosen, "argmax_action": argmax, "entropy_t": entropy(base),
+                "dtg_t": dtg[t] if t < len(dtg) else float("nan"),
+                "p_chosen": math.exp(base[ACTIONS.index(chosen)]) if chosen in ACTIONS else float("nan"),
+                "sum_loo": float("nan"), "n_scored": 0,
+                "history_all": probes[1][0] if 1 in probes else float("nan"),
+                "visual_all": probes[0][0] if 0 in probes else float("nan"),
+                "age0": float("nan"),
+                "horizon": {k: kl for k, (kl, _) in probes.items()},
+                "horizon_flip": {k: int(_argmax_action(lp) != argmax) for k, (_, lp) in probes.items() if lp},
+                "p_mass": float("nan"), "sampled_in_set": None, "probe_seconds": float("nan"),
+                "kl_live_vs_replay": kl_from_probs(live[t], np.exp(base)) if t < len(live) else float("nan"),
+            })
+    return steps
 
 
 # -------------------------------------------------------------------------------- Uni-NaVid
@@ -182,9 +259,18 @@ def load_uninavid_influence(run_dir: Path | str, model: str = "Uni-NaVid",
     """(rows, steps) from a Uni-NaVid run made with --frame-influence.
 
     ``measure`` as in load_r1_influence: ``leave_one`` reads ``frames`` / ``age0``, ``keep_one``
-    reads ``keep_one`` / ``keep_one_age0`` (reference = the ``visual_all`` prompt).
+    reads ``keep_one`` / ``keep_one_age0`` (reference = the ``visual_all`` prompt); ``keep_one_full``
+    rescores the same ``keep_one`` probes against ``logp_full``, the full-context decision
+    (``infl`` = KL(full || only frame), ``age0`` likewise for the current frame, ``visual_all`` =
+    KL(full || the no-visual prompt of the same form as the probes, i.e. the column-masked one when
+    present) -- the measure's ceiling). ``recent_k`` reads no per-frame probe (rows are empty): its
+    step records carry ``horizon[0]`` = ``visual_all`` (the text-only prompt), ``horizon[1]`` =
+    ``history_all`` (the current frame only) and the spliced bands ``horizon[K]``, all
+    KL(full || only the K most recent frames), plus ``horizon_flip[K]`` (argmax moved off the full
+    one); it works on a ``--influence-measures none`` run and on the older per-frame runs alike.
     """
     _check_measure(measure)
+    full_ref = measure == "keep_one_full"
     run_dir = Path(run_dir)
     results = load_uninavid_run(run_dir)
     rows, steps = [], []
@@ -202,13 +288,22 @@ def load_uninavid_influence(run_dir: Path | str, model: str = "Uni-NaVid",
             base = rec["logp_full"]
             chosen = rec["action"]
             argmax = rec["argmax_action"]
-            if measure == "leave_one":
+            if measure == "recent_k":
+                frames, age0_rec, ref = [], rec.get("age0"), base
+            elif measure == "leave_one":
                 frames, age0_rec, ref = rec["frames"], rec.get("age0"), base
             else:
                 frames, age0_rec = rec.get("keep_one", []), rec.get("keep_one_age0")
                 # masked form: the reference is the column-masked no-visual prompt
                 vis = rec.get("visual_all_mask") or rec.get("visual_all")
                 ref = vis["logp"] if vis else []
+            if full_ref:  # rescore every lone-frame probe against the full decision
+                ref = base
+                score = lambda probe: kl_from_logp(base, probe["logp"]) if probe and probe.get("logp") else float("nan")  # noqa: E731
+                visual_all = score(vis)
+            else:
+                score = lambda probe: float(probe["kl"]) if probe else float("nan")  # noqa: E731
+                visual_all = rec["visual_all"]["kl"] if rec.get("visual_all") else float("nan")
             ref_argmax = _argmax_action(ref) if ref else ""
             dtg = rec.get("distance_to_goal")
             if dtg is None:  # older records: fall back to the (gitignored) trace
@@ -218,10 +313,10 @@ def load_uninavid_influence(run_dir: Path | str, model: str = "Uni-NaVid",
                 "model": model, "episode": label, "step": t, "n_history": t, "T": T, "success": success,
                 "chosen_action": chosen, "argmax_action": argmax, "entropy_t": ent, "dtg_t": dtg,
                 "p_chosen": math.exp(base[ACTIONS.index(chosen)]) if chosen in ACTIONS else float("nan"),
-                "sum_loo": float(sum(fr["kl"] for fr in frames)), "n_scored": len(frames),
+                "sum_loo": float(sum(score(fr) for fr in frames)), "n_scored": len(frames),
                 "history_all": rec["history_all"]["kl"] if rec.get("history_all") else float("nan"),
-                "visual_all": rec["visual_all"]["kl"] if rec.get("visual_all") else float("nan"),
-                "age0": age0_rec["kl"] if age0_rec else float("nan"),
+                "visual_all": visual_all,
+                "age0": score(age0_rec),
                 "horizon": {int(h["K"]): float(h["kl"]) for h in rec.get("horizon", [])},
                 "p_mass": rec.get("p_mass", float("nan")), "sampled_in_set": rec.get("sampled_first_token_in_set"),
                 "probe_seconds": rec.get("probe_seconds", float("nan")),
@@ -229,11 +324,21 @@ def load_uninavid_influence(run_dir: Path | str, model: str = "Uni-NaVid",
             }
             if math.isfinite(step_rec["history_all"]):
                 step_rec["horizon"].setdefault(1, step_rec["history_all"])
+            if measure == "recent_k":
+                probes = {int(h["K"]): h for h in rec.get("horizon", [])}
+                if rec.get("history_all"):
+                    probes.setdefault(1, rec["history_all"])
+                if rec.get("visual_all"):
+                    probes[0] = rec["visual_all"]
+                    step_rec["horizon"][0] = float(rec["visual_all"]["kl"])
+                base_argmax = _argmax_action(base)
+                step_rec["horizon_flip"] = {k: int(_argmax_action(h["logp"]) != base_argmax)
+                                            for k, h in probes.items() if h.get("logp")}
             steps.append(step_rec)
             for fr in frames:
                 f = int(fr["frame"])
                 rows.append({
-                    "model": model, "episode": label, "step": t, "frame": f, "age": t - f, "infl": float(fr["kl"]),
+                    "model": model, "episode": label, "step": t, "frame": f, "age": t - f, "infl": score(fr),
                     "tier": fr["tier"], "weight": fr.get("weight") or 1, "n_slots": 4 if fr["tier"] == "short" else 1,
                     "logp_full": ref, "logp_removed": fr["logp"], "chosen_action": chosen, "argmax_action": argmax,
                     "argmax_removed": fr["argmax_action"],
@@ -252,7 +357,7 @@ def _nan(x) -> float:
 
 
 def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", measure: str = "keep_one",
-                            space: str = "codes") -> tuple[list[dict], list[dict]]:
+                            space: str = "codes", recent: str = "window") -> tuple[list[dict], list[dict]]:
     """(rows, steps) from a LightNav-0 run made with ``eval_influence.py`` (keep-one only).
 
     The frame unit is the 2-frame tubelet (``frame`` = its newer frame ``f1``, ``age = t - f1``,
@@ -262,17 +367,30 @@ def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", meas
     CSV; ``argmax_*`` = code ids) or ``bins`` = the same probes folded onto the six executed-action
     classes (``logp_*`` = the 6-bin log-probs, ``argmax_*`` = bin names). ``chosen_action`` /
     ``action_at_frame`` = the bin of the command actually executed at ``t`` / at the frame's step.
-    Joint leave-out probes (``history_all``, ``visual_all``, ``horizon``) do not exist for this arm.
+    Joint leave-out probes (``history_all``, ``visual_all``, ``horizon``) do not exist for this arm,
+    except that ``measure="keep_one_full"`` (derived offline from the same run: ``infl`` =
+    KL(full decision || only this tubelet) from the stored 256-way log-probs, folded for ``bins``;
+    ``logp_full`` = the full decision, ``flip`` = the lone tubelet's argmax differs from the full
+    one) fills ``visual_all`` with KL(full || no visual), the measure's ceiling for an
+    uninformative tubelet.
+
+    ``measure="recent_k"`` reads a run made with ``eval_influence.py --measure recent_k`` instead
+    and returns ``([], steps)`` with ``horizon[K]`` = KL(full || only the K most recent frames);
+    ``recent`` picks the arm (see ``_lightnav_recent_steps``).
     """
-    if measure != "keep_one":
-        raise ValueError(f"LightNav-0 influence has the keep_one measure only, got {measure!r}")
+    if measure not in ("keep_one", "keep_one_full", "recent_k"):
+        raise ValueError(f"LightNav-0 influence has the keep_one / keep_one_full / recent_k measures only, got {measure!r}")
     if space not in ("codes", "bins"):
         raise ValueError(f"space must be 'codes' or 'bins', got {space!r}")
+    if measure == "recent_k":
+        return [], _lightnav_recent_steps(Path(run_dir), model, space, recent)
     k, lp, am = ("kl", "logp_bin", "bin_argmax") if space == "bins" else ("kl", None, "code")
     if space == "bins":
         k = "kl_bin"
+    full_ref = measure == "keep_one_full"
     run_dir = Path(run_dir)
     results = load_lightnav_run(run_dir)
+    fold = _lightnav_fold(run_dir)[1] if full_ref else None
     rows, steps = [], []
     for path in sorted((run_dir / "influence").glob("*.jsonl")):
         label = path.stem
@@ -282,10 +400,15 @@ def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", meas
         exec_at = {int(r["step"]): r["full"].get("exec_bin") or "" for r in recs}
         for rec in recs:
             t = int(rec["step"])
-            full, ref, age0 = rec["full"], rec["visual_all_mask"], rec.get("keep_one_age0") or {}
+            full, novis, age0 = rec["full"], rec["visual_all_mask"], rec.get("keep_one_age0") or {}
+            ref = full if full_ref else novis  # what every lone-tubelet distribution is scored against
             chosen = full.get("exec_bin") or ""
             ref_argmax = str(ref.get(am, "")) if ref.get("code") is not None else ""
             ref_logp = ref.get(lp, []) if lp else ""
+            if full_ref:
+                score = lambda probe: _lightnav_kl_full_vs(full, probe, fold, space)  # noqa: E731
+            else:
+                score = lambda probe: _nan(probe.get(k))  # noqa: E731
             ent = entropy(full["logp_bin"]) if (space == "bins" and full.get("logp_bin")) else _nan(full.get("entropy"))
             p_chosen = (math.exp(full["logp_bin"][LIGHTNAV_BINS.index(chosen)])
                         if space == "bins" and chosen in LIGHTNAV_BINS and full.get("logp_bin") else float("nan"))
@@ -293,8 +416,9 @@ def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", meas
             steps.append({
                 "model": model, "episode": label, "step": t, "n_history": t, "T": T, "success": success,
                 "chosen_action": chosen, "argmax_action": str(full.get(am, "")), "entropy_t": ent, "dtg_t": float("nan"),
-                "p_chosen": p_chosen, "sum_loo": float(sum(_nan(fr[k]) for fr in frames)), "n_scored": len(frames),
-                "history_all": float("nan"), "visual_all": float("nan"), "age0": _nan(age0.get(k)), "horizon": {},
+                "p_chosen": p_chosen, "sum_loo": float(sum(score(fr) for fr in frames)), "n_scored": len(frames),
+                "history_all": float("nan"), "visual_all": score(novis) if full_ref else float("nan"),
+                "age0": score(age0), "horizon": {},
                 "p_mass": _nan(full.get("p_mass")), "sampled_in_set": None, "probe_seconds": _nan(rec.get("probe_seconds")),
                 "kl_live_vs_replay": _nan((rec.get("replay") or {}).get(k)),
                 "p_apos": _nan(full.get("p_apos")), "p_opos": _nan(full.get("p_opos")),
@@ -304,7 +428,7 @@ def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", meas
                 f = int(fr["frame"])
                 argmax_removed = str(fr.get(am, "")) if fr.get("code") is not None else ""
                 rows.append({
-                    "model": model, "episode": label, "step": t, "frame": f, "age": t - f, "infl": _nan(fr.get(k)),
+                    "model": model, "episode": label, "step": t, "frame": f, "age": t - f, "infl": score(fr),
                     "tier": f"p{fr['pool']}", "weight": 2, "n_slots": int(fr["n_tokens"]),
                     "logp_full": ref_logp, "logp_removed": fr.get(lp, []) if lp else "",
                     "chosen_action": chosen, "argmax_action": str(full.get(am, "")), "argmax_removed": argmax_removed,
@@ -313,6 +437,59 @@ def load_lightnav_influence(run_dir: Path | str, model: str = "LightNav-0", meas
                     "action_at_frame": exec_at.get(f, ""), "entropy_t": ent, "dtg_t": float("nan"),
                 })
     return rows, steps
+
+
+def _lightnav_recent_steps(run_dir: Path, model: str, space: str, arm: str) -> list[dict]:
+    """Step records of the ``recent_k`` measure for LightNav-0: ``horizon[K]`` = KL(full decision
+    || decision with only the K most recent frames), ``horizon_flip[K]`` = the argmax moved, over
+    the 256 codes or (``space="bins"``) the six executed-action classes. ``arm`` picks how the
+    older frames were dropped (both are probed on every decision of the same run):
+
+    ``window``  the prompt rebuilt as a K-frame episode (``CONTEXT_FRAMES=K``: old blocks gone),
+                K = 1..max_k. There is no K = 0 prompt, so the curve starts at 1.
+    ``keep``    old blocks kept: the full prompt with the older tubelets' visual columns hidden.
+                K = 0 (no visual token), 1 (current tubelet rebuilt as ``(t, t)``) and the even K
+                (the tubelet is the unit; the odd K that occur while the fast tier holds an odd
+                frame count, in the first 32 steps only, are dropped as unrepresentative).
+    """
+    if arm not in ("window", "keep"):
+        raise ValueError(f"recent arm must be 'window' or 'keep', got {arm!r}")
+    k_key, am = ("kl_bin", "bin_argmax") if space == "bins" else ("kl", "code")
+    results = load_lightnav_run(run_dir)
+    steps = []
+    for path in sorted((run_dir / "influence").glob("*.jsonl")):
+        label = path.stem
+        success = results.get(label, {}).get("success")
+        T = results.get(label, {}).get("n_steps")
+        for line in path.read_text().splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            if "recent_window" not in rec:
+                raise ValueError(f"{path}: not a recent_k record (run eval_influence.py --measure recent_k)")
+            t = int(rec["step"])
+            full, novis = rec["full"], rec["visual_all_mask"]
+            probes = [(int(pr["k"]), pr) for pr in rec["recent_window" if arm == "window" else "recent_keep"]]
+            if arm == "keep":
+                probes = [(0, novis)] + [(k, pr) for k, pr in probes if k == 1 or k % 2 == 0]
+            full_argmax = str(full.get(am, "")) if full.get("code") is not None else ""
+            chosen = full.get("exec_bin") or ""
+            horizon = {k: _nan(pr.get(k_key)) for k, pr in probes if math.isfinite(_nan(pr.get(k_key)))}
+            flips = {k: int(str(pr.get(am, "")) != full_argmax) for k, pr in probes
+                     if k in horizon and full_argmax and pr.get("code") is not None}
+            ent = entropy(full["logp_bin"]) if (space == "bins" and full.get("logp_bin")) else _nan(full.get("entropy"))
+            steps.append({
+                "model": model, "episode": label, "step": t, "n_history": t, "T": T, "success": success,
+                "chosen_action": chosen, "argmax_action": full_argmax, "entropy_t": ent, "dtg_t": float("nan"),
+                "p_chosen": (math.exp(full["logp_bin"][LIGHTNAV_BINS.index(chosen)])
+                             if space == "bins" and chosen in LIGHTNAV_BINS and full.get("logp_bin") else float("nan")),
+                "sum_loo": float("nan"), "n_scored": 0,
+                "history_all": horizon.get(1, float("nan")), "visual_all": _nan(novis.get(k_key)), "age0": float("nan"),
+                "horizon": horizon, "horizon_flip": flips,
+                "p_mass": _nan(full.get("p_mass")), "sampled_in_set": None, "probe_seconds": _nan(rec.get("probe_seconds")),
+                "kl_live_vs_replay": _nan((rec.get("replay") or {}).get(k_key)),
+            })
+    return steps
 
 
 def _unpack_f16(s: str) -> np.ndarray:
@@ -324,6 +501,28 @@ def _unpack_f16(s: str) -> np.ndarray:
 def _fold_logp(logp: np.ndarray, fold: np.ndarray) -> np.ndarray:
     """Log-probs over the 6 bins from 256 code log-probs (``fold``: 256 x 6 one-hot)."""
     return np.log(np.maximum(np.exp(logp) @ fold, 1e-30))
+
+
+def _lightnav_fold(run_dir: Path | str) -> tuple[list[str], np.ndarray]:
+    """(bin names, 256 x 6 one-hot code->bin matrix) from the run's ``influence/meta.json``."""
+    meta = json.loads((Path(run_dir) / "influence" / "meta.json").read_text())
+    bins = list(meta["bins"]); code_bins = meta["code_bins"]
+    fold = np.zeros((len(code_bins), len(bins)))
+    for c, b in enumerate(code_bins):
+        fold[c, bins.index(b)] = 1.0
+    return bins, fold
+
+
+def _lightnav_kl_full_vs(full: dict, probe: dict, fold: np.ndarray, space: str) -> float:
+    """KL(full decision || probe) from the stored float16 log-probs, over the 256 codes
+    (``space="codes"``) or folded onto the 6 executed-action bins (``"bins"``); NaN when either
+    side has no log-probs (a truncated probe)."""
+    if not (full.get("logp_f16") and probe.get("logp_f16")):
+        return float("nan")
+    a, b = _unpack_f16(full["logp_f16"]), _unpack_f16(probe["logp_f16"])
+    if space == "bins":
+        a, b = _fold_logp(a, fold), _fold_logp(b, fold)
+    return kl_from_logp(a, b)
 
 
 def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[list[dict], dict, list[dict]]:
@@ -344,16 +543,8 @@ def lightnav_full_agreement(run_dir: Path | str, max_age: int = 256) -> tuple[li
     (``agree_bin`` and ``n`` per episode), for box plots over episodes.
     """
     run_dir = Path(run_dir)
-    meta = json.loads((run_dir / "influence" / "meta.json").read_text())
-    bins = list(meta["bins"]); code_bins = meta["code_bins"]
-    fold = np.zeros((len(code_bins), len(bins)))
-    for c, b in enumerate(code_bins):
-        fold[c, bins.index(b)] = 1.0
-
-    def kl(a, b):
-        pa = np.exp(a)
-        return float(np.sum(np.where(pa > 0, pa * (a - b), 0.0)))
-
+    bins, fold = _lightnav_fold(run_dir)
+    kl = kl_from_logp
     per_age: dict[int, dict[str, list[dict]]] = {}
     ref_agree, full_bins = [], []
     for path in sorted((run_dir / "influence").glob("*.jsonl")):
@@ -506,6 +697,78 @@ def horizon_table(steps: list[dict], ks: tuple[int, ...] = KS) -> list[dict]:
         lo, hi = _episode_bootstrap({e: np.asarray(v) for e, v in per_ep.items()})
         out.append({"K": k, "n_steps": len(joint), "mean": float(np.mean(joint)) if joint else float("nan"),
                     "median": float(np.median(joint)) if joint else float("nan"), "lo": lo, "hi": hi})
+    return out
+
+
+def recent_window_curve(steps: list[dict], ks: tuple[int, ...] = RECENT_KS,
+                        fixed_min: int = RECENT_FIXED_MIN) -> list[dict]:
+    """The ``recent_k`` curve: per K, KL(full || only the K most recent frames) over the decisions
+    with at least K history frames (so every scored decision has a frame to lose; K = 0 takes
+    every decision) -- pooled mean / median with an episode-cluster bootstrap CI, the
+    episode-balanced mean +- SEM (mean over episodes of each episode's mean) and the argmax flip
+    rate (``flip_rate`` pooled, ``flip_balanced`` +- ``flip_balanced_sem`` over episodes like the
+    mean). ``fixed_*`` repeat the means on ONE decision set, the decisions with at least
+    ``fixed_min`` history frames and a value at every K the arm reports (LightNav-0's kept-blocks
+    arm has no even K while its fast tier holds an odd frame count), so differences between K
+    there are within-decision (the default set shrinks with K and loses the short episodes).
+    ``norm_*`` put that fixed-set curve on a common scale: per episode, the mean KL at K over the
+    mean no-frame KL (``visual_all``, i.e. K = 0) of the same decisions, then mean +- SEM over
+    episodes -- the share of the no-frame gap still open with K frames (1 at K = 0)."""
+    def balanced(per_ep):
+        ep_means = np.array([np.mean(v) for v in per_ep.values()])
+        if not ep_means.size:
+            return float("nan"), float("nan")
+        sem = float(ep_means.std(ddof=1) / math.sqrt(len(ep_means))) if len(ep_means) > 1 else float("nan")
+        return float(ep_means.mean()), sem
+
+    def has(s, k):
+        v = s["horizon"].get(k)
+        return v is not None and math.isfinite(v)
+
+    def no_frame(s):  # KL(full || no visual): every loader's ``visual_all`` (LightNav-0's window arm has no K = 0 band)
+        v = s.get("visual_all")
+        return v if v is not None and math.isfinite(v) else s["horizon"].get(0, float("nan"))
+
+    grid = [k for k in ks if k <= fixed_min and any(has(s, k) for s in steps)]  # the K this arm reports
+    in_fixed = {id(s) for s in steps if s["n_history"] >= fixed_min and all(has(s, k) for k in grid)}
+    out = []
+    for k in ks:
+        per_ep: dict[str, list[float]] = {}
+        fixed_ep: dict[str, list[float]] = {}
+        flips = []
+        flip_ep: dict[str, list[float]] = {}
+        norm_ep: dict[str, list[tuple[float, float]]] = {}
+        for s in steps:
+            v = s["horizon"].get(k)
+            if v is None or not math.isfinite(v) or s["n_history"] < k:
+                continue
+            per_ep.setdefault(s["episode"], []).append(v)
+            if k in s.get("horizon_flip", {}):
+                flips.append(s["horizon_flip"][k])
+                flip_ep.setdefault(s["episode"], []).append(s["horizon_flip"][k])
+            if id(s) in in_fixed:
+                fixed_ep.setdefault(s["episode"], []).append(v)
+                if math.isfinite(no_frame(s)):
+                    norm_ep.setdefault(s["episode"], []).append((v, no_frame(s)))
+        pooled = np.array([v for vs in per_ep.values() for v in vs])
+        fixed = np.array([v for vs in fixed_ep.values() for v in vs])
+        lo, hi = _episode_bootstrap({e: np.asarray(v) for e, v in per_ep.items()})
+        bal, sem = balanced(per_ep)
+        fbal, fsem = balanced(fixed_ep)
+        flip_bal, flip_sem = balanced(flip_ep)
+        ratios = {e: [float(np.mean([a for a, _ in v]) / np.mean([b for _, b in v]))]
+                  for e, v in norm_ep.items() if np.mean([b for _, b in v]) > 0}
+        norm_bal, norm_sem = balanced(ratios)
+        out.append({"K": k, "n_steps": int(pooled.size), "n_episodes": len(per_ep),
+                    "mean": float(pooled.mean()) if pooled.size else float("nan"),
+                    "median": float(np.median(pooled)) if pooled.size else float("nan"), "lo": lo, "hi": hi,
+                    "balanced_mean": bal, "balanced_sem": sem,
+                    "flip_rate": float(np.mean(flips)) if flips else float("nan"),
+                    "flip_balanced": flip_bal, "flip_balanced_sem": flip_sem,
+                    "fixed_n_steps": int(fixed.size), "fixed_n_episodes": len(fixed_ep),
+                    "fixed_mean": float(fixed.mean()) if fixed.size else float("nan"),
+                    "fixed_balanced_mean": fbal, "fixed_balanced_sem": fsem,
+                    "norm_balanced_mean": norm_bal, "norm_balanced_sem": norm_sem})
     return out
 
 

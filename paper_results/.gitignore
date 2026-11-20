@@ -30,3 +30,8 @@ ctx_ablation_navverse/runs/*/prune/
 
 # Server-ready marker files written by the LightNav / NavVerse launch scripts.
 **/*.ready
+
+# Kept locally, not on GitHub (2026-11-20: code and documentation only for the newer studies);
+# see the two variant sections of paper/frame_influence/README.md.
+frame_influence_recent/
+frame_influence_keepone_full/

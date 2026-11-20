@@ -1,0 +1,55 @@
+# @package _global_
+# Recent-window variant of paper_influence (paper/frame_influence/README.md, "Recent-window variant").
+#
+# Same substrate and trajectories as paper_influence (full context, nothing pruned, deterministic
+# argmax). No per-frame probe is run; on every step the decision token is replayed with the visual
+# slots of every frame of age >= K hidden, for every K = 2..32, next to the two joint probes that
+# are always logged: visual_all (K = 0, no frame) and history_all (K = 1, the current frame only).
+# The measure is KL(P full || P only the K most recent frames' visual slots), leaky (evict-style):
+# the surviving slots keep the K/V they were encoded with.
+#
+# Launch from the repo root:
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_influence_recent +resources=single task.run_name=r1_influence_recent
+#
+# task.run_name must NOT reuse a name from another experiment in the same wandb project
+# (e.g. r1_influence): resume keys on the run name and would skip every already-logged episode.
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/frame_influence_recent/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json  # 10 episodes, seed-17 sample of the 100 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # the model's native regime (and required by the prune substrate)
+  sparse_threshold: 0.95
+  context_cut: header  # moot here since nothing is ever cut (full context)
+  context_frames: null
+  context_window: null  # full episode in context
+  context_window_mode: prune  # replay substrate only; the budget below is never reached
+  kv_budget: 1000000000
+  kv_prune_importance: random
+  kv_prune_candidate_scope: all
+  kv_prune_recent_turns: 2
+  kv_prune_seed: 17
+  kv_prune_log_influence: true
+  kv_prune_influence_stride: 1  # every decision step
+  # every K from 2 to 32 (K = frames surviving incl. the current one; K=1 is history_all, K=0 visual_all)
+  kv_prune_influence_horizons: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+  kv_prune_influence_measures: []  # joint probes only: no per-frame replay

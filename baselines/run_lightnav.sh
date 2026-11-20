@@ -28,7 +28,9 @@
 #        INFLUENCE=1 (run the client through lightnav_hm3d/eval_influence.py: normal navigation plus,
 #        after every decision, the keep-one KL probes of paper/frame_influence -- same eager masked
 #        kernel; records land in raw/influence/ and are renamed by the converter; MAX_AGE (33)
-#        bounds the probed history tubelets' age).
+#        bounds the probed history tubelets' age. INFLUENCE_MEASURE=recent_k probes
+#        KL(full || K most recent frames) instead, K <= MAX_K (32), both with the old blocks kept
+#        (masked) and as a rebuilt K-frame window).
 #        The four wrappers are not combined.
 #        LABELS (a JSON list of episode labels, default the 100-episode file): the dataset subset
 #        is built under .cache/datasets/objectnav_<labels stem> with that many episodes.
@@ -98,9 +100,15 @@ if [[ -n "$PRUNE_METHOD" || -n "$PRUNE_K" ]]; then
 fi
 INFLUENCE="${INFLUENCE:-}"
 MAX_AGE="${MAX_AGE:-33}"
+INFLUENCE_MEASURE="${INFLUENCE_MEASURE:-keep_one}"
+MAX_K="${MAX_K:-32}"
 if [[ -n "$INFLUENCE" ]]; then
   if [[ "$INFLUENCE" != 1 || ! "$MAX_AGE" =~ ^[1-9][0-9]*$ ]]; then
     echo "INFLUENCE must be 1 and MAX_AGE a positive integer, got INFLUENCE='$INFLUENCE' MAX_AGE='$MAX_AGE'" >&2
+    exit 2
+  fi
+  if [[ ! "$INFLUENCE_MEASURE" =~ ^(keep_one|recent_k)$ || ! "$MAX_K" =~ ^[1-9][0-9]*$ ]]; then
+    echo "INFLUENCE_MEASURE must be keep_one|recent_k and MAX_K a positive integer, got '$INFLUENCE_MEASURE' / '$MAX_K'" >&2
     exit 2
   fi
   if [[ -n "$BLIND_LAYER" || -n "$CONTEXT_FRAMES" || -n "$PRUNE_METHOD" ]]; then
@@ -240,6 +248,7 @@ run_eval() {
     [[ -n "$PRUNE_CURRENT_FRAMES" ]] && entry+=(--prune-current-frames "$PRUNE_CURRENT_FRAMES")
   elif [[ -n "$INFLUENCE" ]]; then
     entry=("$BASELINE_ROOT/lightnav_hm3d/eval_influence.py" --max-age "$MAX_AGE")
+    [[ "$INFLUENCE_MEASURE" != keep_one ]] && entry+=(--measure "$INFLUENCE_MEASURE" --max-k "$MAX_K")
   fi
   local args=("${entry[@]}" --model_path "$CKPT" --server "tcp://localhost:$PORT"
     --backend "$BACKEND" --episodes "$episodes" --max_steps 500

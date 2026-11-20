@@ -1,0 +1,48 @@
+# @package _global_
+# Leak-free arm of the recent-window variant (paper/frame_influence/README.md, "Recent-window variant").
+#
+# paper_influence_recompute with the probes of paper_influence_recent: no per-frame probe; on every
+# step the context is rebuilt from scratch (prefix + every turn's stored post-filter embeddings)
+# with the visual tokens of every frame of age >= K deleted, for K = 2..32, next to visual_all
+# (K = 0) and history_all (K = 1). The measure is KL(P full || P only the K most recent frames),
+# a strict counterfactual: nothing survives from a cache that saw the removed frames. At most 34
+# full re-prefills per step, so the cost grows with T^2 per episode rather than the T^3 of the
+# per-frame leak-free arm, and the 500-step episode that arm leaves out is affordable here: all
+# 10 episodes (the nine short ones were run first, 28 min; wcojb4TFT35_0 added by resuming).
+#
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_influence_recent_recompute +resources=single task.run_name=r1_influence_recent_recompute
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper"
+  output_dir: ./paper_results/frame_influence_recent/runs  # tracked; bulky per-episode dirs are gitignored there
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json  # 10 episodes, seed-17 sample of the 100 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true
+  sparse_threshold: 0.95
+  context_cut: header
+  context_frames: null
+  context_window: null  # full episode in context, stock incremental cache
+  context_window_mode: evict
+  influence_recompute: true  # leak-free probes (full re-prefill per probe)
+  kv_prune_influence_stride: 1
+  # every K from 2 to 32 (K = frames surviving incl. the current one; K=1 is history_all, K=0 visual_all)
+  kv_prune_influence_horizons: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+  kv_prune_influence_measures: []  # joint probes only: no per-frame re-prefill

@@ -8,7 +8,11 @@
 # +experiment=paper_influence), r1_influence_recompute (leak-free full re-prefill probes on the
 # 9 episodes shorter than 150 steps, +experiment=paper_influence_recompute) and
 # r1_influence_keepone (leave-one-IN replay probes, 10 episodes, +experiment=paper_influence_keepone,
-# output under paper_results/frame_influence_keepone/). Skipped when every
+# output under paper_results/frame_influence_keepone/) and r1_influence_recent (joint probes only,
+# KL(full || the K most recent frames) for K = 0..32, +experiment=paper_influence_recent, output
+# under paper_results/frame_influence_recent/) and r1_influence_recent_recompute (its leak-free
+# twin: full re-prefill probes, all 10 episodes, +experiment=paper_influence_recent_recompute,
+# same output root). Skipped when every
 # manifest episode is already logged; an unfinished run resumes through wandb (same
 # task.run_name). Never reuse a run name from another experiment in the same wandb project
 # (e.g. r1_full): resume keys on the name and would skip the already-logged episodes.
@@ -26,7 +30,11 @@ case "$ARM" in
   r1_influence_recompute) EXPERIMENT=paper_influence_recompute; MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_9_seed17_short.json" ;;
   r1_influence_keepone)   EXPERIMENT=paper_influence_keepone;   MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json"
                           OUT_ROOT="$ROOT/paper_results/frame_influence_keepone/runs" ;;
-  *) echo "Unknown arm '$ARM' (expected r1_influence, r1_influence_recompute or r1_influence_keepone)" >&2; exit 2 ;;
+  r1_influence_recent)    EXPERIMENT=paper_influence_recent;    MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json"
+                          OUT_ROOT="$ROOT/paper_results/frame_influence_recent/runs" ;;
+  r1_influence_recent_recompute) EXPERIMENT=paper_influence_recent_recompute; MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json"
+                          OUT_ROOT="$ROOT/paper_results/frame_influence_recent/runs" ;;
+  *) echo "Unknown arm '$ARM' (expected r1_influence, r1_influence_recompute, r1_influence_keepone, r1_influence_recent or r1_influence_recent_recompute)" >&2; exit 2 ;;
 esac
 
 if [[ -d "$OUT_ROOT/$ARM" ]] && "$PYTHON" -m longnav.analysis.results_io --complete "$OUT_ROOT/$ARM" --manifest "$MANIFEST" >/dev/null 2>&1; then
@@ -48,4 +56,5 @@ if [[ "$STATUS" -ne 0 ]]; then
   exit "$STATUS"
 fi
 echo "$(date '+%F %T')  finished $ARM"
-echo "Next: python paper/frame_influence/aggregate.py$([[ "$ARM" == r1_influence_keepone ]] && echo ' --measure keep_one')"
+case "$ARM" in r1_influence_keepone) NEXT=' --measure keep_one' ;; r1_influence_recent|r1_influence_recent_recompute) NEXT=' --measure recent_k' ;; *) NEXT='' ;; esac
+echo "Next: python paper/frame_influence/aggregate.py$NEXT"

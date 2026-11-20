@@ -21,6 +21,10 @@ STUDIES = {
     'ctx_ablation': [('ctx_ablation/aggregate.py', '--strict'), ('ctx_ablation/plot.py',)],
     'frame_influence': [('frame_influence/aggregate.py',), ('frame_influence/plot.py',)],
     'frame_influence_keepone': [('frame_influence/aggregate.py', '--measure', 'keep_one'), ('frame_influence/plot.py', '--measure', 'keep_one')],
+    # derived from the keep-one runs (no runs of its own); not in the frozen bf4e65ff manifest
+    'frame_influence_keepone_full': [('frame_influence/aggregate.py', '--measure', 'keep_one_full'), ('frame_influence/plot.py', '--measure', 'keep_one_full')],
+    # recent-window sweep KL(full || K most recent frames) (runs of 2026-11-18); not in the frozen bf4e65ff manifest
+    'frame_influence_recent': [('frame_influence/aggregate.py', '--measure', 'recent_k'), ('frame_influence/plot.py', '--measure', 'recent_k')],
     'token_prune': [('token_prune/aggregate.py', '--strict'), ('token_prune/plot.py',)],
     'token_prune_flat': [('token_prune/aggregate.py', '--variant', 'flat', '--strict'), ('token_prune/plot.py', '--variant', 'flat')],
     'layer_token_info': [('layer_token_info/plot.py',), ('layer_token_info/plot.py', '--study', 'nohist', '--layers', '1', '12', '18'), ('layer_token_info/horizon.py',)],

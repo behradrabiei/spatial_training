@@ -22,6 +22,36 @@ covariates, lag correlations) is a number in results/ and the README table, not 
 --measure keep_one draws the same figures for the leave-one-in variant from
 paper_results/frame_influence_keepone/ (influence = KL(only frame i || no visual)).
 
+--measure recent_k draws one figure from paper_results/frame_influence_recent/ (user decision
+2026-11-20), x = frames in context K instead of frame age:
+
+  recent_frames_normalized_box_split  The share of each model's no-frame KL (K = 0) still open with
+                          only the K most recent frames, per episode, on the decisions with at least
+                          32 history frames: one panel per model, a box per K across episodes (outlier
+                          points not drawn) and the median across episodes as a line through them.
+                          Default models: LongNav-R1 (leaky) and LightNav-0 (old blocks kept).
+
+The other views are written only when named with --only (--recent-models picks the models,
+default all five there; --tag suffixes the file names):
+
+  recent_frames           How far is the decision made with only the K most recent frames from
+                          the full-context one? Episode-balanced mean KL(full || K most recent
+                          frames) vs K (log y; K = 0 no frame, K = 1 the current frame only), each
+                          K over the decisions with at least K history frames, +-1 SEM across episodes.
+  recent_frames_fixed     The same curve on one fixed decision set (the decisions with at least 32
+                          history frames), where the shape cannot come from short episodes leaving.
+  recent_frames_normalized  The fixed-set curve on a common linear scale: the share of each model's
+                          no-frame KL (K = 0) still open with K frames, per episode, +-1 SEM.
+  recent_frames_flip      Share of decisions whose top action changes with only the K most recent
+                          frames, vs K (episode-balanced mean +-1 SEM; LightNav-0 on its six
+                          executed-action classes). Does not depend on the softmax temperature.
+  recent_frames_box       The data of recent_frames as box plots: at every other K, the distribution
+                          across episodes of each episode's mean, one box per model.
+  recent_frames_box_split The same boxes, one panel per model side by side (shared y).
+
+LightNav-0 has two arms there, as in the context-window ablation figure: solid = the K-frame
+window (old blocks gone), dashed = old blocks kept (their visual tokens hidden).
+
 Needs matplotlib, so run in the vln env:
     /home/brabiei/miniconda3/envs/vln/bin/python paper/frame_influence/plot.py [--measure keep_one]
 """
@@ -39,7 +69,14 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 RESULTS_ROOTS = {"leave_one": HERE.parents[1] / "paper_results/frame_influence",
-                 "keep_one": HERE.parents[1] / "paper_results/frame_influence_keepone"}
+                 "keep_one": HERE.parents[1] / "paper_results/frame_influence_keepone",
+                 "keep_one_full": HERE.parents[1] / "paper_results/frame_influence_keepone_full",
+                 "recent_k": HERE.parents[1] / "paper_results/frame_influence_recent"}
+# y-axis label per measure; the module-level value is set from --measure in main()
+YLABELS = {"leave_one": "Influence (nats)", "keep_one": "Influence (nats)",
+           "keep_one_full": "KL(full ‖ only frame) (nats)",
+           "recent_k": "KL(full ‖ K recent frames) (nats)"}
+YLABEL = YLABELS["leave_one"]
 STYLE = {  # one color per model; the leak-free LongNav-R1 variant is dashed (same convention as ctx_ablation)
          "LongNav-R1": dict(color="tab:red", marker="o", markersize=4, linestyle="-"),
          "LongNav-R1 (leak-free)": dict(color="tab:red", marker="o", markersize=4, linestyle="--"),
@@ -47,7 +84,16 @@ STYLE = {  # one color per model; the leak-free LongNav-R1 variant is dashed (sa
          # LightNav-0 (keep-one only): KL over the 256 coarse RVQ codes; dashed = the same probes folded
          # onto the six executed-action classes
          "LightNav-0": dict(color="tab:green", marker="o", markersize=4, linestyle="-"),
-         "LightNav-0 (6-bin)": dict(color="tab:green", marker="o", markersize=4, linestyle="--")}
+         "LightNav-0 (6-bin)": dict(color="tab:green", marker="o", markersize=4, linestyle="--"),
+         # recent_k: the window arm is "LightNav-0"; dashed = old blocks kept (ctx_ablation's convention)
+         "LightNav-0 (old blocks kept)": dict(color="tab:green", marker="o", markersize=4, linestyle="--")}
+RECENT_MODELS = ("LongNav-R1", "LongNav-R1 (leak-free)", "Uni-NaVid", "LightNav-0", "LightNav-0 (old blocks kept)")  # the 6-bin folds stay in the CSV
+RECENT_MAX_K = 32
+# the models of the default recent_k figure (user decision 2026-11-20)
+RECENT_PAPER_MODELS = ("LongNav-R1", "LightNav-0 (old blocks kept)")
+NORM_YLABEL = "Normalized KL (%)"  # KL(full || K recent frames) as a share of KL(full || no frame): 100 at K = 0
+# figure_recent_flip: LightNav-0's argmax flips are read on the six executed-action classes
+RECENT_FLIP_SOURCE = {"LightNav-0": "LightNav-0 (6-bin)", "LightNav-0 (old blocks kept)": "LightNav-0 (old blocks kept, 6-bin)"}
 MAX_AGE_PLOT = 30  # the curves have plateaued by then
 MARK_EVERY = 2  # markers on every other age keep the curves legible
 NOISE_FACTOR = 2.0  # rank heatmap: a frame is above a decision's noise if > this multiple of the row median
@@ -124,12 +170,212 @@ def figure_age(age_rows, steps, out):
         ax.set_yscale("log")
         ax.set_xlim(-1, MAX_AGE_PLOT + 0.5)
         ax.set_xlabel("Frame age (steps)")
-        ax.set_ylabel("Influence (nats)")
+        ax.set_ylabel(YLABEL)
         ax.grid(True, alpha=0.3)
         handles, labels = ax.get_legend_handles_labels()
         fig.legend(handles, labels, loc="upper center", ncol=len(labels), fontsize=12, frameon=False,
                    bbox_to_anchor=(0.5, 1.0), handlelength=1.6, columnspacing=1.2)
         fig.tight_layout(rect=(0, 0, 1, 0.9))
+    save(fig, out, layout=False)
+
+
+def legend_rows(n):
+    """Rows of the top legend: one up to three labels, then two columns per row (the long
+    LightNav-0 labels do not fit three across)."""
+    return 1 if n <= 3 else math.ceil(n / 2)
+
+
+def recent_figsize(n):
+    """figure_age's 6.0 x 3.8, 0.3 in taller per extra legend row."""
+    return (6.0, 3.8 + 0.3 * (legend_rows(n) - 1))
+
+
+def top_legend(fig, ax, top=0.9):
+    """The legend above the axes (figure_age's row); more rows when the labels would not fit one."""
+    handles, labels = ax.get_legend_handles_labels()
+    rows = legend_rows(len(labels))
+    fig.legend(handles, labels, loc="upper center", ncol=math.ceil(len(labels) / rows), fontsize=12, frameon=False,
+               bbox_to_anchor=(0.5, 1.0), handlelength=1.6, columnspacing=1.2)
+    fig.tight_layout(rect=(0, 0, 1, top - 0.07 * (rows - 1)))
+
+
+def recent_models(rows):
+    return [m for m in RECENT_MODELS if any(r["model"] == m for r in rows)]
+
+
+def figure_recent(curve_rows, out, max_k=RECENT_MAX_K, fixed=False):
+    """Episode-balanced mean KL(full || only the K most recent frames) vs K, +-1 SEM across
+    episodes at every marked K (each K over the decisions with at least K history frames; K = 0 is
+    the no-visual decision, K = 1 the current frame alone). Same look as figure_age. ``fixed``
+    draws the fixed-set columns instead: one decision set at every K (the decisions with at least
+    32 history frames), so the shape is within-decision and free of the short episodes leaving."""
+    mean_key, sem_key = ("fixed_balanced_mean", "fixed_balanced_sem") if fixed else ("balanced_mean", "balanced_sem")
+    with plt.rc_context(LARGE_RC):
+        models = recent_models(curve_rows)
+        fig, ax = plt.subplots(figsize=recent_figsize(len(models)))
+        for m in models:
+            rs = sorted((r for r in curve_rows if r["model"] == m and int(r["K"]) <= max_k
+                         and math.isfinite(fl(r[mean_key]))), key=lambda r: int(r["K"]))
+            k = [int(r["K"]) for r in rs]
+            mean = np.array([fl(r[mean_key]) for r in rs])
+            sem = np.nan_to_num(np.array([fl(r[sem_key]) for r in rs]))
+            lower = np.minimum(sem, mean - 1e-7)  # keep the lower end positive on the log axis
+            marked = [i for i, x in enumerate(k) if x % MARK_EVERY == 0]  # markers and bars at every other K
+            off = np.array([i not in marked for i in range(len(k))])
+            style = dict(STYLE[m], markersize=3)
+            ax.errorbar(k, mean, yerr=[np.where(off, np.nan, lower), np.where(off, np.nan, sem)], label=m, markevery=marked,
+                        elinewidth=1.2, capsize=2.5, capthick=1.2, **style)
+        ax.set_yscale("log")
+        ax.set_xlim(-1, max_k + 0.5)
+        ax.set_xticks(range(0, max_k + 1, 5))
+        ax.set_xlabel("Frames in context K")
+        ax.set_ylabel(YLABEL)
+        ax.grid(True, alpha=0.3)
+        top_legend(fig, ax)
+    save(fig, out, layout=False)
+
+
+def figure_recent_norm(curve_rows, out, max_k=RECENT_MAX_K):
+    """figure_recent_fixed on a common linear scale: the share of each model's no-frame KL that is
+    still open with the K most recent frames (per episode, mean KL at K over the mean KL(full || no
+    visual) of the same decisions -- those with at least 32 history frames --, then mean +-1 SEM
+    over episodes). 100 % at K = 0 by construction; LightNav-0's window arm has no K = 0 prompt
+    and starts at K = 1, against the same decisions' no-visual KL."""
+    with plt.rc_context(LARGE_RC):
+        models = recent_models(curve_rows)
+        fig, ax = plt.subplots(figsize=recent_figsize(len(models)))
+        for m in models:
+            rs = sorted((r for r in curve_rows if r["model"] == m and int(r["K"]) <= max_k
+                         and math.isfinite(fl(r.get("norm_balanced_mean")))), key=lambda r: int(r["K"]))
+            k = [int(r["K"]) for r in rs]
+            mean = 100 * np.array([fl(r["norm_balanced_mean"]) for r in rs])
+            sem = 100 * np.nan_to_num(np.array([fl(r["norm_balanced_sem"]) for r in rs]))
+            marked = [i for i, x in enumerate(k) if x % MARK_EVERY == 0]
+            off = np.array([i not in marked for i in range(len(k))])
+            ax.errorbar(k, mean, yerr=np.where(off, np.nan, sem), label=m, markevery=marked,
+                        elinewidth=1.2, capsize=2.5, capthick=1.2, **dict(STYLE[m], markersize=3))
+        ax.set_xlim(-1, max_k + 0.5)
+        ax.set_ylim(0, 105)
+        ax.set_xticks(range(0, max_k + 1, 5))
+        ax.set_xlabel("Frames in context K")
+        ax.set_ylabel(NORM_YLABEL)
+        ax.grid(True, alpha=0.3)
+        top_legend(fig, ax)
+    save(fig, out, layout=False)
+
+
+def figure_recent_flip(curve_rows, out, max_k=RECENT_MAX_K):
+    """Share of decisions whose top action changes with only the K most recent frames in context,
+    vs K: episode-balanced mean +-1 SEM, same look and decision sets as figure_recent. Free of the
+    softmax temperature (the argmax is). LongNav-R1 and Uni-NaVid: argmax over their four actions;
+    LightNav-0: over its six executed-action classes (RECENT_FLIP_SOURCE), so that a move between
+    two of the 256 codes that decode to the same action does not count as a change."""
+    with plt.rc_context(LARGE_RC):
+        models = [m for m in RECENT_MODELS if any(r["model"] == RECENT_FLIP_SOURCE.get(m, m) for r in curve_rows)]
+        fig, ax = plt.subplots(figsize=recent_figsize(len(models)))
+        for m in models:
+            src = RECENT_FLIP_SOURCE.get(m, m)
+            rs = sorted((r for r in curve_rows if r["model"] == src and int(r["K"]) <= max_k
+                         and math.isfinite(fl(r.get("flip_balanced")))), key=lambda r: int(r["K"]))
+            k = [int(r["K"]) for r in rs]
+            mean = 100 * np.array([fl(r["flip_balanced"]) for r in rs])
+            sem = 100 * np.nan_to_num(np.array([fl(r["flip_balanced_sem"]) for r in rs]))
+            marked = [i for i, x in enumerate(k) if x % MARK_EVERY == 0]
+            off = np.array([i not in marked for i in range(len(k))])
+            ax.errorbar(k, mean, yerr=np.where(off, np.nan, sem), label=m, markevery=marked,
+                        elinewidth=1.2, capsize=2.5, capthick=1.2, **dict(STYLE[m], markersize=3))
+        ax.set_xlim(-1, max_k + 0.5)
+        ax.set_ylim(0, 100)
+        ax.set_xticks(range(0, max_k + 1, 5))
+        ax.set_xlabel("Frames in context K")
+        ax.set_ylabel("Top action changes (% of decisions)")
+        ax.grid(True, alpha=0.3)
+        top_legend(fig, ax)
+    save(fig, out, layout=False)
+
+
+def recent_box_data(steps, m, max_k=RECENT_MAX_K):
+    """Per K, the episodes' mean KL(full || K most recent frames) for model m, from steps.csv
+    (each K over the decisions with at least K history frames, as the curve)."""
+    data = {}
+    for k in range(0, max_k + 1):
+        per_ep: dict[str, list[float]] = {}
+        for s_ in steps:
+            v = fl(s_.get(f"horizon_{k}"))
+            if s_["model"] == m and math.isfinite(v) and int(s_["n_history"]) >= k:
+                per_ep.setdefault(s_["episode"], []).append(v)
+        data[k] = np.array([np.mean(v) for v in per_ep.values()])
+    return data
+
+
+def figure_recent_box(steps, out, max_k=RECENT_MAX_K):
+    """figure_age_box for the recent-window measure: at every other K, one box per model over
+    the episodes' mean (the values whose mean and SEM figure_recent draws)."""
+    models = recent_models(steps)
+    fig, ax = plt.subplots(figsize=(7.2, 3.6))
+    width = 0.8 * MARK_EVERY / max(len(models), 1)
+    handles, labels = [], []
+    for i, m in enumerate(models):
+        h = draw_age_box(ax, recent_box_data(steps, m, max_k), m, offset=(i - (len(models) - 1) / 2) * width, width=width, max_x=max_k)
+        if h is not None:
+            handles.append(h); labels.append(m)
+    finish_age_box(ax, max_x=max_k, xlabel_text="Frames in context K")
+    ax.legend(handles, labels, fontsize=7, loc="upper right")
+    save(fig, out)
+
+
+def recent_norm_box_data(steps, m, max_k=RECENT_MAX_K, fixed_min=32):
+    """Per K, each episode's share (%) of its no-frame KL still open with K frames: mean KL(full ||
+    K most recent frames) over mean KL(full || no visual) on the same decisions, those with at
+    least ``fixed_min`` history frames -- the values whose mean and SEM figure_recent_norm draws.
+    LightNav-0's window rows carry the no-visual KL in ``visual_all`` (they have no K = 0 band)."""
+    data = {}
+    for k in range(0, max_k + 1):
+        per_ep: dict[str, list[tuple[float, float]]] = {}
+        for s_ in steps:
+            if s_["model"] != m or int(s_["n_history"]) < fixed_min:
+                continue
+            v, v0 = fl(s_.get(f"horizon_{k}")), fl(s_.get("visual_all"))
+            if math.isfinite(v) and math.isfinite(v0):
+                per_ep.setdefault(s_["episode"], []).append((v, v0))
+        data[k] = np.array([100 * np.mean([a for a, _ in v]) / np.mean([b for _, b in v]) for v in per_ep.values()])
+    return data
+
+
+def figure_recent_box_split(steps, out, max_k=RECENT_MAX_K, normalized=False):
+    """figure_age_box_split for the recent-window measure: one panel per model, shared log y.
+    ``normalized`` draws the boxes of figure_recent_norm instead (each episode's share of its
+    no-frame KL still open with K frames, linear %, fixed set), with the median across episodes
+    (the bar of each box, here at every K) drawn through them. The median, not figure_recent_norm's
+    mean: one episode far above the rest (leak-free LongNav-R1's 500-step one) lifts the mean out of
+    the boxes, whose outlier points are not drawn."""
+    models = recent_models(steps)
+    with plt.rc_context(LARGE_RC):
+        fig, axes = plt.subplots(1, len(models), figsize=(3.2 * len(models) + 0.6, 3.6), sharey=True, squeeze=False)
+        for i, (ax, m) in enumerate(zip(axes[0], models)):
+            if normalized:
+                data = recent_norm_box_data(steps, m, max_k)
+                draw_age_box(ax, data, m, max_x=max_k)
+                # the episode median at every K through the boxes: every episode is exactly 100 % at
+                # K = 0, so that box has no height and only the line shows the drop
+                ks = [k for k in sorted(data) if len(data[k])]
+                ax.plot(ks, [float(np.median(data[k])) for k in ks], color=STYLE[m]["color"], linestyle=STYLE[m]["linestyle"],
+                        linewidth=1.2, marker="o", markersize=4, markevery=[0], zorder=1)
+                finish_age_box(ax, xlabel=False, ylabel=False, max_x=max_k)
+                ax.set_yscale("linear")
+                def reach(v):  # what is drawn at one K: up to the upper whisker (1.5 IQR, fliers hidden)
+                    q1, q3 = np.percentile(v, [25, 75])
+                    return float(v[v <= q3 + 1.5 * (q3 - q1)].max())
+                top = max([105.0] + [1.05 * reach(v) for v in data.values() if len(v)])
+                ax.set_ylim(0, max(top, ax.get_ylim()[1] if i else 0))  # shared y: an episode can exceed 100 %
+                if i == 0:
+                    ax.set_ylabel(NORM_YLABEL)
+            else:
+                draw_age_box(ax, recent_box_data(steps, m, max_k), m, max_x=max_k)
+                finish_age_box(ax, xlabel=False, ylabel=(i == 0), max_x=max_k)
+            ax.set_title(m)
+        fig.supxlabel("Frames in context K", fontsize=14)
+        fig.tight_layout()
     save(fig, out, layout=False)
 
 
@@ -144,11 +390,11 @@ def age_box_data(rows, steps, m):
     return data
 
 
-def draw_age_box(ax, data, m, offset=0.0, width=0.8 * MARK_EVERY):
+def draw_age_box(ax, data, m, offset=0.0, width=0.8 * MARK_EVERY, max_x=MAX_AGE_PLOT):
     """One model's boxes on ax: quartiles with 1.5 IQR whiskers, median line, no fliers. The
     leak-free LongNav-R1 boxes are unfilled and dashed, matching its dashed curve. Returns the
     first box (legend handle) or None."""
-    ages = list(range(0, MAX_AGE_PLOT + 1, MARK_EVERY))
+    ages = list(range(0, max_x + 1, MARK_EVERY))
     shown = [a for a in ages if len(data.get(a, ()))]
     if not shown:
         return None
@@ -166,14 +412,14 @@ def draw_age_box(ax, data, m, offset=0.0, width=0.8 * MARK_EVERY):
     return bp["boxes"][0]
 
 
-def finish_age_box(ax, xlabel=True, ylabel=True):
+def finish_age_box(ax, xlabel=True, ylabel=True, max_x=MAX_AGE_PLOT, xlabel_text="Frame age (steps)"):
     ax.set_yscale("log")
-    ax.set_xlim(-1.2, MAX_AGE_PLOT + 1.2)
-    ax.set_xticks(range(0, MAX_AGE_PLOT + 1, 5))
+    ax.set_xlim(-1.2, max_x + 1.2)
+    ax.set_xticks(range(0, max_x + 1, 5))
     if xlabel:
-        ax.set_xlabel("Frame age (steps)")
+        ax.set_xlabel(xlabel_text)
     if ylabel:
-        ax.set_ylabel("Influence (nats)")
+        ax.set_ylabel(YLABEL)
     ax.grid(True, axis="y", alpha=0.3)
 
 
@@ -296,24 +542,64 @@ def figure_lightnav_agreement(episode_rows, out):
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--measure", choices=sorted(RESULTS_ROOTS), default="leave_one",
-                    help="leave_one (default) or keep_one (leave-one-in results root)")
+                    help="leave_one (default), keep_one (leave-one-in results root), keep_one_full (KL(full || only frame)) "
+                         "or recent_k (KL(full || K most recent frames); recent_frames_normalized_box_split)")
     ap.add_argument("--results", type=Path, default=None, help="default <results root>/results")
     ap.add_argument("--out", type=Path, default=None, help="default <results root>/figures")
+    ap.add_argument("--recent-models", help="recent_k: comma-separated subset of the models to draw "
+                                            "(default: RECENT_PAPER_MODELS for the default figure, all with --only)")
+    ap.add_argument("--only", help="recent_k: comma-separated figure names to write "
+                                   "(default: recent_frames_normalized_box_split only)")
+    ap.add_argument("--tag", help="recent_k: suffix for the file names, so a subset does not overwrite the standard set")
     ap.add_argument("--episode", help="episode label for the heatmap (default: summary.json's representative episode)")
     args = ap.parse_args()
+    global YLABEL
+    YLABEL = YLABELS[args.measure]
     root = RESULTS_ROOTS[args.measure]
     args.results = args.results or root / "results"
     args.out = args.out or root / "figures"
     args.out.mkdir(parents=True, exist_ok=True)
     R = args.results
+    if args.measure == "recent_k":
+        global RECENT_MODELS
+        if args.recent_models:
+            chosen = [m.strip() for m in args.recent_models.split(",")]
+            unknown = [m for m in chosen if m not in RECENT_MODELS]
+            if unknown:
+                ap.error(f"--recent-models: unknown {unknown}; choose from {list(RECENT_MODELS)}")
+            RECENT_MODELS = tuple(m for m in RECENT_MODELS if m in chosen)
+        elif not args.only:  # the paper figure
+            RECENT_MODELS = RECENT_PAPER_MODELS
+        curve, steps = read_csv(R / "recent_curve.csv"), read_csv(R / "steps.csv")
+        figures = {  # name -> draw(out); only the last is written by default (user decision 2026-11-20)
+            "recent_frames": lambda o: figure_recent(curve, o),
+            "recent_frames_fixed": lambda o: figure_recent(curve, o, fixed=True),
+            "recent_frames_normalized": lambda o: figure_recent_norm(curve, o),
+            "recent_frames_flip": lambda o: figure_recent_flip(curve, o),
+            "recent_frames_box": lambda o: figure_recent_box(steps, o),
+            "recent_frames_box_split": lambda o: figure_recent_box_split(steps, o),
+            "recent_frames_normalized_box_split": lambda o: figure_recent_box_split(steps, o, normalized=True),
+        }
+        names = [n.strip() for n in args.only.split(",")] if args.only else ["recent_frames_normalized_box_split"]
+        unknown = [n for n in names if n not in figures]
+        if unknown:
+            ap.error(f"--only: unknown {unknown}; choose from {list(figures)}")
+        for n in names:
+            figures[n](args.out / (f"{n}_{args.tag}" if args.tag else n))
+        return
     summary = json.loads((R / "summary.json").read_text())
     steps = read_csv(R / "steps.csv")
     figure_age(read_csv(R / "age_curve.csv"), steps, args.out / "influence_vs_age")
     rows = read_csv(R / "influence.csv.gz")
     figure_age_box(rows, steps, args.out / "influence_vs_age_box")
     figure_age_box_split(rows, steps, args.out / "influence_vs_age_box_split")
-    episode = args.episode or summary.get("representative_episode")
-    figure_rank_heatmap(rows, steps, summary, episode, args.out / "influence_rank_heatmap")
+    if args.measure != "keep_one_full":  # no heatmap for the full-reference measure (user decision 2026-11-07)
+        episode = args.episode or summary.get("representative_episode")
+        figure_rank_heatmap(rows, steps, summary, episode, args.out / "influence_rank_heatmap")
+    else:
+        for p in args.out.glob("influence_rank_heatmap.*"):
+            p.unlink()
+            print("removed", p.name)
     if (R / "lightnav_agreement_episodes.csv").exists():  # keep_one with the LightNav-0 arm
         figure_lightnav_agreement(read_csv(R / "lightnav_agreement_episodes.csv"), args.out / "lightnav_agreement")
     stale = [p for p in args.out.glob("influence_*") if p.stem not in FIGURES]

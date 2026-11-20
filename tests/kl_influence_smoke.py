@@ -16,7 +16,11 @@ Five things have to hold:
      logs t+1 finite non-negative keep-one KLs whose only-frame log-probs reproduce them against
      the visual_all log-probs (the reference), the replay count is 1 base + (t+1) + history_all
      + visual_all + bands, the joint probes are unchanged and the decision does not move; an
-     empty or unknown measure list is refused.
+     unknown measure is refused.
+  7. kv_prune_influence_measures=[] (joint probes only, the recent-window sweep): no per-frame
+     row of either measure is logged, the base and the joint probes are the same replays as in
+     the leave-one run, the replay count is 1 base + history_all + visual_all + bands, and the
+     decision does not move.
 
 Run inside longnav_vlm:  python tests/kl_influence_smoke.py
 """
@@ -205,7 +209,7 @@ def main():
             failures.append(f"stride 2, step {t}: joint probes logged on a skipped step")
 
     print("=== 5. keep_one (leave-one-in) ===")
-    for bad in ((), ("keep_all",)):
+    for bad in (("keep_all",),):
         try:
             VLMWorker(model_id=MODEL_ID, load_model=False, context_window_mode="prune", kv_budget=10,
                       use_sparse=True, kv_prune_log_influence=True, kv_prune_influence_measures=bad)
@@ -248,6 +252,27 @@ def main():
         print(f"  step {t}: keep-one row {np.array2string(row, precision=4)}  vis={a['visual_all'][0]:.4f}  "
               f"{a['replays']} replays  |dp|={delta:.1e}")
 
+    print("=== 6. no per-frame measure (joint probes only) ===")
+    worker = make_worker(log=True, measures=())
+    joint = run(worker, images)
+    release(worker)
+    for t, (a, b, c) in enumerate(zip(joint, off, on)):
+        if a["row"] or a["logp"] or a["keep_one"] or a["keep_one_logp"]:
+            failures.append(f"joint-only step {t}: per-frame rows logged")
+        for name in ("base_logp", "history_all", "visual_all", "horizon"):
+            if not a[name] and name != "horizon":
+                failures.append(f"joint-only step {t}: {name} is empty")
+            if a[name] != c[name]:
+                failures.append(f"joint-only step {t}: {name} differs from the leave-one run")
+        want_k = [K for K in HORIZONS if K <= t]
+        want_replays = 1 + 1 + (1 if t >= 1 else 0) + len(want_k)
+        if a["replays"] != want_replays:
+            failures.append(f"joint-only step {t}: {a['replays']} replays, expected {want_replays}")
+        delta = float(np.abs(a["probs"] - b["probs"]).max())
+        if delta > PROB_TOL:
+            failures.append(f"joint-only step {t}: logging moved the decision by {delta:.2e}")
+        print(f"  step {t}: bands {[h[0] for h in a['horizon']]}  {a['replays']} replays  |dp|={delta:.1e}")
+
     if failures:
         print("\nFAILED:")
         for f in failures:
@@ -256,7 +281,8 @@ def main():
     print("\nPASS: influence rows carry t+1 KLs and log-prob rows that reproduce them, the base "
           "matches the live decision, joint/horizon probes are well-formed, the cache and the "
           "decision are untouched, reset clears everything, the stride is honoured, and the "
-          "keep-one measure logs consistent leave-one-in rows against the no-visual reference.")
+          "keep-one measure logs consistent leave-one-in rows against the no-visual reference, and "
+          "an empty measure list logs the joint probes alone.")
 
 
 if __name__ == "__main__":

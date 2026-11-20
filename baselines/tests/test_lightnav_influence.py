@@ -44,6 +44,7 @@ if HAVE_TORCH:
         make_influence_forward,
         make_logits_hook,
         only_mask,
+        recent_keep_sets,
         pack_f16,
         probe_fields,
         unpack_f16,
@@ -242,6 +243,38 @@ class MaskTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             InfluenceState(max_age=0)
 
+    def test_recent_keep_sets_are_newest_tubelet_prefixes(self):
+        # steady state at t = 40: anchor (0,1), a mid pair, the fast tier ages 2..33, current (39,40)
+        fast = list(range(7, 39))
+        segs = [([0, 1], 4), ([3, 4], 2), (fast, 2), ([39, 40], 1)]
+        tubs = tubelet_layout(segs, [grid_for(4, 1), grid_for(2, 1), grid_for(2, 16), grid_for(1, 1)])
+        hist, cur = split_history(tubs, 40)
+        sets = recent_keep_sets(hist, cur, 40, 32)
+        self.assertEqual([k for k, _ in sets], list(range(2, 33, 2)))  # the tubelet is the unit
+        for k, kept in sets:
+            self.assertEqual({f for t in kept for f in (t.f0, t.f1)}, set(range(40 - k + 1, 41)))
+        self.assertEqual([k for k, _ in recent_keep_sets(hist, cur, 40, 7)], [2, 4, 6])
+        # t = 4: fast tier holds frames 0,1,2 -> (0,1), (2,2); current (3,4). K = 2, 3; K = 5 would hide nothing
+        tubs = tubelet_layout([([0, 1, 2, 2], 2), ([3, 4], 1)], [grid_for(2, 2), grid_for(1, 1)])
+        hist, cur = split_history(tubs, 4)
+        self.assertEqual([(k, len(kept)) for k, kept in recent_keep_sets(hist, cur, 4, 32)], [(2, 1), (3, 2)])
+        # t = 1: the current tubelet is the whole episode; t = 0: (0, 0)
+        tubs = tubelet_layout([([0, 1], 1)], [grid_for(1, 1)])
+        self.assertEqual(recent_keep_sets(*split_history(tubs, 1), 1, 32), [])
+        tubs = tubelet_layout([([0, 0], 1)], [grid_for(1, 1)])
+        self.assertEqual(recent_keep_sets(*split_history(tubs, 0), 0, 32), [])
+        # a gap between the kept frames and the next tubelet (burst tier) ends the K grid
+        tubs = tubelet_layout([([10, 11], 2), ([14, 15], 2), ([16, 17], 1)], [grid_for(2, 1), grid_for(2, 1), grid_for(1, 1)])
+        self.assertEqual([k for k, _ in recent_keep_sets(*split_history(tubs, 17), 17, 32)], [2, 4])
+
+    def test_recent_state_and_meta(self):
+        st = InfluenceState(measure="recent_k", max_k=16)
+        self.assertEqual((st.measure, st.max_k, st.describe()["measure"], st.describe()["max_k"]), ("recent_k", 16, "recent_k", 16))
+        self.assertEqual(InfluenceState().describe()["measure"], "keep_one_mask")
+        for bad in (dict(measure="leave_one"), dict(measure="recent_k", max_k=0)):
+            with self.assertRaises(ValueError):
+                InfluenceState(**bad)
+
 
 @unittest.skipUnless(HAVE_TORCH, "needs torch (run with baselines/.envs/lightnav)")
 class HookTest(unittest.TestCase):
@@ -350,6 +383,10 @@ class CliTest(unittest.TestCase):
         self.assertEqual(arg_from(["--model_path=/a"], "--model_path"), "/a")
         self.assertIsNone(arg_from(rest, "--nope"))
         self.assertEqual(build_parser().parse_known_args([])[0].max_age, 33)
+        d = build_parser().parse_known_args([])[0]
+        self.assertEqual((d.measure, d.max_k), ("keep_one", 32))
+        r = build_parser().parse_known_args(["--measure", "recent_k", "--max-k", "8"])[0]
+        self.assertEqual((r.measure, r.max_k), ("recent_k", 8))
 
 
 def write_fake_run(root: Path) -> None:
@@ -388,6 +425,73 @@ def write_fake_run(root: Path) -> None:
          "frames_unprobed": [], "probe_seconds": 1.0},
     ]
     (root / "influence" / "ep_a.jsonl").write_text("\n".join(json.dumps(r) for r in recs) + "\n")
+
+
+def write_fake_recent_run(root: Path) -> None:
+    """A LightNav recent_k run in the converted layout: steps 1, 3 and 40 of one episode."""
+    (root / "episodes").mkdir(parents=True)
+    (root / "influence").mkdir()
+    (root / "episodes" / "ep_a.json").write_text(json.dumps({
+        "episode_label": "ep_a", "metrics": {"success": 1.0, "spl": 0.5, "distance_to_goal": 0.3}, "steps": 41,
+        "forced_stop": False}))
+    lb = [math.log(x) for x in (0.1, 0.5, 0.1, 0.1, 0.1, 0.1)]
+    full = {"exec_bin": "fwd", "code": 12, "bin": "fwd", "bin_argmax": "fwd", "p_mass": 0.98, "entropy": 1.2, "logp_bin": lb}
+
+    def pr(k, kl, code=12, bin_argmax="fwd", **kw):
+        return {"k": k, "kl": kl, "kl_bin": None if kl is None else kl / 2, "code": code, "bin_argmax": bin_argmax, **kw}
+
+    novis = {"kl": 9.0, "kl_bin": 3.0, "code": 3, "bin_argmax": "stop"}
+    recs = [
+        {"step": 1, "full": full, "visual_all_mask": novis, "replay": {"kl": 0.0, "kl_bin": 0.0},
+         "recent_keep": [pr(1, 2.0, code=5)], "recent_window": [pr(1, 4.0, code=5, bin_argmax="rot_L")], "probe_seconds": 0.2},
+        {"step": 3, "full": full, "visual_all_mask": novis, "replay": {"kl": 0.0, "kl_bin": 0.0},
+         # the fast tier holds one frame at t = 3: (1,1) -> K = 3 with the blocks kept, no even K
+         "recent_keep": [pr(1, 2.5), pr(2, 0.4), pr(3, 0.1)],
+         "recent_window": [pr(1, 5.0), pr(2, 0.8), pr(3, None, code=None)], "probe_seconds": 0.4},
+        {"step": 40, "full": full, "visual_all_mask": novis, "replay": {"kl": 0.0, "kl_bin": 0.0},
+         "recent_keep": [pr(1, 3.0)] + [pr(k, 1.0 / k) for k in range(2, 33, 2)],
+         "recent_window": [pr(k, 2.0 / k) for k in range(1, 33)], "probe_seconds": 5.0},
+    ]
+    (root / "influence" / "ep_a.jsonl").write_text("\n".join(json.dumps(r) for r in recs) + "\n")
+
+
+@unittest.skipUnless(HAVE_LONGNAV, "needs longnav on PYTHONPATH (PYTHONPATH=src)")
+class RecentLoaderTest(unittest.TestCase):
+    def test_both_arms_and_spaces(self):
+        from longnav.analysis import influence as inf
+
+        with tempfile.TemporaryDirectory() as d:
+            write_fake_recent_run(Path(d))
+            rows, win = inf.load_lightnav_influence(d, "LightNav-0", measure="recent_k", recent="window")
+            self.assertEqual(rows, [])
+            self.assertEqual([s["step"] for s in win], [1, 3, 40])
+            self.assertEqual(win[0]["horizon"], {1: 4.0})
+            self.assertEqual(win[0]["horizon_flip"], {1: 1})
+            self.assertEqual(win[1]["horizon"], {1: 5.0, 2: 0.8})  # the truncated K = 3 probe is dropped
+            self.assertEqual(sorted(win[2]["horizon"]), list(range(1, 33)))  # no K = 0 window
+            self.assertEqual((win[2]["n_history"], win[2]["history_all"], win[2]["visual_all"], win[2]["kl_live_vs_replay"]),
+                             (40, 2.0, 9.0, 0.0))
+            _, keep = inf.load_lightnav_influence(d, "LightNav-0 (old blocks kept)", measure="recent_k", recent="keep")
+            self.assertEqual(keep[0]["horizon"], {0: 9.0, 1: 2.0})
+            self.assertEqual(keep[1]["horizon"], {0: 9.0, 1: 2.5, 2: 0.4})  # odd K = 3 dropped
+            self.assertEqual(sorted(keep[2]["horizon"]), [0, 1] + list(range(2, 33, 2)))
+            self.assertEqual((keep[2]["horizon_flip"][0], keep[2]["horizon_flip"][2]), (1, 0))
+            _, bins = inf.load_lightnav_influence(d, measure="recent_k", recent="keep", space="bins")
+            self.assertEqual(bins[0]["horizon"], {0: 3.0, 1: 1.0})
+            self.assertEqual(bins[0]["horizon_flip"], {0: 1, 1: 0})  # code 5 folds onto the decision's bin here
+            self.assertAlmostEqual(bins[0]["p_chosen"], 0.5, places=6)
+            with self.assertRaises(ValueError):
+                inf.load_lightnav_influence(d, measure="recent_k", recent="both")
+            # the curve: each K over the decisions with >= K history; fixed set = full grid only
+            curve = {r["K"]: r for r in inf.recent_window_curve(keep)}
+            self.assertEqual((curve[0]["n_steps"], curve[1]["n_steps"], curve[2]["n_steps"], curve[4]["n_steps"]), (3, 3, 2, 1))
+            self.assertEqual((curve[3]["n_steps"], curve[0]["fixed_n_steps"], curve[2]["fixed_n_steps"]), (0, 1, 1))
+            self.assertAlmostEqual(curve[2]["fixed_mean"], 0.5)
+            self.assertAlmostEqual(curve[2]["mean"], (0.4 + 0.5) / 2)
+        with tempfile.TemporaryDirectory() as d:  # a keep-one run is not a recent_k run
+            write_fake_run(Path(d))
+            with self.assertRaises(ValueError):
+                inf.load_lightnav_influence(d, measure="recent_k")
 
 
 @unittest.skipUnless(HAVE_LONGNAV, "needs longnav on PYTHONPATH (PYTHONPATH=src)")
@@ -446,6 +550,32 @@ class LoaderTest(unittest.TestCase):
             self.assertTrue(math.isnan(by_age[0]["agree_bin_sem"]))
             self.assertEqual((summ["n_decisions"], summ["majority_class"], summ["majority_class_rate"]), (2, "fwd", 1.0))
             self.assertEqual(summ["reference_agree_bin"], 0.0)  # the no-visual prior says stop at both decisions
+
+    def test_keep_one_full_matches_agreement(self):
+        """measure='keep_one_full' = KL(full || only tubelet), the quantity lightnav_full_agreement tabulates."""
+        from longnav.analysis import influence as inf
+
+        with tempfile.TemporaryDirectory() as d:
+            write_fake_run(Path(d))
+            agree = {r["age"]: r for r in inf.lightnav_full_agreement(d)[0]}
+            for space, key, lp_len in (("codes", "kl_full_only", 0), ("bins", "kl_full_only_bin", 6)):
+                rows, steps = inf.load_lightnav_influence(d, "LightNav-0", measure="keep_one_full", space=space)
+                self.assertEqual((len(rows), len(steps)), (2, 2))
+                # the one scored history probe (age 1) and the two age-0 probes reproduce the agreement table
+                self.assertAlmostEqual(rows[0]["infl"], agree[1][key], places=12)
+                self.assertAlmostEqual(np.mean([s["age0"] for s in steps]), agree[0][key], places=12)
+                self.assertTrue(math.isnan(rows[1]["infl"]))  # truncated probe: no log-probs
+                # the reference is the full decision, and the ceiling KL(full || no visual) is filled in
+                self.assertEqual(len(rows[0]["logp_full"]), lp_len)
+                for s in steps:
+                    self.assertTrue(math.isfinite(s["visual_all"]) and s["visual_all"] > 0)
+                self.assertGreater(rows[0]["infl"], steps[1]["age0"])  # a wrong-code tubelet is further than the current one
+            rows, _ = inf.load_lightnav_influence(d, "LightNav-0", measure="keep_one_full")
+            self.assertEqual((rows[0]["argmax_action"], rows[0]["argmax_removed"], rows[0]["flip"]), ("12", "12", 0))
+            keep_rows, _ = inf.load_lightnav_influence(d, "LightNav-0")
+            self.assertNotEqual(keep_rows[0]["infl"], rows[0]["infl"])
+            with self.assertRaises(ValueError):
+                inf.load_lightnav_influence(d, measure="keep_one_fullx")
 
     def test_matrix_uses_age0_on_the_diagonal(self):
         from longnav.analysis import influence as inf

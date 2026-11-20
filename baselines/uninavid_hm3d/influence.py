@@ -38,6 +38,9 @@ Design (see ``FrameInfluenceProbe``):
   the same prompt with every visual column closed (``visual_all_mask``) and age 0 is the
   current frame's columns alone (``only_current_mask``, Exp 6's layer-0 keep-one). Both forms
   write the same ``keep_one`` / ``keep_one_age0`` record fields; ``keep_one_mode`` says which.
+  An empty ``measures`` scores no per-frame probe: only the joint ones (``age0``,
+  ``history_all``, the ``horizon`` bands, ``visual_all``, ``merged_control``) -- the
+  recent-window sweep KL(full || the K most recent frames) with a dense ``horizons``.
 """
 from __future__ import annotations
 
@@ -419,8 +422,8 @@ class FrameInfluenceProbe:
         if any(int(k) < 2 for k in horizons):
             raise ValueError("horizons must all be >= 2 (K=1 is the history_all probe)")
         self.measures = tuple(str(m) for m in measures)
-        if not self.measures or any(m not in MEASURES for m in self.measures):
-            raise ValueError(f"measures must be a non-empty subset of {MEASURES}, got {self.measures}")
+        if any(m not in MEASURES for m in self.measures):  # empty = the joint probes alone
+            raise ValueError(f"measures must be a subset of {MEASURES}, got {self.measures}")
         if "keep_one" in self.measures and "keep_one_mask" in self.measures:
             raise ValueError("keep_one and keep_one_mask write the same record fields; pick one")
         self.keep_one_mode = ("mask" if "keep_one_mask" in self.measures

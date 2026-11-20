@@ -226,6 +226,32 @@ class LayoutTests(unittest.TestCase):
         ref2 = assemble(self.ids, [feat[i] for i in range(7, 9)], self.nav, self.tab)
         self.assertTrue(torch.equal(bands[2].embeds, ref2))
 
+    def test_no_measure_builds_joint_probes_only(self):
+        """measures=() with a dense K sweep (the recent-window run): no per-frame probe, and
+        band K is exactly the prompt of the K most recent frames (what a K-frame window builds)."""
+        feat, embeds, layout = self.short_case(k=9)
+        probes = build_probes(layout, embeds, feat, horizons=tuple(range(2, 33)), measures=())
+        kinds = [p.kind for p in probes]
+        self.assertEqual(kinds, ["base", "age0", "history_all"] + ["horizon"] * 7 + ["visual_all"])
+        bands = {p.K: p for p in probes if p.kind == "horizon"}
+        self.assertEqual(sorted(bands), list(range(2, 9)))  # K >= 9 would remove nothing at t = 8
+        for K, p in bands.items():
+            ref = assemble(self.ids, [feat[i] for i in range(9 - K, 9)], self.nav, self.tab)
+            self.assertTrue(torch.equal(p.embeds, ref), K)
+        hist = next(p for p in probes if p.kind == "history_all")  # K = 1: the current frame alone
+        self.assertTrue(torch.equal(hist.embeds, assemble(self.ids, [feat[8]], self.nav, self.tab)))
+
+    def test_long_tier_bands_drop_every_long_slot(self):
+        """With a long-term tier, a band K <= 64 keeps only short-term groups: every merged slot goes."""
+        feat, embeds, layout, _ = self.long_case()
+        probes = build_probes(layout, embeds, feat, horizons=(2, 32), measures=())
+        self.assertFalse(any(p.kind in ("frame", "keep_one") for p in probes))
+        bands = {p.K: p for p in probes if p.kind == "horizon"}
+        for K in (2, 32):
+            ref = assemble(self.ids, [feat[i] for i in range(70 - K, 70)], self.nav, self.tab)
+            self.assertTrue(torch.equal(bands[K].embeds, ref), K)
+            self.assertEqual(bands[K].partial_slots, 0)
+
     def test_long_tier_probes(self):
         feat, embeds, layout, members = self.long_case()
         layout.verify(embeds, feat, lambda t: self.tab[t], self.ids)
@@ -376,9 +402,11 @@ class BatchingTests(unittest.TestCase):
             FrameInfluenceProbe(FakeCausalModel(), FakeTokenizer(), IMAGE, horizons=(1, 4))
 
     def test_rejects_bad_measures(self):
-        for bad in ((), ("keep_all",)):
-            with self.assertRaises(ValueError):
-                FrameInfluenceProbe(FakeCausalModel(), FakeTokenizer(), IMAGE, measures=bad)
+        with self.assertRaises(ValueError):
+            FrameInfluenceProbe(FakeCausalModel(), FakeTokenizer(), IMAGE, measures=("keep_all",))
+        # no per-frame measure = the joint probes alone (the recent-window sweep)
+        self.assertEqual(FrameInfluenceProbe(FakeCausalModel(), FakeTokenizer(), IMAGE,
+                                             measures=()).describe()["measures"], [])
         self.assertEqual(FrameInfluenceProbe(FakeCausalModel(), FakeTokenizer(), IMAGE,
                                              measures=("keep_one",)).describe()["measures"], ["keep_one"])
 
@@ -417,6 +445,15 @@ class RecordTests(unittest.TestCase):
         self.assertAlmostEqual(rec["keep_one_age0"]["kl"], kl_divergence(rec["history_all"]["logp"], vis), places=6)
         self.assertEqual(rec["keep_one_age0"]["frame"], 2)
         self.assertEqual(rec["n_probes"], 1 + 2 + 1 + 1 + 1 + 1)  # base, 2 keep-one, age0, history_all, K=2, visual_all
+
+    def test_no_measure_record_has_joint_probes_only(self):
+        rec = self._run(())
+        self.assertEqual((rec["frames"], rec["keep_one"], rec["keep_one_age0"], rec["keep_one_mode"]), ([], [], None, None))
+        self.assertEqual([h["K"] for h in rec["horizon"]], [2])
+        base = rec["logp_full"]
+        for entry in (rec["history_all"], rec["visual_all"], rec["age0"], rec["horizon"][0]):
+            self.assertAlmostEqual(entry["kl"], kl_divergence(base, entry["logp"]), places=6)  # KL(full || ablated)
+        self.assertEqual(rec["n_probes"], 1 + 1 + 1 + 1 + 1)  # base, age0, history_all, K=2, visual_all
 
     def test_masked_keep_one_matches_reference_splice_on_mean_model(self):
         """On a masked-mean model the last position sees exactly the open tokens, so closing the

@@ -38,11 +38,32 @@ Uni-NaVid's ``influence/<label>.jsonl``: ``step, full, replay, visual_all_mask, 
 keep_one[], n_probes, probe_seconds``); ``convert_results.py`` renames them to
 ``influence/<label>.jsonl`` and ``meta.json`` carries the bin table and token ids.
 
+``--measure recent_k`` runs the recent-window variant instead (README, "Recent-window variant"):
+``Recent_t(K) = KL(P(action | full context) || P(action | only the K most recent frames))``, K
+counting frames with the current one, the expectation under the full-context decision. LightNav
+has two ways to drop a frame, the two arms of its context-window ablation, and both are probed
+after every decision, on the same decision:
+
+* **old blocks kept** (``recent_keep``): the full prompt with the ``<|video_pad|>`` columns of
+  every older tubelet hidden on every layer; their ``<t s>`` timestamps and vision markers stay
+  and positions are unchanged (the pruning study's ``recency`` layout). One probe per prefix of
+  the newest tubelets whose frames are exactly the newest K (K = 2, 4, ... in steady state: the
+  tubelet is the unit), plus K = 1 (the current tubelet rebuilt as ``(t, t)``, upstream's own
+  step-0 layout, every history block hidden) and K = 0 (``visual_all_mask``);
+* **window** (``recent_window``): the prompt rebuilt as ``eval_ctx.py`` builds it for
+  ``CONTEXT_FRAMES=K`` -- the layout of a fresh episode that started K steps ago, old blocks
+  gone, nothing hidden -- for every K = 1..``max_k``.
+
+Only K <= t is probed (at least one frame is lost). The rebuilt prompts go through the engine's
+own sample builder and ViT path with a per-step copy of the episode's tubelet cache, so the
+navigation cache and the decision are untouched.
+
 Runs in the LightNav client runtime (``baselines/.envs/lightnav``) with
 ``PYTHONPATH=baselines/LightNav-0/src``; ``baselines/run_lightnav.sh`` uses it when
-``INFLUENCE=1``:
+``INFLUENCE=1`` (``INFLUENCE_MEASURE=recent_k MAX_K=32`` for the recent-window variant):
 
     python baselines/lightnav_hm3d/eval_influence.py --max-age 33 <eval_habitat args...>
+    python baselines/lightnav_hm3d/eval_influence.py --measure recent_k --max-k 32 <eval_habitat args...>
 """
 
 from __future__ import annotations
@@ -64,18 +85,22 @@ try:
     from baselines.lightnav_hm3d.eval_blind import (
         _LAYER_RE, attention_mask, gather_kv, layer_index, masked_attention, visual_positions,
     )
-    from baselines.lightnav_hm3d.eval_prune import Tubelet, output_dir_from, split_history, tubelet_layout
+    from baselines.lightnav_hm3d.eval_ctx import windowed_segments
+    from baselines.lightnav_hm3d.eval_prune import Tubelet, output_dir_from, single_current, split_history, tubelet_layout
 except ImportError:  # run as a script: sys.path[0] is this directory
     from eval_blind import (  # type: ignore
         _LAYER_RE, attention_mask, gather_kv, layer_index, masked_attention, visual_positions,
     )
-    from eval_prune import Tubelet, output_dir_from, split_history, tubelet_layout  # type: ignore
+    from eval_ctx import windowed_segments  # type: ignore
+    from eval_prune import Tubelet, output_dir_from, single_current, split_history, tubelet_layout  # type: ignore
 
 N_CODES = 256  # <act_l0_*> coarse RVQ codes
 N_GENERATE = 6  # <apos><opos><act_l0><act_l1><act_l2><|im_end|>
 ACTION_POS = 2  # generated position of <act_l0_*>
 PROBE_TOKENS = ACTION_POS + 1
 MAX_AGE = 33  # current tubelet + the whole fast tier (ages 2-33 at pool 2)
+MEASURES = ("keep_one", "recent_k")
+MAX_K = 32  # recent_k: largest number of most recent frames kept (within the dense tiers)
 BINS = ("stop", "fwd", "fwd_L", "fwd_R", "rot_L", "rot_R")
 # Habitat velocity_control of the ObjectNav server (habitat_server/lightnav_habitat/objectnav.py).
 DT, LIN_RANGE, ANG_RANGE = 1.0, (0.0, 0.25), (-30.0, 30.0)
@@ -172,12 +197,44 @@ def only_mask(visual: torch.Tensor, pad_pos: Sequence[int], tubelets: Sequence[T
     return hide
 
 
+def recent_keep_sets(hist: Sequence[Tubelet], cur: Sequence[Tubelet], t_now: int, max_k: int) -> List[Tuple[int, List[Tubelet]]]:
+    """``(K, tubelets left open)`` for the old-blocks-kept recent-window probes of decision
+    ``t_now``: the current tubelet(s) plus the newest history tubelets, one entry per prefix whose
+    frames are exactly the newest K frames ``t_now - K + 1 .. t_now``, for ``K <= max_k`` and
+    ``K <= t_now`` (at least one frame is hidden). The tubelet is the unit, so K runs over
+    2, 4, ... in steady state (odd K only while a dense tier holds an odd frame count)."""
+    kept = list(cur)
+    frames = {f for tub in kept for f in (tub.f0, tub.f1)}
+    out: List[Tuple[int, List[Tubelet]]] = []
+    for tub in [None] + sorted(hist, key=lambda x: (x.f1, x.f0), reverse=True):
+        if tub is not None:
+            kept.append(tub)
+            frames |= {tub.f0, tub.f1}
+        k = len(frames)
+        if k > max_k or k > t_now:
+            break
+        if frames == set(range(t_now - k + 1, t_now + 1)):
+            out.append((k, list(kept)))
+    return out
+
+
 # --- shared state -------------------------------------------------------------------------
 class InfluenceState:
-    def __init__(self, max_age: int = MAX_AGE, debug_steps: int = 0):
+    def __init__(self, max_age: int = MAX_AGE, debug_steps: int = 0, measure: str = "keep_one", max_k: int = MAX_K):
         if max_age < 1:
             raise ValueError(f"max age must be >= 1, got {max_age}")
+        if measure not in MEASURES:
+            raise ValueError(f"measure must be one of {MEASURES}, got {measure!r}")
+        if max_k < 1:
+            raise ValueError(f"max K must be >= 1, got {max_k}")
         self.max_age = int(max_age)
+        self.measure = measure
+        self.max_k = int(max_k)
+        # recent_k: the arguments of the decision in flight (to rebuild its prompt under another
+        # frame layout) and the layout the sampler hook applies to the next sample it builds
+        self.call: Optional[Tuple[Any, str, Any]] = None
+        self.layout: Optional[Tuple[str, int]] = None  # ("window", K) | ("single", 1); None = the model's own
+        self.probe_segments: Optional[List[Tuple[List[int], int]]] = None
         self.debug_steps = debug_steps
         self.n_layers: Optional[int] = None
         self.strict = False
@@ -229,6 +286,26 @@ class InfluenceState:
         self._log.flush()
 
     def describe(self) -> Dict[str, Any]:
+        if self.measure == "recent_k":
+            return {"measure": "recent_k", "max_k": self.max_k, "frame_unit": "frame; K = most recent frames kept, current included",
+                    "prefix": "free_run (each probe emits its own <apos><opos>; logits read at generated position 2)",
+                    "recent_kl_direction": "KL(full context || K most recent frames)", "temperature": 1.0,
+                    "action_token": "<act_l0_*> (256 coarse RVQ codes, renormalised)",
+                    "act_l0_ids": [int(self.act_ids[0]), int(self.act_ids[-1])] if self.act_ids is not None else None,
+                    "apos0_id": self.apos0, "opos0_id": self.opos0, "bins": list(BINS), "code_bins": self.bins,
+                    "bin_rule": {"dt": DT, "lin_vel_range": list(LIN_RANGE), "ang_vel_range": list(ANG_RANGE),
+                                 "min_abs_lin_speed": MIN_LIN, "min_abs_ang_speed": MIN_ANG, "fwd_straight_deg": FWD_STRAIGHT_DEG,
+                                 "decode": "coarse codeword alone (zero residual), first non-zero waypoint"},
+                    "recent_keep": "old blocks kept: full prompt, every <|video_pad|> column of the tubelets older than the "
+                                   "newest K frames closed for every query on every layer (timestamps, vision markers, text and "
+                                   "positions stay); K = tubelet prefixes (even in steady state), K = 1 = current tubelet rebuilt "
+                                   "as (t, t) with every history block hidden, K = 0 = visual_all_mask",
+                    "recent_window": "prompt rebuilt as eval_ctx.py's CONTEXT_FRAMES=K (fresh K-frame episode layout shifted to "
+                                     "the newest K frames, old blocks gone), nothing hidden, K = 1..max_k",
+                    "probed": "K <= t only (at least one frame lost)",
+                    "probes_per_step": "replay (nothing hidden) + no-visual + keep prefixes + keep K=1 + one window per K",
+                    "vit": "rebuilt prompts use a per-step copy of the episode's tubelet cache; the navigation cache is not written",
+                    "prefix_cache": "reset before every generate; each prefill asserted to cover the whole prompt"}
         return {"measure": "keep_one_mask", "max_age": self.max_age, "frame_unit": "tubelet (2 frames); frame = f1, age = t - f1",
                 "prefix": "free_run (each probe emits its own <apos><opos>; logits read at generated position 2)",
                 "keep_one_kl_direction": "KL(only tubelet || no visual)", "temperature": 1.0,
@@ -362,6 +439,7 @@ def install_visual_influence(state: InfluenceState) -> None:
     import lightnav.inference.engine as engine_mod
     import lightnav.inference.model as model_mod
     import lightnav.inference.samples as samples_mod
+    from lightnav.slowfast import slowfast_segments
     from vllm.v1.attention.backends import flash_attn as fa
 
     original_forward = fa.FlashAttentionImpl.forward
@@ -378,12 +456,39 @@ def install_visual_influence(state: InfluenceState) -> None:
         if current_abs != total - 1 or n_available != total:
             raise AssertionError(f"unexpected SlowFast call convention: total={total} current_abs={current_abs} "
                                  f"n_available={n_available}")
+        if state.layout is not None:  # a recent_k probe rebuilding the decision's prompt
+            kind, k = state.layout
+            if kind == "window":
+                if total <= k:
+                    raise RuntimeError(f"window K={k} probe asked with only {total} frames")
+                segs = windowed_segments(episode_frames, current_abs, n_available, tiers, k, original_segments, slowfast_segments)
+            elif kind == "single":
+                segs = single_current(original_segments(episode_frames, current_abs, n_available, tiers), int(current_abs), episode_frames)
+            else:
+                raise RuntimeError(f"unknown probe layout {state.layout}")
+            state.probe_segments = [([int(i) for i in s["frame_indices"]], int(s["pool_spatial"])) for s in segs]
+            return segs
         segs = original_segments(episode_frames, current_abs, n_available, tiers)
         state.segments = [([int(i) for i in s["frame_indices"]], int(s["pool_spatial"])) for s in segs]
         state.current_abs = int(current_abs)
         return segs
 
     samples_mod.slowfast_video_segments = recording_segments
+
+    original_from_frames = engine_mod.VLNInferenceEngine.generate_from_frames
+
+    def generate_from_frames(self, video_tensor, instruction, *args, **kwargs):
+        """Keep the decision's inputs while it is in flight (recent_k rebuilds its prompt)."""
+        if state.measure == "recent_k":
+            if args or kwargs.get("task_type") != "vlnce_traj":
+                raise RuntimeError("recent_k expects the policy's keyword call with task_type='vlnce_traj'")
+            state.call = (video_tensor, instruction, kwargs.get("frame_ids"))
+        try:
+            return original_from_frames(self, video_tensor, instruction, *args, **kwargs)
+        finally:
+            state.call = None
+
+    engine_mod.VLNInferenceEngine.generate_from_frames = generate_from_frames
 
     original_load = model_mod.load_vllm_local
 
@@ -432,7 +537,7 @@ def install_visual_influence(state: InfluenceState) -> None:
         # one "Successfully reset prefix cache" INFO line per probe would swamp the client log
         logging.getLogger("vllm.v1.core.block_pool").setLevel(logging.WARNING)
         print(f"[influence] n_layers={n_layers} eager={cfg.model_config.enforce_eager} act_l0 ids {act[0]}..{act[-1]} "
-              f"max_age={state.max_age} bins={ {b: state.bins.count(b) for b in BINS} }", flush=True)
+              f"measure={state.measure} max_age={state.max_age} max_k={state.max_k} bins={ {b: state.bins.count(b) for b in BINS} }", flush=True)
         return bundle, llm
 
     model_mod.load_vllm_local = load_vllm_local
@@ -472,6 +577,76 @@ def install_visual_influence(state: InfluenceState) -> None:
             raise RuntimeError(f"captured logits do not reproduce the greedy output: {text!r} vs {out[0]!r}")
         return out, tokens, rows, n_forwards
 
+    def rebuilt_item(self, probe_cache, layout: Tuple[str, int], t_now: int):
+        """The decision in flight re-encoded under another frame layout: ``(VitResult, prompt
+        ids, visual-column mask, <|video_pad|> positions, tubelets)``. Goes through the engine's
+        own sample builder, processor and ViT path; ``probe_cache`` is this step's copy of the
+        episode tubelet cache and staging slot 1 keeps the decision's embeds (slot 0) intact."""
+        video_tensor, instruction, frame_ids = state.call
+        state.layout, state.probe_segments = layout, None
+        try:
+            sample = engine_mod.build_vln_traj_sample(video_tensor, instruction, frame_ids, self.bundle)
+        finally:
+            state.layout = None
+        if state.probe_segments is None:
+            raise RuntimeError("the sample builder did not go through the SlowFast sampler")
+        if self.enable_vit_cache and sample.get("_allow_vit_cache"):
+            res = self._vit_forward_one_with_cache(sample, probe_cache, 1)
+        else:
+            res = self.vit_forward(sample)
+        ids = list(res.prompt_ids)
+        visual = visual_positions(ids)
+        pad_pos = torch.nonzero(visual).flatten().tolist()
+        if res.video_grid_thw is None:
+            raise RuntimeError("rebuilt prompt carries no video grid")
+        tubelets = tubelet_layout(state.probe_segments, [[int(x) for x in row] for row in res.video_grid_thw.tolist()])
+        if sum(t.n_tokens for t in tubelets) != len(pad_pos):
+            raise RuntimeError(f"rebuilt layout {layout} holds {sum(t.n_tokens for t in tubelets)} tokens but its prompt has "
+                               f"{len(pad_pos)} <|video_pad|>")
+        if not any(t_now in (t.f0, t.f1) for t in tubelets):
+            raise RuntimeError(f"rebuilt layout {layout} lost the current frame {t_now}")
+        return res, ids, visual, pad_pos, tubelets
+
+    def recent_probes(self, items, t_now: int, visual, pad_pos, hist, cur, full_logp, full_bin):
+        """The recent-window probes of one decision: ``(recent_keep, recent_window)`` record lists,
+        each entry ``KL(full || probe)`` with the probe's own fields."""
+        def scored(k: int, fields, lp, lb, **extra):
+            return {"k": k, **extra, "kl": kl(full_logp, lp), "kl_bin": kl(full_bin, lb), **fields}
+
+        def probe_on(its, hide, prompt_len: int, n_vis: int):
+            _, toks, rws, _ = run(self, its, hide, PROBE_TOKENS, prompt_len, n_vis)
+            return probe_fields(state, rws, toks)
+
+        keep: List[Dict[str, Any]] = []
+        for k, kept in recent_keep_sets(hist, cur, t_now, state.max_k):
+            keep.append(scored(k, *probe_on(items, only_mask(visual, pad_pos, kept), len(visual), len(pad_pos)),
+                               n_tubelets=len(kept), frames=[min(t.f0 for t in kept), t_now]))
+        window: List[Dict[str, Any]] = []
+        if t_now < 1:
+            return keep, window
+        if state.call is None:
+            raise RuntimeError("recent_k probe outside generate_from_frames")
+        # this step's copy of the episode tubelet cache (shared tensors): the rebuilt layouts add
+        # (t, t) / odd-K padding tubelets the navigation path must never see
+        probe_cache = self.new_vit_cache()
+        probe_cache.max_entries = self._vit_cache.max_entries + 4 * state.max_k
+        probe_cache._store.update(self._vit_cache._store)
+        # K = 1 with the old blocks kept: current tubelet (t, t), every history block hidden
+        res, ids1, vis1, pad1, tubs1 = rebuilt_item(self, probe_cache, ("single", 1), t_now)
+        cur1 = [t for t in tubs1 if (t.f0, t.f1) == (t_now, t_now)]
+        if len(cur1) != 1 or any(t_now in (t.f0, t.f1) for t in tubs1 if t is not cur1[0]):
+            raise RuntimeError(f"K=1 layout: expected one ({t_now}, {t_now}) tubelet, got {[(t.f0, t.f1) for t in tubs1][-3:]}")
+        keep.insert(0, scored(1, *probe_on([res], only_mask(vis1, pad1, cur1), len(ids1), len(pad1)),
+                              n_tubelets=1, frames=[t_now, t_now], prompt_tokens=len(ids1)))
+        for k in range(1, min(state.max_k, t_now) + 1):
+            res, idsk, visk, padk, tubsk = rebuilt_item(self, probe_cache, ("window", k), t_now)
+            frames = {f for t in tubsk for f in (t.f0, t.f1)}
+            if frames != set(range(t_now - k + 1, t_now + 1)):
+                raise RuntimeError(f"window K={k} at step {t_now} holds frames {sorted(frames)}")
+            window.append(scored(k, *probe_on([res], torch.zeros(len(idsk), dtype=torch.bool), len(idsk), len(padk)),
+                                 n_tubelets=len(tubsk), prompt_tokens=len(idsk), n_visual=len(padk)))
+        return keep, window
+
     def llm_generate_batch(self, items, max_new_tokens):
         if len(items) != 1:
             raise RuntimeError(f"the influence wrapper handles one request per generate call, got {len(items)}")
@@ -509,6 +684,29 @@ def install_visual_influence(state: InfluenceState) -> None:
         def probe(hide):
             _, toks, rws, _ = run(self, items, hide, PROBE_TOKENS, len(ids), n_visual)
             return probe_fields(state, rws, toks)
+
+        if state.measure == "recent_k":
+            _, replay_logp, replay_bin = probe(none_hidden)
+            ref, ref_logp, ref_bin = probe(visual.clone())
+            ref.update({"kl": kl(full_logp, ref_logp), "kl_bin": kl(full_bin, ref_bin)})
+            keep, window = recent_probes(self, items, t_now, visual, pad_pos, hist, cur, full_logp, full_bin)
+            seconds = time.monotonic() - t0
+            state.generates += 1
+            state.log_record({
+                "step": t_now, "episode_label": f"episode_{state.episode:03d}", "prompt_tokens": len(ids), "n_visual": n_visual,
+                "n_tubelets": len(hist), "n_current": len(cur),
+                "full": full, "replay": {"kl": kl(full_logp, replay_logp), "kl_bin": kl(full_bin, replay_bin)},
+                "visual_all_mask": ref, "recent_keep": keep, "recent_window": window,
+                "n_probes": 2 + len(keep) + len(window), "probe_seconds": seconds, "forwards_decision": n_forwards,
+            })
+            if state.generates <= state.debug_steps:
+                def f4(x):
+                    return "none" if x is None else format(x, ".4f")
+                print(f"[influence] episode={state.episode} step={t_now} prompt_len={len(ids)} visual={n_visual} codes={codes} "
+                      f"exec={exec_bin} K0={f4(ref['kl'])} keep={ {r['k']: f4(r['kl']) for r in keep} } "
+                      f"window={ {r['k']: f4(r['kl']) for r in window} } window_tokens={ {r['k']: r['prompt_tokens'] for r in window} } "
+                      f"replay={f4(kl(full_logp, replay_logp))} {seconds * 1000:.0f}ms", flush=True)
+            return out
 
         # the probes: replay floor, no-visual reference, age 0, one per recent history tubelet
         _, replay_logp, replay_bin = probe(none_hidden)
@@ -575,6 +773,10 @@ def build_parser() -> argparse.ArgumentParser:
         "(eager vLLM, masked SDPA on every layer). Every other argument is passed through.",
     )
     p.add_argument("--max-age", type=int, default=MAX_AGE, help="probe history tubelets of age t - f1 <= this (default: the fast tier)")
+    p.add_argument("--measure", choices=MEASURES, default="keep_one",
+                   help="keep_one (default: one probe per history tubelet against the no-visual reference) or recent_k "
+                        "(KL(full || K most recent frames), old blocks kept and windowed, K <= --max-k)")
+    p.add_argument("--max-k", type=int, default=MAX_K, help="recent_k: largest number of most recent frames kept")
     p.add_argument("--influence-log-dir", default=None, help="per-episode records (default <output_dir>/influence)")
     p.add_argument("--influence-debug-steps", type=int, default=0, help="Print the first N inferences' bookkeeping.")
     return p
@@ -582,7 +784,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: List[str] | None = None) -> int:
     args, rest = build_parser().parse_known_args(argv)
-    state = InfluenceState(args.max_age, args.influence_debug_steps)
+    state = InfluenceState(args.max_age, args.influence_debug_steps, args.measure, args.max_k)
     model_path = arg_from(rest, "--model_path")
     if not model_path:
         raise SystemExit("--model_path is required (the RVQ bundle is read from <model_path>/action_tokenizer)")
@@ -597,8 +799,10 @@ def main(argv: List[str] | None = None) -> int:
         state.log_dir.mkdir(parents=True, exist_ok=True)
         (state.log_dir / "meta.json").write_text(json.dumps(state.describe(), indent=2) + "\n")
     install_visual_influence(state)
-    print(f"[influence] installed: keep-one KL over <act_l0_*> (256-way + {len(BINS)} bins), free-run prefix, "
-          f"history tubelets of age <= {state.max_age}, eager vLLM, masked SDPA on every layer"
+    what = (f"recent-window KL(full || K most recent frames), old blocks kept + windowed, K <= {state.max_k}"
+            if state.measure == "recent_k" else f"keep-one KL, history tubelets of age <= {state.max_age}")
+    print(f"[influence] installed: {what} over <act_l0_*> (256-way + {len(BINS)} bins), free-run prefix, "
+          f"eager vLLM, masked SDPA on every layer"
           + (f", records -> {state.log_dir}" if state.log_dir else ""), flush=True)
     from lightnav.cli.eval_habitat import main as upstream_main
 

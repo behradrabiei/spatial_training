@@ -1299,7 +1299,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Comma-separated per-frame measures for --frame-influence: leave_one (KL(full || frame "
             "removed)), keep_one (leave-one-in by splicing: KL(only that frame's group || no visual), "
             "written as keep_one/keep_one_age0) or keep_one_mask (the same, position-preserving: every "
-            "other visual column closed by attention masking on every layer)"
+            "other visual column closed by attention masking on every layer); 'none' scores the joint "
+            "probes alone (history_all, visual_all and the --influence-horizons bands)"
         ),
     )
     parser.add_argument(
@@ -1437,9 +1438,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if any(k < 2 for k in args.influence_horizons):
         parser.error("--influence-horizons must all be >= 2 (K=1 is the history_all probe)")
     args.influence_measures = [m.strip() for m in args.influence_measures.split(",") if m.strip()]
-    if not args.influence_measures or any(m not in ("leave_one", "keep_one", "keep_one_mask")
-                                          for m in args.influence_measures):
-        parser.error("--influence-measures must be a non-empty subset of leave_one,keep_one,keep_one_mask")
+    if args.influence_measures == ["none"]:  # joint probes only (the recent-window sweep)
+        args.influence_measures = []
+    elif not args.influence_measures or any(m not in ("leave_one", "keep_one", "keep_one_mask")
+                                            for m in args.influence_measures):
+        parser.error("--influence-measures must be 'none' or a non-empty subset of leave_one,keep_one,keep_one_mask")
     if {"keep_one", "keep_one_mask"} <= set(args.influence_measures):
         parser.error("--influence-measures: keep_one and keep_one_mask are mutually exclusive")
     if args.frame_influence and (

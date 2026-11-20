@@ -189,9 +189,9 @@ class VLMWorker(ContextCacheMixin, DiagnosticsMixin, PruningMixin):
         self._kl_influence_keep_one_logp = []  # per cached frame f: action log-probs with only f's visual slots
         self._kl_select_log = {}  # whole-frame selectors: the pool frames, their scores and who survived
         self.kv_prune_influence_measures = tuple(str(m) for m in (kv_prune_influence_measures or ()))
-        if not self.kv_prune_influence_measures or any(
-                m not in ("leave_one", "keep_one") for m in self.kv_prune_influence_measures):
-            raise ValueError("kv_prune_influence_measures must be a non-empty subset of "
+        # Empty = no per-frame probes: only the joint probes (history_all, visual_all, the K bands).
+        if any(m not in ("leave_one", "keep_one") for m in self.kv_prune_influence_measures):
+            raise ValueError("kv_prune_influence_measures must be a subset of "
                              f"{{'leave_one', 'keep_one'}}, got {self.kv_prune_influence_measures}")
         self._prune_visual_new = 0  # visual slots this turn added (0 => its KL row entry is vacuous)
         # Layer-selective pruning: the budget applies to decoder layers [start, end) only.
