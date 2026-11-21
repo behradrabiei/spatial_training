@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate the visual-token pruning experiment into paper_results/token_prune/results/.
+"""Aggregate the visual-token pruning experiment into paper_results_archive/token_prune/results/.
 
 Reads the LongNav-R1 arms from runs/<arm>/rollout/results_* (+ the per-step keep masks in
 rollout/<scene>/<label>.*/sequence.json, keys sup/vtp_*) and the Uni-NaVid arms from
@@ -64,7 +64,7 @@ CTX_TPL = {"r1": "r1_evict_k{}", "uninavid": "uninavid_k{}", "lightnav": "lightn
 # episode); baseline: the tag of the same-k comparison arm the table's stars refer to; identity:
 # (arm, ctx-ablation arm, exact).
 VARIANTS = {
-    "window": dict(root=ROOT / "paper_results/token_prune", models=("r1", "uninavid"),
+    "window": dict(root=ROOT / "paper_results_archive/token_prune", models=("r1", "uninavid"),
                    methods=("random", "fastv", "pyramiddrop", "divprune", "dart"), k_list=(16, 8, 4, 1),
                    window={"r1": 31, "uninavid": 31}, baseline="recency",
                    # ctx-ablation rows merged in: the recency windows (tagged ctx_method) and the

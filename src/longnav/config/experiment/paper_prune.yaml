@@ -19,7 +19,7 @@
 task:
   run_name: "name me"
   wandb_project: "longnav_paper"
-  output_dir: ./paper_results/token_prune/runs  # tracked; bulky per-episode dirs are gitignored there
+  output_dir: ./paper_results_archive/token_prune/runs  # tracked; bulky per-episode dirs are gitignored there
   jobtype: eval
   subset_label: ""
   episode_json: src/longnav/conf/episode_jsons/hm3d_v2_100.json  # the 100-episode HM3D-v2 split

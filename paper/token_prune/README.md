@@ -126,7 +126,14 @@ Do not run the two model families concurrently on one GPU (Uni-NaVid-7B alone ta
 Both run scripts skip complete arms and resume partial ones (LongNav-R1 through wandb's
 `task.run_name`, Uni-NaVid through `--resume`).
 
-## Outputs — all under `paper_results/token_prune/`
+## Outputs — all under `paper_results_archive/token_prune/`
+
+The windowed study's data was deleted on 2026-11-21 (the paper uses the flat variant, whose data
+stays in `paper_results/token_prune_flat/`); the numbers quoted in this README are unchanged. The
+run files it needs survive in the local backup: restore them as described in
+[`paper_results_archive/README.md`](../../paper_results_archive/README.md), then
+`aggregate.py --strict` followed by `plot.py` rebuilds `results/` and `figures/` next to the runs
+(git-ignored there, about 2 minutes). New launches of the window variant also write here.
 
 - `runs/<arm>/` — raw run output. LongNav-R1: `config.yaml`, `rollout/results_*`
   (per-episode JSONL, incl. `sup/mean_vtp_n_new`); the per-episode `rollout/<scene>/…` dirs with
@@ -140,8 +147,8 @@ Both run scripts skip complete arms and resume partial ones (LongNav-R1 through 
 - `results/table.tex` — booktabs, stars vs the same-`k` recency arm, † = partial arm.
 - `results/n_tokens.csv` — `n`, mean tokens kept and kept fraction of the 31-frame window per arm.
 - `results/masks.parquet` — one row per (arm, episode, step, history frame): tokens, kept, packed
-  keep bits. **Not in git** (149 MB, over GitHub's 100 MB limit; ignored in
-  `paper_results/.gitignore`). Rebuilding it requires both Uni-NaVid `runs/*/prune/` records
+  keep bits. **Not in git** (149 MB; like every rebuilt output under `paper_results_archive/` it is
+  ignored by the `.gitignore` there). Rebuilding it requires both Uni-NaVid `runs/*/prune/` records
   and LongNav-R1 per-episode `sequence.json` traces, including ignored inputs. Restore those
   inputs first, then use the isolated reproduction workflow above to aggregate before plotting
   `retention_by_age`. `results/retention.csv` — kept fraction vs frame age per arm with CIs.

@@ -14,11 +14,9 @@
 **/frames/
 **/selector/
 **/horizon/
-# Chained launch logs (Ray/progress noise) and
-# derived files over GitHub's 100 MB limit (aggregate.py rebuilds masks.parquet from the runs).
+# Chained launch logs (Ray/progress noise).
 **/driver.log
 **/driver.log.partial
-token_prune/results/masks.parquet
 # NavVerse arms (ctx_ablation_navverse): per-episode trajectory/action dumps and videos stay local;
 # result.json, server_config.json and server_steps.jsonl are the inputs aggregate.py reads.
 ctx_ablation_navverse/runs/*/*/data/

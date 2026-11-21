@@ -24,7 +24,7 @@ VARIANT="${VARIANT:-window}"
 MANIFEST="$ROOT/src/longnav/conf/episode_jsons/hm3d_v2_100.json"
 case "$VARIANT" in
   window)
-    OUT_ROOT="$ROOT/paper_results/token_prune/runs"
+    OUT_ROOT="$ROOT/paper_results_archive/token_prune/runs"
     CONTEXT_FRAMES=32; PRUNE_LAYER=""
     METHODS="${METHODS:-random fastv pyramiddrop divprune dart}"
     K_LIST="${K_LIST:-8 4 1 16}" ;;

@@ -17,7 +17,7 @@ cd "$ROOT"
 # No default on purpose: a worker started without VARIANT would run (and write) the other experiment.
 export VARIANT="${VARIANT:?set VARIANT=window or VARIANT=flat}"
 case "$VARIANT" in
-  window) RUNS="$ROOT/paper_results/token_prune/runs" ;;
+  window) RUNS="$ROOT/paper_results_archive/token_prune/runs" ;;
   flat)   RUNS="$ROOT/paper_results/token_prune_flat/runs" ;;
   *) echo "Unknown VARIANT '$VARIANT' (expected window or flat)" >&2; exit 2 ;;
 esac

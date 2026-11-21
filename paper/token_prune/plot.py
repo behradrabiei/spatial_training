@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Figures for the visual-token pruning experiment (run aggregate.py first). Plain matplotlib
-defaults; writes to paper_results/token_prune/figures/:
+defaults; writes to paper_results_archive/token_prune/figures/:
 
   budget_curves.{pdf,png}     SR (top) and SPL (bottom) vs history tokens kept in frames' worth,
                               one column per model, one line per method, the ctx-ablation recency
@@ -39,7 +39,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 HERE = Path(__file__).resolve().parent
-RESULTS_ROOTS = {"window": HERE.parents[1] / "paper_results/token_prune",
+RESULTS_ROOTS = {"window": HERE.parents[1] / "paper_results_archive/token_prune",
                  "flat": HERE.parents[1] / "paper_results/token_prune_flat"}
 MODELS = ("LongNav-R1", "Uni-NaVid")
 FLAT_MODELS = ("LongNav-R1", "Uni-NaVid", "LightNav-0")

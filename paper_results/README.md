@@ -30,7 +30,6 @@ obsolete artifacts were archived locally; their restoration manifests are docume
 | `ctx_ablation/` | [Context-window ablation](../paper/ctx_ablation/README.md), both models; full-context runs are shared references. |
 | `../paper_results_archive/frame_influence/` | [Leave-one-frame-out influence](../paper/frame_influence/README.md), including LongNav-R1's leak-free recomputation arm. Archived 2026-11-21 (not used in the paper): runs only, `results/` and `figures/` rebuild from them (see the linked README). |
 | `../paper_results_archive/frame_influence_keepone/` | [Keep-one-in influence](../paper/frame_influence/README.md), including the documented masking/splicing comparison. Archived 2026-11-21, runs only, as above. |
-| `token_prune/` | [Windowed visual-token pruning](../paper/token_prune/README.md): random, FastV, PyramidDrop, DivPrune, DART; last-stage budgets retained. |
 | `token_prune_flat/` | [Flat pruning](../paper/token_prune/README.md): random, FastV, DivPrune, DART; layer-0 selection without the 32-frame window. |
 | `layer_token_info/` and its `nohist/` study | [Layer-token information](../paper/layer_token_info/README.md): leaky/leak-free token KL, the no-visual-history study, and the historical windowed horizon figure. |
 | `info_horizon/`, `info_horizon_mp3d/` | [Information horizon](../paper/info_horizon/README.md): full-context probes and visual-blind SR/SPL on HM3D and MP3D. |
@@ -41,6 +40,11 @@ The windowed horizon figure additionally reads
 `dump/longnav_eval/keep_one_influence_w32_b10000000`. Uni-NaVid's default evaluation and
 teleoperation manifest is `dump/hm3d_v2_100_labels.json`. Both are protected even though they
 live outside `paper_results/`.
+
+The [windowed visual-token pruning study](../paper/token_prune/README.md) (`token_prune/`: random,
+FastV, PyramidDrop, DivPrune, DART under the 32-frame window) was deleted on 2026-11-21; the paper
+uses the flat variant. Its checksummed inputs survive only in the backup, see
+[the archive index](../paper_results_archive/README.md) for how to restore them.
 
 Superseded hybrid `*_b<k>` and aborted `*_m<k>` runs, together with the old
 `results_last_stage/` and `figures_last_stage/`, are archived. Current hybrid reporting uses

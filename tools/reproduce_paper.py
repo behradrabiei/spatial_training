@@ -29,9 +29,16 @@ def main():
     mirror.mkdir(parents=True, exist_ok=False)
     for name in ('paper', 'src'):
         shutil.copytree(args.source / name, mirror / name, ignore=shutil.ignore_patterns('__pycache__'))
+    # A study whose run directories were all deleted (the windowed token_prune study, 2026-11-21) is
+    # retired: its inputs exist only in the backup, so it is neither mirrored nor rebuilt.
+    retired = {name: study for name, study in manifest['studies'].items()
+               if study['runs'] and not any((ROOT / run).is_dir() for run in study['runs'])}
+    retired_roots = tuple(study['outputs'] + '/' for study in retired.values())
+    for name in retired:
+        print(f'Skipping retired study {name}: no run data on disk (restore it from the backup to rebuild).')
     for entry in manifest['files']:
         rel = Path(entry['path'])
-        if rel.parts[0] == 'src':
+        if rel.parts[0] == 'src' or (retired_roots and entry['path'].startswith(retired_roots)):
             continue
         dst = mirror / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -41,7 +48,7 @@ def main():
                 shutil.copy2(ROOT / rel, dst)
         else:
             dst.symlink_to(ROOT / rel)
-    commands = [c for study in manifest['studies'].values() for c in study['commands']]
+    commands = [c for name, study in manifest['studies'].items() if name not in retired for c in study['commands']]
     # Keep dependencies first: other studies read context-ablation results.
     commands.sort(key=lambda c: (0 if 'ctx_ablation' in c[1] else 1))
     commands += manifest['studies']['hybrid_prune'].get('cost_commands', [])

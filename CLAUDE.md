@@ -23,7 +23,9 @@ bf4e65ff. Scientific inputs stay at their canonical paths, including
 Large traces, arrays, and showcase images can be ignored by Git while still being required.
 Studies the paper does not use are archived, runs only, under `paper_results_archive/` (the
 leave-one-out and keep-one frame-influence studies since 2026-11-21); the manifest lists them at
-those paths and their outputs are rebuilt on demand, not kept.
+those paths and their outputs are rebuilt on demand, not kept. The windowed `token_prune` study
+was deleted on 2026-11-21 at the user's request (`token_prune_flat` stays in `paper_results/`):
+its manifest entries point at `paper_results_archive/token_prune/` and only the backup holds them.
 Consult the manifest before deleting or moving anything. Rebuild outputs with
 `tools/reproduce_paper.py` in an isolated mirror, never over the original results.
 

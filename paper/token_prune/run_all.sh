@@ -5,7 +5,7 @@
 #
 #   nohup bash paper/token_prune/run_all.sh > /dev/null 2>&1 &
 #
-# Everything is appended to paper_results/token_prune/runs/driver.log; both arm scripts skip
+# Everything is appended to paper_results_archive/token_prune/runs/driver.log; both arm scripts skip
 # finished arms and resume partial ones, so re-running the chain after an interruption is safe.
 # The chain stops if an identity arm does not reproduce its reference (aggregate.py
 # --check-identity); pass IDENTITY_TOLERANCE=1 to accept Uni-NaVid's sampling noise.
@@ -19,7 +19,7 @@ cd "$ROOT"
 PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"
 export VARIANT="${VARIANT:-window}"
 case "$VARIANT" in
-  window) LOG="$ROOT/paper_results/token_prune/runs/driver.log" ;;
+  window) LOG="$ROOT/paper_results_archive/token_prune/runs/driver.log" ;;
   flat)   LOG="$ROOT/paper_results/token_prune_flat/runs/driver.log" ;;
   *) echo "Unknown VARIANT '$VARIANT' (expected window or flat)" >&2; exit 2 ;;
 esac

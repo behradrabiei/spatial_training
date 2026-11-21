@@ -27,7 +27,7 @@ MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_100.json"
 case "$VARIANT" in
   window)
     PRESET=paper_prune
-    OUT_ROOT="$ROOT/paper_results/token_prune/runs"  # must match task.output_dir in experiment/paper_prune.yaml
+    OUT_ROOT="$ROOT/paper_results_archive/token_prune/runs"  # must match task.output_dir in experiment/paper_prune.yaml
     METHODS="${METHODS:-random fastv pyramiddrop divprune dart}"
     K_LIST="${K_LIST:-8 4 1 16}" ;;
   flat)
