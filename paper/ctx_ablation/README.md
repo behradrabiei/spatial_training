@@ -210,10 +210,9 @@ resume (append-only `results.jsonl`) and asks for a partial arm to be moved away
   `figures/ctx_ablation_sr.{pdf,png}` and `figures/ctx_ablation_spl.{pdf,png}` are the same two panels as
   standalone figures (3.5 × 1.9 in); `plot.py` writes the pair and both singles for every SR | SPL figure.
 - Kept locally, not on GitHub (code and documentation only for new outputs): the standalone `_sr` / `_spl`
-  figures (`plot.py` rewrites them) and the runs of the two LongNav-R1 `K = 2` arms added 2026-11-20
-  (`ARMS="r1_evict_k2 r1_recompute_k2" bash paper/ctx_ablation/run_r1.sh`, about 1.5 h on one GPU). Their
-  rows are in the tracked `summary.csv` / `per_episode.csv` / `table.tex`; on a clone without these two
-  run directories `aggregate.py` reports them as missing and `--strict` fails.
+  figures (`plot.py` rewrites them). The two LongNav-R1 `K = 2` arms added 2026-11-20 (`r1_evict_k2`,
+  `r1_recompute_k2`; about 1.5 h on one GPU) are tracked like the other arms, so `aggregate.py --strict`
+  works on a fresh clone.
 
 ## NavVerse indoor replicate (LongNav-R1, and LightNav-0 old blocks kept)
 

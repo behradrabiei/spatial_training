@@ -36,9 +36,7 @@ ctx_ablation_navverse/runs/*/prune/
 frame_influence_recent/
 
 # ctx_ablation additions of 2026-11-20, kept locally (see "Outputs" in paper/ctx_ablation/README.md):
-# the LongNav-R1 K = 2 arms and the standalone SR / SPL figures.
-ctx_ablation/runs/r1_evict_k2/
-ctx_ablation/runs/r1_recompute_k2/
+# the standalone SR / SPL figures.
 ctx_ablation*/figures/*_sr.pdf
 ctx_ablation*/figures/*_sr.png
 ctx_ablation*/figures/*_spl.pdf
