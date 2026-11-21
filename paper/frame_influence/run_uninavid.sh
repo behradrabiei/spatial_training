@@ -9,7 +9,7 @@
 # (temperature 0.2, 2 actions per call, 500 steps) with per-call seeding (--sampling-seed) so the
 # sampled trajectory is reproducible. Skipped when every manifest episode is done; --resume
 # continues a partial run. MEASURE=keep_one runs the leave-one-IN variant instead (arm
-# uninavid_influence_keepone under paper_results/frame_influence_keepone/, --influence-measures
+# uninavid_influence_keepone under paper_results_archive/frame_influence_keepone/, --influence-measures
 # keep_one; same seed, so the same sampled trajectories). MEASURE=recent_k runs the recent-window
 # sweep (arm uninavid_influence_recent under paper_results/frame_influence_recent/): no per-frame
 # probe, the joint K-band probes at every K = 2..32 (--influence-measures none), same seed.
@@ -23,8 +23,8 @@ MEASURE="${MEASURE:-leave_one}"  # leave_one | keep_one | recent_k
 HORIZONS="4,8,16,32"  # the joint age bands (K = frames surviving incl. the current one)
 KEEP_ONE_MODE="${KEEP_ONE_MODE:-mask}"  # keep_one only: mask (position-preserving, the paper's) | splice
 case "$MEASURE" in
-  leave_one) OUT_ROOT="$ROOT/paper_results/frame_influence/runs";         ARM="${ARM:-uninavid_influence}"; MEASURE_FLAG=leave_one ;;
-  keep_one)  OUT_ROOT="$ROOT/paper_results/frame_influence_keepone/runs"; ARM="${ARM:-uninavid_influence_keepone}"
+  leave_one) OUT_ROOT="$ROOT/paper_results_archive/frame_influence/runs";         ARM="${ARM:-uninavid_influence}"; MEASURE_FLAG=leave_one ;;
+  keep_one)  OUT_ROOT="$ROOT/paper_results_archive/frame_influence_keepone/runs"; ARM="${ARM:-uninavid_influence_keepone}"
              case "$KEEP_ONE_MODE" in mask) MEASURE_FLAG=keep_one_mask ;; splice) MEASURE_FLAG=keep_one ;;
                *) echo "Unknown KEEP_ONE_MODE '$KEEP_ONE_MODE' (expected mask or splice)" >&2; exit 2 ;; esac ;;
   recent_k)  OUT_ROOT="$ROOT/paper_results/frame_influence_recent/runs";  ARM="${ARM:-uninavid_influence_recent}"

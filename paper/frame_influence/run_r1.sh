@@ -8,7 +8,7 @@
 # +experiment=paper_influence), r1_influence_recompute (leak-free full re-prefill probes on the
 # 9 episodes shorter than 150 steps, +experiment=paper_influence_recompute) and
 # r1_influence_keepone (leave-one-IN replay probes, 10 episodes, +experiment=paper_influence_keepone,
-# output under paper_results/frame_influence_keepone/) and r1_influence_recent (joint probes only,
+# output under paper_results_archive/frame_influence_keepone/) and r1_influence_recent (joint probes only,
 # KL(full || the K most recent frames) for K = 0..32, +experiment=paper_influence_recent, output
 # under paper_results/frame_influence_recent/) and r1_influence_recent_recompute (its leak-free
 # twin: full re-prefill probes, all 10 episodes, +experiment=paper_influence_recent_recompute,
@@ -23,13 +23,13 @@ cd "$ROOT"
 
 PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"
 RESOURCES="${RESOURCES:-single}"
-OUT_ROOT="$ROOT/paper_results/frame_influence/runs"  # must match task.output_dir in the experiment preset
+OUT_ROOT="$ROOT/paper_results_archive/frame_influence/runs"  # must match task.output_dir in the experiment preset
 ARM="${ARM:-r1_influence}"
 case "$ARM" in
   r1_influence)           EXPERIMENT=paper_influence;           MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json" ;;
   r1_influence_recompute) EXPERIMENT=paper_influence_recompute; MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_9_seed17_short.json" ;;
   r1_influence_keepone)   EXPERIMENT=paper_influence_keepone;   MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json"
-                          OUT_ROOT="$ROOT/paper_results/frame_influence_keepone/runs" ;;
+                          OUT_ROOT="$ROOT/paper_results_archive/frame_influence_keepone/runs" ;;
   r1_influence_recent)    EXPERIMENT=paper_influence_recent;    MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json"
                           OUT_ROOT="$ROOT/paper_results/frame_influence_recent/runs" ;;
   r1_influence_recent_recompute) EXPERIMENT=paper_influence_recent_recompute; MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json"

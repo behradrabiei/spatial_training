@@ -32,6 +32,14 @@ ctx_ablation_navverse/runs/*/prune/
 **/*.ready
 
 # Kept locally, not on GitHub (2026-11-20: code and documentation only for the newer studies);
-# see the two variant sections of paper/frame_influence/README.md.
+# see the recent-window section of paper/frame_influence/README.md.
 frame_influence_recent/
-frame_influence_keepone_full/
+
+# ctx_ablation additions of 2026-11-20, kept locally (see "Outputs" in paper/ctx_ablation/README.md):
+# the LongNav-R1 K = 2 arms and the standalone SR / SPL figures.
+ctx_ablation/runs/r1_evict_k2/
+ctx_ablation/runs/r1_recompute_k2/
+ctx_ablation*/figures/*_sr.pdf
+ctx_ablation*/figures/*_sr.png
+ctx_ablation*/figures/*_spl.pdf
+ctx_ablation*/figures/*_spl.png

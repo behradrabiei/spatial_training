@@ -61,8 +61,8 @@ from the visible frames every step, so there is nothing to leak through and a si
 | arm | model | history mechanism | leak-free? |
 |---|---|---|---|
 | `r1_full` | LongNav-R1 | growing KV cache, whole episode | n/a (nothing evicted; shared baseline of both R1 arms) |
-| `r1_evict_k{32,16,8,4,1}` | LongNav-R1 | KV eviction (`context_window_mode=evict`) | **no** — a surviving token's layer≥1 K/V were computed while attending over frames that are now gone |
-| `r1_recompute_k{32,16,8,4,1}` | LongNav-R1 | window K/V rebuilt each step against prefix+window only (`context_window_mode=recompute`) | yes — the decision is a strict function of the visible frames |
+| `r1_evict_k{32,16,8,4,2,1}` | LongNav-R1 | KV eviction (`context_window_mode=evict`) | **no** — a surviving token's layer≥1 K/V were computed while attending over frames that are now gone |
+| `r1_recompute_k{32,16,8,4,2,1}` | LongNav-R1 | window K/V rebuilt each step against prefix+window only (`context_window_mode=recompute`) | yes — the decision is a strict function of the visible frames |
 | `uninavid_full` | Uni-NaVid | native feature cache + long-term compression | yes |
 | `uninavid_k{32,16,8,4,1}` | Uni-NaVid | last `K` per-frame features | yes |
 | `lightnav_full` | LightNav-0 | whole-episode frame cache, SlowFast age sampling | yes |
@@ -129,8 +129,9 @@ columns) hides the image tokens of every frame older than the newest `K` and lea
 their timestamps. At every step ≥ 34 the visible frames are exactly the window's (verified on upstream's
 layout: the window's history at `K` is the newest `K − 2` frames of the full layout, all at the model's
 28-token-per-pair pooling; before step 34 upstream pads the history on even steps, so the newest pair is
-`(t−2, t−2)` there). Keep-mask audit of the four arms: 0 violations. The dashed green line of
-`figures/ctx_ablation.*` is this control; it shares the full-context point with the solid line (its matched
+`(t−2, t−2)` there). Keep-mask audit of the four arms: 0 violations. The green "LightNav-0" line of
+`figures/ctx_ablation.*` is this control (the window arms with the old blocks removed are no longer drawn, see
+`results/summary.csv`); it shares the full-context point with them (its matched
 eager-kernel reference is the prune study's `lightnav_identity`, .84 / .458 / 139 steps, vs the compiled
 `lightnav_full` .80 / .450 / 160; paired ΔSR +.04, p = .39). The `K = 1` control (`lightnav_recency_b0_cur1`,
 `PRUNE_CURRENT_FRAMES=1`) hides every history token and replaces the current pair (t − 1, t) with the doubled
@@ -202,8 +203,17 @@ resume (append-only `results.jsonl`) and asks for a partial arm to be moved away
   `summary.json` (converted to the Uni-NaVid layout); `raw/logs/` gitignored. New launches generate ignored `launch.log` / `driver.log` files; historical logs were archived.
 - `results/per_episode.csv`, `results/summary.csv` (means, CIs, p-values vs each model's
   `full`, leakage gap per `K`), `results/table.tex` (booktabs, stars vs `full`).
-- `figures/ctx_ablation.{pdf,png}` — SR | SPL vs `K` (steps are in `summary.csv`);
-  `figures/ctx_leakage.{pdf,png}` — evict − recompute gap vs `K`.
+- `figures/ctx_ablation.{pdf,png}` — SR | SPL vs `K` for LongNav-R1 (KV eviction; leak-free recompute
+  dashed) and LightNav-0 (old blocks kept), drawn at single-column width (3.5 × 1.5 in, 8 pt text, metric name on the y axis) for a
+  two-column paper. Uni-NaVid, the LightNav-0 window arms (old blocks removed), steps, and the
+  evict − recompute gap (`leak_*` columns) are in `summary.csv` / `table.tex` only.
+  `figures/ctx_ablation_sr.{pdf,png}` and `figures/ctx_ablation_spl.{pdf,png}` are the same two panels as
+  standalone figures (3.5 × 1.9 in); `plot.py` writes the pair and both singles for every SR | SPL figure.
+- Kept locally, not on GitHub (code and documentation only for new outputs): the standalone `_sr` / `_spl`
+  figures (`plot.py` rewrites them) and the runs of the two LongNav-R1 `K = 2` arms added 2026-11-20
+  (`ARMS="r1_evict_k2 r1_recompute_k2" bash paper/ctx_ablation/run_r1.sh`, about 1.5 h on one GPU). Their
+  rows are in the tracked `summary.csv` / `per_episode.csv` / `table.tex`; on a clone without these two
+  run directories `aggregate.py` reports them as missing and `--strict` fails.
 
 ## NavVerse indoor replicate (LongNav-R1, and LightNav-0 old blocks kept)
 
@@ -282,13 +292,13 @@ conda run -n vln python paper/ctx_ablation/plot.py --dataset navverse        # +
 
 ### LightNav-0 on NavVerse: old blocks kept (2026-10-28)
 
-The HM3D control line "LightNav-0 (old blocks kept)" (the window's frames with every older
+The HM3D "old blocks kept" line (labelled "LightNav-0" in the figures; the window's frames with every older
 segment's timestamp and vision markers left in the prompt) replicated on the same 100 NavVerse
 episodes: arms `nvl_full`, `nvl_keep_k{32,16,8,4}` and `nvl_keep_k1` (`paper/ctx_ablation/run_navverse_lightnav.sh`;
 no window arms, no K = 2 point; K = 1 = no history and the current frame doubled, `--prune-k 0
 --prune-current-frames 1`, the HM3D `lightnav_keep_k1` = `lightnav_recency_b0_cur1` layout, added 2026-10-30). `aggregate.py --dataset navverse` loads them as model
 `nvl` (same loader and step-cap re-scoring as the LongNav-R1 arms, a fifth table column group);
-`plot.py --dataset navverse` draws them green dashed in `ctx_ablation`, adds both models' HM3D vs
+`plot.py --dataset navverse` draws them in green in `ctx_ablation`, adds both models' HM3D vs
 NavVerse pairs to the overlay, and writes `figures/failure_modes_lightnav.{pdf,png}`.
 
 - **Serving.** NavVerse has no LightNav agent. `baselines/lightnav_hm3d/serve_navverse.py`

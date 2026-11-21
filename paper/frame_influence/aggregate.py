@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate the leave-one-frame-out influence experiment into paper_results/frame_influence/results/.
+"""Aggregate the leave-one-frame-out influence experiment into paper_results_archive/frame_influence/results/.
 
 Reads the LongNav-R1 arm (runs/r1_influence: rollout/*/*/sequence.json + rollout/results_*) and
 the Uni-NaVid arm (runs/uninavid_influence: influence/*.jsonl + episodes/*.json + traces/), checks
@@ -30,7 +30,7 @@ both against the 10-episode manifest, and writes:
   summary.csv/json     headline numbers per model; table.tex: booktabs (cumulative share, horizon).
 
 --measure keep_one aggregates the leave-one-IN variant instead (arms r1_influence_keepone and
-uninavid_influence_keepone under paper_results/frame_influence_keepone/): infl = KL(only frame
+uninavid_influence_keepone under paper_results_archive/frame_influence_keepone/): infl = KL(only frame
 i's visual tokens || no visual tokens), age0 = the current frame alone vs no visual; logp_full then
 holds the reference (no-visual) log-probs and flip compares the only-frame argmax against it. The
 joint probes (history_all, visual_all, horizon_K) keep their full-context meaning.
@@ -40,7 +40,7 @@ leaky and LightNav-0 only): infl = KL(full decision || only frame i's visual tok
 the lone frame is from reproducing the decision actually taken; age0 = the current frame alone vs
 the full decision; logp_full = the full decision; visual_all = KL(full || no visual), the ceiling an
 uninformative frame sits at (summary: visual_all_mean / visual_all_balanced). Results go to
-paper_results/frame_influence_keepone_full/.
+paper_results_archive/frame_influence_keepone_full/.
 
 --measure recent_k is the recent-window variant (runs under paper_results/frame_influence_recent/,
 arms r1_influence_recent / uninavid_influence_recent, logged with no per-frame probe and the joint
@@ -76,11 +76,11 @@ MANIFEST_9 = ROOT / "src/longnav/conf/episode_jsons/hm3d_v2_9_seed17_short.json"
 # measure -> (results root, {model label -> (arm dir, influence loader, episode-results loader,
 # manifest the arm must complete)})
 MEASURES = {
-    "leave_one": (ROOT / "paper_results/frame_influence", {
+    "leave_one": (ROOT / "paper_results_archive/frame_influence", {
         "LongNav-R1": ("r1_influence", inf.load_r1_influence, load_r1_run, MANIFEST_10),
         "LongNav-R1 (leak-free)": ("r1_influence_recompute", inf.load_r1_influence, load_r1_run, MANIFEST_9),
         "Uni-NaVid": ("uninavid_influence", inf.load_uninavid_influence, load_uninavid_run, MANIFEST_10)}),
-    "keep_one": (ROOT / "paper_results/frame_influence_keepone", {
+    "keep_one": (ROOT / "paper_results_archive/frame_influence_keepone", {
         "LongNav-R1": ("r1_influence_keepone", inf.load_r1_influence, load_r1_run, MANIFEST_10),
         "Uni-NaVid": ("uninavid_influence_keepone", inf.load_uninavid_influence, load_uninavid_run, MANIFEST_10),
         # the same LightNav arm read twice: KL over the 256 coarse RVQ codes, and folded onto 6 executed-action bins
@@ -90,7 +90,7 @@ MEASURES = {
     # derived from the keep-one runs (see RUNS_ROOT): the lone frame scored against the full decision
     # (256-code LightNav only: the 6-bin fold was dropped from this measure at the user's request, 2026-11-07;
     # Uni-NaVid added the same day from its masked keep-one run)
-    "keep_one_full": (ROOT / "paper_results/frame_influence_keepone_full", {
+    "keep_one_full": (ROOT / "paper_results_archive/frame_influence_keepone_full", {
         "LongNav-R1": ("r1_influence_keepone", inf.load_r1_influence, load_r1_run, MANIFEST_10),
         "Uni-NaVid": ("uninavid_influence_keepone", inf.load_uninavid_influence, load_uninavid_run, MANIFEST_10),
         "LightNav-0": ("lightnav_influence_keepone", inf.load_lightnav_influence, load_lightnav_run, MANIFEST_10)}),
@@ -114,7 +114,7 @@ MEASURES = {
                                                 load_lightnav_run, MANIFEST_10)}),
 }
 # measures without runs of their own read another measure's runs directory (default: <results root>/runs)
-RUNS_ROOT = {"keep_one_full": ROOT / "paper_results/frame_influence_keepone/runs"}
+RUNS_ROOT = {"keep_one_full": ROOT / "paper_results_archive/frame_influence_keepone/runs"}
 KS = inf.KS
 LAGS = (1, 2, 4, 8, 16)
 

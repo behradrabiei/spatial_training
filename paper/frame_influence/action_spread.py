@@ -44,7 +44,7 @@ from matplotlib.patches import Ellipse
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-DEFAULT_RUN = ROOT / "paper_results/frame_influence_keepone/runs/lightnav_influence_keepone"
+DEFAULT_RUN = ROOT / "paper_results_archive/frame_influence_keepone/runs/lightnav_influence_keepone"
 DEFAULT_OUT = ROOT / "outputs/validation/lightnav_action_spread"
 BUNDLE = ROOT / "baselines/LightNav-0/checkpoints/LightNav-0/action_tokenizer"
 LIGHTNAV_SRC = ROOT / "baselines/LightNav-0/src"

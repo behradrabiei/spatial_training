@@ -28,8 +28,8 @@ obsolete artifacts were archived locally; their restoration manifests are docume
 | Retained data directory | Study and protocol |
 |---|---|
 | `ctx_ablation/` | [Context-window ablation](../paper/ctx_ablation/README.md), both models; full-context runs are shared references. |
-| `frame_influence/` | [Leave-one-frame-out influence](../paper/frame_influence/README.md), including LongNav-R1's leak-free recomputation arm. |
-| `frame_influence_keepone/` | [Keep-one-in influence](../paper/frame_influence/README.md), including the documented masking/splicing comparison. |
+| `../paper_results_archive/frame_influence/` | [Leave-one-frame-out influence](../paper/frame_influence/README.md), including LongNav-R1's leak-free recomputation arm. Archived 2026-11-21 (not used in the paper): runs only, `results/` and `figures/` rebuild from them (see the linked README). |
+| `../paper_results_archive/frame_influence_keepone/` | [Keep-one-in influence](../paper/frame_influence/README.md), including the documented masking/splicing comparison. Archived 2026-11-21, runs only, as above. |
 | `token_prune/` | [Windowed visual-token pruning](../paper/token_prune/README.md): random, FastV, PyramidDrop, DivPrune, DART; last-stage budgets retained. |
 | `token_prune_flat/` | [Flat pruning](../paper/token_prune/README.md): random, FastV, DivPrune, DART; layer-0 selection without the 32-frame window. |
 | `layer_token_info/` and its `nohist/` study | [Layer-token information](../paper/layer_token_info/README.md): leaky/leak-free token KL, the no-visual-history study, and the historical windowed horizon figure. |

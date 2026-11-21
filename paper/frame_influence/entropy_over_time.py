@@ -2,7 +2,7 @@
 
 LightNav-0 emits ``<apos_K><opos_K><act_l0_a><act_l1_b><act_l2_c>``; the third token, the coarse
 RVQ code ``<act_l0_*>`` (256 codes), carries the motion. The keep-one influence run
-(``paper_results/frame_influence_keepone/runs/lightnav_influence_keepone``) logged, for every
+(``paper_results_archive/frame_influence_keepone/runs/lightnav_influence_keepone``) logged, for every
 step, the FULL-context decision's distribution at that position (``full.entropy`` = entropy over
 the 256 codes renormalised, T = 1; ``full.logp_f16`` = the 256 log-probs), so the question is
 answered from those records without running the model.
@@ -30,7 +30,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-DEFAULT_RUN = ROOT / "paper_results/frame_influence_keepone/runs/lightnav_influence_keepone"
+DEFAULT_RUN = ROOT / "paper_results_archive/frame_influence_keepone/runs/lightnav_influence_keepone"
 DEFAULT_OUT = ROOT / "outputs/validation/lightnav_entropy_over_time"
 N_DECILES = 10
 SMOOTH = 5  # centred rolling mean over this many steps for the per-episode lines

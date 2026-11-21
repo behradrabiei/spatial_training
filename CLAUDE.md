@@ -21,6 +21,9 @@ paper_results/protected_inputs.json maps retained studies and files to SHA-256 c
 bf4e65ff. Scientific inputs stay at their canonical paths, including
 `dump/longnav_eval/keep_one_influence_w32_b10000000` and `dump/hm3d_v2_100_labels.json`.
 Large traces, arrays, and showcase images can be ignored by Git while still being required.
+Studies the paper does not use are archived, runs only, under `paper_results_archive/` (the
+leave-one-out and keep-one frame-influence studies since 2026-11-21); the manifest lists them at
+those paths and their outputs are rebuilt on demand, not kept.
 Consult the manifest before deleting or moving anything. Rebuild outputs with
 `tools/reproduce_paper.py` in an isolated mirror, never over the original results.
 

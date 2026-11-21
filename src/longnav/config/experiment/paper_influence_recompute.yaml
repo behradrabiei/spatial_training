@@ -16,7 +16,7 @@
 task:
   run_name: "name me"
   wandb_project: "longnav_paper"
-  output_dir: ./paper_results/frame_influence/runs
+  output_dir: ./paper_results_archive/frame_influence/runs
   jobtype: eval
   subset_label: ""
   episode_json: src/longnav/conf/episode_jsons/hm3d_v2_9_seed17_short.json  # the 10-episode set minus wcojb4TFT35_0 (500 steps)

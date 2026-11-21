@@ -1,0 +1,18 @@
+# Studies moved out of paper_results/ because the paper does not use them. Only their run data
+# is kept; the same local-only rules as paper_results/.gitignore apply to it.
+**/.locks/
+**/*.log
+**/*.lock
+**/rollout/*/
+**/traces/
+**/*.mp4
+**/*.jpg
+**/wandb/
+**/frames/
+**/driver.log
+**/driver.log.partial
+**/*.ready
+
+# Rebuilt outputs stay local: aggregate.py / plot.py regenerate them from runs/.
+*/results/
+*/figures/

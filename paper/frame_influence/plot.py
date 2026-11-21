@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Figures for the leave-one-frame-out influence experiment (run aggregate.py first). Plain
-matplotlib defaults; writes pdf+png to paper_results/frame_influence/figures/. One figure per
+matplotlib defaults; writes pdf+png to paper_results_archive/frame_influence/figures/. One figure per
 question the experiment answers (the first in two renderings):
 
   influence_vs_age        How fast does a single frame's influence decay with age? Episode-
@@ -20,16 +20,18 @@ Everything else the experiment measures (joint horizon removal, cumulative share
 covariates, lag correlations) is a number in results/ and the README table, not a figure.
 
 --measure keep_one draws the same figures for the leave-one-in variant from
-paper_results/frame_influence_keepone/ (influence = KL(only frame i || no visual)).
+paper_results_archive/frame_influence_keepone/ (influence = KL(only frame i || no visual)).
 
 --measure recent_k draws one figure from paper_results/frame_influence_recent/ (user decision
 2026-11-20), x = frames in context K instead of frame age:
 
-  recent_frames_normalized_box_split  The share of each model's no-frame KL (K = 0) still open with
+  recent_k                The share of each model's no-frame KL (K = 0) still open with
                           only the K most recent frames, per episode, on the decisions with at least
                           32 history frames: one panel per model, a box per K across episodes (outlier
                           points not drawn) and the median across episodes as a line through them.
-                          Default models: LongNav-R1 (leaky) and LightNav-0 (old blocks kept).
+                          Default models: LongNav-R1 (leaky) and LightNav-0 (old blocks kept, titled
+                          plainly "LightNav-0" and drawn solid when the window arm is not beside it).
+                          One column of a two-column paper, at final size (paper/figstyle.py).
 
 The other views are written only when named with --only (--recent-models picks the models,
 default all five there; --tag suffixes the file names):
@@ -62,15 +64,18 @@ import csv
 import gzip
 import json
 import math
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-RESULTS_ROOTS = {"leave_one": HERE.parents[1] / "paper_results/frame_influence",
-                 "keep_one": HERE.parents[1] / "paper_results/frame_influence_keepone",
-                 "keep_one_full": HERE.parents[1] / "paper_results/frame_influence_keepone_full",
+sys.path.insert(0, str(HERE.parent))
+from figstyle import COLUMN_RC, COLUMN_WIDTH, TEXT_WIDTH  # noqa: E402  (two-column paper format)
+RESULTS_ROOTS = {"leave_one": HERE.parents[1] / "paper_results_archive/frame_influence",
+                 "keep_one": HERE.parents[1] / "paper_results_archive/frame_influence_keepone",
+                 "keep_one_full": HERE.parents[1] / "paper_results_archive/frame_influence_keepone_full",
                  "recent_k": HERE.parents[1] / "paper_results/frame_influence_recent"}
 # y-axis label per measure; the module-level value is set from --measure in main()
 YLABELS = {"leave_one": "Influence (nats)", "keep_one": "Influence (nats)",
@@ -201,6 +206,16 @@ def top_legend(fig, ax, top=0.9):
 
 def recent_models(rows):
     return [m for m in RECENT_MODELS if any(r["model"] == m for r in rows)]
+
+
+def recent_display(m, models):
+    """(label, style) of model m in a figure of ``models``. The old-blocks-kept arm is LightNav-0's
+    default protocol: when the window arm (old blocks removed) is not drawn next to it, it is
+    labelled plainly "LightNav-0" and drawn solid (as in ctx_ablation); beside the window arm it
+    keeps its qualified label and dashed style."""
+    if m == "LightNav-0 (old blocks kept)" and "LightNav-0" not in models:
+        return "LightNav-0", STYLE["LightNav-0"]
+    return m, STYLE[m]
 
 
 def figure_recent(curve_rows, out, max_k=RECENT_MAX_K, fixed=False):
@@ -348,19 +363,23 @@ def figure_recent_box_split(steps, out, max_k=RECENT_MAX_K, normalized=False):
     no-frame KL still open with K frames, linear %, fixed set), with the median across episodes
     (the bar of each box, here at every K) drawn through them. The median, not figure_recent_norm's
     mean: one episode far above the rest (leak-free LongNav-R1's 500-step one) lifts the mean out of
-    the boxes, whose outlier points are not drawn."""
+    the boxes, whose outlier points are not drawn.
+    Drawn at final size for a two-column paper (paper/figstyle.py): one column wide for up to two
+    panels, the full text width beyond that."""
     models = recent_models(steps)
-    with plt.rc_context(LARGE_RC):
-        fig, axes = plt.subplots(1, len(models), figsize=(3.2 * len(models) + 0.6, 3.6), sharey=True, squeeze=False)
+    with plt.rc_context(COLUMN_RC):
+        fig, axes = plt.subplots(1, len(models), figsize=(COLUMN_WIDTH if len(models) <= 2 else TEXT_WIDTH, 1.6),
+                                 sharey=True, squeeze=False)
         for i, (ax, m) in enumerate(zip(axes[0], models)):
+            label, style = recent_display(m, models)
             if normalized:
                 data = recent_norm_box_data(steps, m, max_k)
-                draw_age_box(ax, data, m, max_x=max_k)
+                draw_age_box(ax, data, m, max_x=max_k, style=style, linewidth=0.7)
                 # the episode median at every K through the boxes: every episode is exactly 100 % at
                 # K = 0, so that box has no height and only the line shows the drop
                 ks = [k for k in sorted(data) if len(data[k])]
-                ax.plot(ks, [float(np.median(data[k])) for k in ks], color=STYLE[m]["color"], linestyle=STYLE[m]["linestyle"],
-                        linewidth=1.2, marker="o", markersize=4, markevery=[0], zorder=1)
+                ax.plot(ks, [float(np.median(data[k])) for k in ks], color=style["color"], linestyle=style["linestyle"],
+                        linewidth=1.0, marker="o", markersize=3, markevery=[0], zorder=1)
                 finish_age_box(ax, xlabel=False, ylabel=False, max_x=max_k)
                 ax.set_yscale("linear")
                 def reach(v):  # what is drawn at one K: up to the upper whisker (1.5 IQR, fliers hidden)
@@ -371,12 +390,12 @@ def figure_recent_box_split(steps, out, max_k=RECENT_MAX_K, normalized=False):
                 if i == 0:
                     ax.set_ylabel(NORM_YLABEL)
             else:
-                draw_age_box(ax, recent_box_data(steps, m, max_k), m, max_x=max_k)
+                draw_age_box(ax, recent_box_data(steps, m, max_k), m, max_x=max_k, style=style, linewidth=0.7)
                 finish_age_box(ax, xlabel=False, ylabel=(i == 0), max_x=max_k)
-            ax.set_title(m)
-        fig.supxlabel("Frames in context K", fontsize=14)
-        fig.tight_layout()
-    save(fig, out, layout=False)
+            ax.set_title(label)
+        fig.supxlabel("Frames in context K", fontsize=8)
+        fig.tight_layout(pad=0.4, w_pad=0.8)
+        save(fig, out, layout=False)  # inside the rc context: pdf.fonttype applies at save time
 
 
 def age_box_data(rows, steps, m):
@@ -390,22 +409,24 @@ def age_box_data(rows, steps, m):
     return data
 
 
-def draw_age_box(ax, data, m, offset=0.0, width=0.8 * MARK_EVERY, max_x=MAX_AGE_PLOT):
+def draw_age_box(ax, data, m, offset=0.0, width=0.8 * MARK_EVERY, max_x=MAX_AGE_PLOT, style=None, linewidth=1.0):
     """One model's boxes on ax: quartiles with 1.5 IQR whiskers, median line, no fliers. The
-    leak-free LongNav-R1 boxes are unfilled and dashed, matching its dashed curve. Returns the
+    leak-free LongNav-R1 boxes are unfilled and dashed, matching its dashed curve. ``style``
+    overrides STYLE[m]; ``linewidth`` scales every stroke (small-format figures). Returns the
     first box (legend handle) or None."""
     ages = list(range(0, max_x + 1, MARK_EVERY))
     shown = [a for a in ages if len(data.get(a, ()))]
     if not shown:
         return None
-    color, dashed = STYLE[m]["color"], STYLE[m]["linestyle"] == "--"
-    line = dict(color=color, linewidth=1.0, linestyle="--" if dashed else "-")
+    style = style or STYLE[m]
+    color, dashed = style["color"], style["linestyle"] == "--"
+    line = dict(color=color, linewidth=linewidth, linestyle="--" if dashed else "-")
     bp = ax.boxplot([data[a] for a in shown], positions=[a + offset for a in shown],
                     widths=0.85 * width, patch_artist=True, manage_ticks=False, showfliers=False,
                     boxprops=dict(facecolor="none" if dashed else color, alpha=None, edgecolor=color,
-                                  linewidth=1.0, linestyle="--" if dashed else "-"),
-                    whiskerprops=line, capprops=dict(color=color, linewidth=1.0),
-                    medianprops=dict(color="black", linewidth=1.2))
+                                  linewidth=linewidth, linestyle="--" if dashed else "-"),
+                    whiskerprops=line, capprops=dict(color=color, linewidth=linewidth),
+                    medianprops=dict(color="black", linewidth=1.2 * linewidth))
     if not dashed:
         for box in bp["boxes"]:
             box.set_facecolor((*plt.matplotlib.colors.to_rgb(color), 0.35))
@@ -543,13 +564,13 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--measure", choices=sorted(RESULTS_ROOTS), default="leave_one",
                     help="leave_one (default), keep_one (leave-one-in results root), keep_one_full (KL(full || only frame)) "
-                         "or recent_k (KL(full || K most recent frames); recent_frames_normalized_box_split)")
+                         "or recent_k (KL(full || K most recent frames); writes figures/recent_k.{pdf,png})")
     ap.add_argument("--results", type=Path, default=None, help="default <results root>/results")
     ap.add_argument("--out", type=Path, default=None, help="default <results root>/figures")
     ap.add_argument("--recent-models", help="recent_k: comma-separated subset of the models to draw "
                                             "(default: RECENT_PAPER_MODELS for the default figure, all with --only)")
     ap.add_argument("--only", help="recent_k: comma-separated figure names to write "
-                                   "(default: recent_frames_normalized_box_split only)")
+                                   "(default: recent_k, the normalised box figure, only)")
     ap.add_argument("--tag", help="recent_k: suffix for the file names, so a subset does not overwrite the standard set")
     ap.add_argument("--episode", help="episode label for the heatmap (default: summary.json's representative episode)")
     args = ap.parse_args()
@@ -578,9 +599,10 @@ def main() -> None:
             "recent_frames_flip": lambda o: figure_recent_flip(curve, o),
             "recent_frames_box": lambda o: figure_recent_box(steps, o),
             "recent_frames_box_split": lambda o: figure_recent_box_split(steps, o),
-            "recent_frames_normalized_box_split": lambda o: figure_recent_box_split(steps, o, normalized=True),
+            "recent_k": lambda o: figure_recent_box_split(steps, o, normalized=True),  # the paper figure
+            # (named recent_frames_normalized_box_split until 2026-11-21)
         }
-        names = [n.strip() for n in args.only.split(",")] if args.only else ["recent_frames_normalized_box_split"]
+        names = [n.strip() for n in args.only.split(",")] if args.only else ["recent_k"]
         unknown = [n for n in names if n not in figures]
         if unknown:
             ap.error(f"--only: unknown {unknown}; choose from {list(figures)}")

@@ -93,7 +93,7 @@ Every non-identity R1 arm adds `vlm.kv_prune_budget_frames=<k>`; Uni-NaVid arms 
 - Keep-mask logs: every step, per history frame, the original token count, the alive count and a
   packed bit mask over the frame's tokens (LongNav-R1: `sup/vtp_*` in `sequence.json`, token order
   = raster patch index in `sup/vtp_raster`; Uni-NaVid: `prune/<label>.jsonl`). Rows are keyed
-  `(model, episode, step, frame)` like `paper_results/frame_influence/results/influence.csv.gz`,
+  `(model, episode, step, frame)` like `paper_results_archive/frame_influence/results/influence.csv.gz`,
   so retention can be joined with the influence tables.
 - Statistics: episode means with 95% percentile-bootstrap CIs (2000 resamples, seed 17); paired
   two-sided sign-flip permutation tests (10 000 resamples) on `episode_label` vs the same-`k`
@@ -430,7 +430,7 @@ prior `Q`, or one that merely makes it *certain*. `entropy_keep_one` keeps the `
 lowest `H(P_f)` — a confidence criterion with no reference replay (one replay cheaper per step).
 
 *Offline check before the sweep* (entropy of the only-f log-probs already stored by the Exp 3
-keep-one rerun, `paper_results/frame_influence_keepone/results/influence.csv.gz`; full-context
+keep-one rerun, `paper_results_archive/frame_influence_keepone/results/influence.csv.gz`; full-context
 pool, 10 episodes per model; R1 1089 steps / 150k frame rows, Uni-NaVid 640 / 123k):
 
 | | LongNav-R1 | Uni-NaVid |

@@ -37,7 +37,8 @@ def main():
         dst.parent.mkdir(parents=True, exist_ok=True)
         # Writers may regenerate these outputs. Everything else is a read-only input.
         if 'results' in rel.parts or 'figures' in rel.parts:
-            shutil.copy2(ROOT / rel, dst)
+            if (ROOT / rel).is_file():  # a retired output (e.g. a dropped figure) has nothing to seed
+                shutil.copy2(ROOT / rel, dst)
         else:
             dst.symlink_to(ROOT / rel)
     commands = [c for study in manifest['studies'].values() for c in study['commands']]

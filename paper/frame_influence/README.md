@@ -18,6 +18,23 @@ figures without overwriting published outputs, follow the
 insufficient: restore required local inputs from the checksummed backup first. Ordinary
 launch logs and locks are ignored; protected traces, arrays, and images remain scientific inputs.
 
+> **Archived 2026-11-21 (paper clean-up).** The paper uses the recent-window variant only
+> (`paper_results/frame_influence_recent/`). The leave-one-out study and the leave-one-in variant moved
+> out of `paper_results/` to `paper_results_archive/frame_influence/` and
+> `paper_results_archive/frame_influence_keepone/`, where only their `runs/` are kept; the full-reference
+> variant has no runs of its own and rebuilds from the keep-one runs. The `results/` and `figures/` of all
+> three were deleted and rebuild next to the archived runs in under a minute (checked before deletion:
+> every table and figure came back identical); rebuilt outputs are git-ignored. The numbers and file
+> references in the sections below describe those rebuilt outputs. The recent-window aggregation still
+> reads the archived runs for its reference checks.
+>
+> ```bash
+> for m in leave_one keep_one keep_one_full; do
+>   conda run -n longnav_vlm python paper/frame_influence/aggregate.py --measure $m
+>   conda run -n vln python paper/frame_influence/plot.py --measure $m
+> done
+> ```
+
 ## Definitions
 
 **Evaluation set.** `src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json`: 10 labels,
@@ -105,7 +122,7 @@ Ablated log-probs are stored for every probe, so argmax flips can be counted.
 | `uninavid_influence` | Uni-NaVid-7B (`baselines/`) | official evaluator + `--frame-influence --sampling-seed 30` |
 | `lightnav_influence_keepone` | LightNav-0 (`baselines/`, keep-one only) | `baselines/run_lightnav.sh` with `INFLUENCE=1` (`lightnav_hm3d/eval_influence.py`): normal navigation on the eager masked kernel of `lightnav_ref`, then the keep-one probes after every decision (see the LightNav-0 paragraph below) |
 
-## Leave-one-in variant (`paper_results/frame_influence_keepone/`)
+## Leave-one-in variant (`paper_results_archive/frame_influence_keepone/`)
 
 The same experiment with the complementary per-frame measure, for every frame `f = 0..t`
 (current frame included):
@@ -190,7 +207,7 @@ conda run -n vln python paper/frame_influence/plot.py --measure keep_one
 ```
 
 **Findings (runs of 2026-09-23, R1's 500-step episode added the same evening; LightNav-0 run
-2026-10-26; `paper_results/frame_influence_keepone/results/summary.json`).**
+2026-10-26; `paper_results_archive/frame_influence_keepone/results/summary.json`).**
 All three models on all 10 episodes (R1 trajectories identical to `r1_full`; Uni-NaVid the same
 seeded trajectories as the leave-one-out arm; LightNav-0 its own eager-kernel trajectories, SR 0.9
 after forced-stop rescoring, 1 696 decisions, 24 416 tubelet probes in 90 min — they are not the
@@ -274,7 +291,7 @@ of an episode (10–150 rows each) and are left out of the row.
   below; `H_gauss` falls over the episode in 9/10 episodes (sign test p = 0.02) against 8/10
   (p = 0.11) for `H_cat`. Figures `spread_scatter`, `spread_over_time`, `spread_showcase`.
 
-## Full-reference variant (`paper_results/frame_influence_keepone_full/`)
+## Full-reference variant (`paper_results_archive/frame_influence_keepone_full/`)
 
 This results directory is kept locally and is git-ignored (2026-11-20: only code and documentation
 go to GitHub). It is computed offline from the keep-one runs, so `aggregate.py --measure keep_one_full` rebuilds it.
@@ -436,15 +453,16 @@ shared K = 0, 1, 4, 8, 16, 32 against those runs per decision (`results/recent_r
 ```bash
 MEASURE=recent_k nohup bash paper/frame_influence/run_all.sh > /dev/null 2>&1 &   # Uni-NaVid, LongNav-R1, LightNav-0
 python paper/frame_influence/aggregate.py --measure recent_k
-conda run -n vln python paper/frame_influence/plot.py --measure recent_k         # figures/recent_frames_normalized_box_split.{pdf,png}
+conda run -n vln python paper/frame_influence/plot.py --measure recent_k         # figures/recent_k.{pdf,png}
 # any other view, on request (all five models unless --recent-models; --tag suffixes the file names):
 conda run -n vln python paper/frame_influence/plot.py --measure recent_k \
     --only recent_frames,recent_frames_fixed,recent_frames_normalized,recent_frames_flip,recent_frames_box,recent_frames_box_split
 ```
 
-**The figure (user decision 2026-11-20).** `figures/recent_frames_normalized_box_split` is the
+**The figure (user decision 2026-11-20).** `figures/recent_k` is the
 only figure kept for this variant: two panels, LongNav-R1 (leaky) and LightNav-0 (old blocks
-kept), the normalised KL of the section below as one box per even K across episodes (outlier
+kept; titled plainly "LightNav-0" and drawn solid green since 2026-11-21, as in `ctx_ablation`), drawn at
+single-column size for a two-column paper (3.5 × 1.6 in, 8 pt text, `paper/figstyle.py`): the normalised KL of the section below as one box per even K across episodes (outlier
 points not drawn) with the median across episodes as a line through them (every K; 100 % at
 K = 0). Medians drawn (%), K = 1 / 2 / 4 / 8 / 16 / 24 / 32: LongNav-R1 30 / 15 / 2.4 / 1.9 /
 1.4 / 0.9 / 1.1 (8 episodes), LightNav-0 kept 72 / 36 / 24 / 21 / 12 / 10 / 8.3 (10 episodes).
@@ -608,7 +626,7 @@ reproduce `r1_influence_recompute` exactly (difference 0 at every shared probe).
 
 Three-panel box figure (leaky, leak-free, LightNav-0 blocks kept; not kept in `figures/`):
 `plot.py --measure recent_k --tag r1_both_lightnav_kept --recent-models "LongNav-R1,LongNav-R1 (leak-free),LightNav-0 (old
-blocks kept)" --only recent_frames_normalized_box_split`.
+blocks kept)" --only recent_k`.
 
 **Why the three KL curves sit at different heights.** Three measurement differences stack
 (pooled, K = 32): (i) *output space*: 256 codes against 4 actions; folding LightNav-0 onto its
@@ -662,7 +680,7 @@ Uni-NaVid / LightNav-0) of this set.
 
 ```bash
 # both arms, serially (Uni-NaVid ~30 min, LongNav-R1 ~4 h on one RTX 5090)
-nohup bash paper/frame_influence/run_all.sh > /dev/null 2>&1 &     # log: paper_results/frame_influence/runs/driver.log
+nohup bash paper/frame_influence/run_all.sh > /dev/null 2>&1 &     # log: paper_results_archive/frame_influence/runs/driver.log
 # or individually
 bash paper/frame_influence/run_uninavid.sh
 conda activate longnav_vlm && bash paper/frame_influence/run_r1.sh
@@ -688,7 +706,7 @@ The KL/keep-one probes remain supported diagnostics after cleanup; they are not 
 policies. The inherited `VLMWorker._kl_frame_probe` and replay helpers now live in
 [diagnostics.py](../../src/longnav/utils/diagnostics.py).
 
-## Outputs — all under `paper_results/frame_influence/`
+## Outputs — all under `paper_results_archive/frame_influence/`
 
 * `runs/r1_influence/`, `runs/r1_influence_recompute/`: `config.yaml`, `rollout/results_*`; the per-episode
   `rollout/<scene>/<label>.../sequence.json` (with `sup/kl_influence*`) stay on disk, gitignored.

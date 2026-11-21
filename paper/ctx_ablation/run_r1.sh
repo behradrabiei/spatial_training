@@ -17,7 +17,7 @@ PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"
 RESOURCES="${RESOURCES:-single}"
 OUT_ROOT="$ROOT/paper_results/ctx_ablation/runs"  # must match task.output_dir in experiment/paper_ctx.yaml
 MANIFEST="src/longnav/conf/episode_jsons/hm3d_v2_100.json"
-K_LIST="${K_LIST:-32 16 8 4 1}"
+K_LIST="${K_LIST:-32 16 8 4 2 1}"
 
 if [[ -z "${ARMS:-}" ]]; then
   ARMS="r1_full"

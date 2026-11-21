@@ -22,7 +22,7 @@ cd "$ROOT"
 PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"  # only for the completeness check
 MEASURE="${MEASURE:-keep_one}"
 case "$MEASURE" in
-  keep_one) ARM="${ARM:-lightnav_influence_keepone}"; OUT_ROOT="$ROOT/paper_results/frame_influence_keepone/runs" ;;
+  keep_one) ARM="${ARM:-lightnav_influence_keepone}"; OUT_ROOT="$ROOT/paper_results_archive/frame_influence_keepone/runs" ;;
   recent_k) ARM="${ARM:-lightnav_influence_recent}";  OUT_ROOT="$ROOT/paper_results/frame_influence_recent/runs" ;;
   *) echo "Unknown MEASURE '$MEASURE' (expected keep_one or recent_k)" >&2; exit 2 ;;
 esac

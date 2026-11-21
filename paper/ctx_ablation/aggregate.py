@@ -56,6 +56,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 RESULTS_ROOT = ROOT / "paper_results/ctx_ablation"
 K_LIST = (32, 16, 8, 4, 1)
+R1_K_LIST = (32, 16, 8, 4, 2, 1)  # HM3D LongNav-R1 arms also have K = 2 (added 2026-11-20)
 KEEP_ROOT = ROOT / "paper_results/token_prune_flat/runs"  # LightNav-0 old-blocks-kept arms live there
 KEEP_SOURCE = {f"lightnav_keep_k{k}": KEEP_ROOT / f"lightnav_recency_b{k - 2}" for k in (32, 16, 8, 4)}
 KEEP_SOURCE["lightnav_keep_k2"] = KEEP_ROOT / "lightnav_random_b0"  # current pair only, no history (no K = 2 window)
@@ -81,7 +82,7 @@ def arm_specs(models=("r1", "uninavid", "lightnav")):
     if "r1" in models:
         yield "r1_full", "r1", "full", None
         for mode in ("evict", "recompute"):
-            for k in K_LIST:
+            for k in R1_K_LIST:
                 yield f"r1_{mode}_k{k}", "r1", mode, k
     if "uninavid" in models:
         yield "uninavid_full", "uninavid", "full", None
@@ -302,7 +303,7 @@ def main() -> None:
         r"$K$ & " + " & ".join("SR & SPL" for _ in groups) + r" \\",
         r"\midrule",
     ]
-    table_ks = K_LIST if navverse else tuple(sorted(set(K_LIST) | set(KEEP_K), reverse=True))  # K = 2 row: keep arm only
+    table_ks = K_LIST if navverse else tuple(sorted(set(K_LIST) | set(KEEP_K), reverse=True))  # K = 2 row: LongNav-R1 and the keep arm
     for k in ("full",) + table_ks:
         cells = []
         for _, arm_of in groups:
@@ -322,7 +323,7 @@ def main() -> None:
         keep_note = [
             r"% LightNav-0 (old blocks kept): the window's image tokens at K, with every older segment's timestamp",
             r"% and vision markers left in the prompt (flat token-prune study, lightnav_recency_b{K-2}; K = 2: the",
-            r"% current pair and no history, lightnav_random_b0, no window arm at K = 2; K = 1: no history and the",
+            r"% current pair and no history, lightnav_random_b0, no LightNav-0 window arm at K = 2; K = 1: no history and the",
             r"% current frame doubled, lightnav_recency_b0_cur1).",
         ]
     lines += [r"\bottomrule", r"\end{tabular}",
