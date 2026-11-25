@@ -22,8 +22,12 @@ bf4e65ff. Scientific inputs stay at their canonical paths, including
 `dump/longnav_eval/keep_one_influence_w32_b10000000` and `dump/hm3d_v2_100_labels.json`.
 Large traces, arrays, and showcase images can be ignored by Git while still being required.
 Studies the paper does not use are archived, runs only, under `paper_results_archive/` (the
-leave-one-out and keep-one frame-influence studies since 2026-11-21); the manifest lists them at
-those paths and their outputs are rebuilt on demand, not kept. The windowed `token_prune` study
+leave-one-out and keep-one frame-influence studies since 2026-11-21, the MP3D replicate of the
+pruning-protocol study, `protocol_mp3d`, since 2026-11-22, the MP3D replicate of the
+information-horizon study, `info_horizon_mp3d`, and the NavVerse replicate of the context-window
+ablation, `ctx_ablation_navverse`, since 2026-11-23); the manifest lists them at
+those paths (`ctx_ablation_navverse` was never in the manifest or the backup: the archive holds its
+only copy) and their outputs are rebuilt on demand, not kept. The windowed `token_prune` study
 was deleted on 2026-11-21 at the user's request (`token_prune_flat` stays in `paper_results/`):
 its manifest entries point at `paper_results_archive/token_prune/` and only the backup holds them.
 Consult the manifest before deleting or moving anything. Rebuild outputs with

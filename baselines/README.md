@@ -116,7 +116,7 @@ Retained pruning methods are `identity`, `random`, `fastv`, `pyramiddrop`, `divp
 `dart`, `hybrid`, `uniform`, and the whole-frame `kl_keep_one`, `entropy_keep_one` and
 `recency` (`--prune-method`; the whole-frame ones need `--prune-layer 0`). Budget scope is `last_stage` or `model`;
 `uniform` requires `model`. Use the [windowed/flat pruning protocol](../paper/token_prune/README.md)
-or [hybrid/uniform/PyramidDrop protocol](../paper/hybrid_prune/README.md) for compatible
+or [hybrid/uniform/PyramidDrop protocol](../paper/protocol/README.md) for compatible
 windows, budgets, and stages. [prune.py](uninavid_hm3d/prune.py) owns these mechanisms;
 the [frame-influence](../paper/frame_influence/README.md),
 [horizon](../paper/info_horizon/README.md), and [selector-KL](../paper/selector_kl/README.md)
@@ -128,7 +128,7 @@ Habitat metrics in its result directory.
 
 Per-step trace (`traces/<label>.jsonl`, one line per env step). On inference
 steps (`inference: true`) the record also carries the cost of that LLM call, added
-for the cost benchmark of `paper/hybrid_prune` (2026-09-23): `inference_seconds`
+for the cost benchmark of `paper/protocol` (2026-09-23): `inference_seconds`
 (wall time of `model.generate`), `prompt_tokens` (the tokens the LLM prefilled —
 instruction plus the visual history kept — read by a forward pre-hook on decoder
 layer 0 that keeps the *last* multi-token forward of the call, so a pruning

@@ -255,7 +255,7 @@ class DiagnosticsMixin:
         if any(l > n_layers for l in self.horizon_probe_layers):
             raise ValueError(f"horizon_probe_layers {self.horizon_probe_layers} exceed the model's {n_layers} layers")
         t0 = time.perf_counter()
-        self._horizon_row = horizon_probe(self, self.horizon_probe_layers)
+        self._horizon_row = horizon_probe(self, self.horizon_probe_layers, blind=self.horizon_probe_blind)
         self._horizon_probe_count += int(self._horizon_row["n_probes"])
         self._horizon_probe_latency += time.perf_counter() - t0
 
@@ -269,6 +269,18 @@ class DiagnosticsMixin:
         self._selector_row = selector_probe(self, self.selector_probe_budgets, self.selector_probe_measures)
         self._selector_probe_count += int(self._selector_row["n_probes"])
         self._selector_probe_latency += time.perf_counter() - t0
+
+
+    def _prune_kl_step(self):
+        """paper/prune_kl: KL(P full || P pruned) for every shadow (method, frame budget) pruner on
+        the decision just made, then one selection step per shadow
+        (longnav.utils.prune_kl_probe.prune_kl_probe)."""
+        from longnav.utils.prune_kl_probe import prune_kl_probe
+
+        t0 = time.perf_counter()
+        self._prune_kl_row = prune_kl_probe(self)
+        self._prune_kl_count += int(self._prune_kl_row["n_probes"])
+        self._prune_kl_latency += time.perf_counter() - t0
 
 
     def _kl_frame_probe(self, candidate_mask, forced, base_logp=None):

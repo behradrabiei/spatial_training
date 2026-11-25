@@ -270,5 +270,59 @@ class UniNavidLoaderTest(unittest.TestCase):
         self.assertAlmostEqual(steps[1]["history_all"], 0.01)  # joint probes untouched
 
 
+class PruneKlLoaderTest(unittest.TestCase):
+    """paper/prune_kl: the LongNav-R1 loader on a synthetic ``vlm.prune_kl_probe`` run and the curve
+    statistics (binding decisions shared by the methods of a budget, the all-decisions mean)."""
+
+    def test_r1_rows_binding_set_and_curve(self):
+        from longnav.analysis import prune_kl as pk
+
+        full = [_logp(.1, .7, .1, .1), _logp(.1, .1, .7, .1), _logp(.7, .1, .1, .1)]
+        moved = _logp(.6, .2, .1, .1)  # argmax stop
+        methods, budgets = ["random", "random", "fastv", "fastv"], [1, 2, 1, 2]
+        # step 0: nothing hidden; step 1: only k=1 binds (random hides, fastv's set happens to be empty);
+        # step 2: both budgets bind
+        hidden = [[0, 0, 0, 0], [5, 0, 0, 0], [9, 4, 9, 4]]
+        kept = [[0, 0, 0, 0], [5, 10, 10, 10], [5, 10, 5, 10]]
+        logp = [[full[0]] * 4, [moved, full[1], full[1], full[1]], [full[2], full[2], _logp(.1, .7, .1, .1), full[2]]]
+        kl = [[inf.kl_from_logp(full[t], logp[t][j]) for j in range(4)] for t in range(3)]
+        novis = [[0.5, NOVIS[0]], [0.4, NOVIS[0]], [0.2, NOVIS[0]]]
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            seq = root / "rollout" / "scene" / f"{LABEL}.0@0"
+            seq.mkdir(parents=True)
+            seq.joinpath("sequence.json").write_text(json.dumps({
+                "sup/prune_kl_methods": [methods] * 3, "sup/prune_kl_budgets": [budgets] * 3, "sup/prune_kl_kl": kl,
+                "sup/prune_kl_logp": logp, "sup/prune_kl_hidden": hidden, "sup/prune_kl_kept": kept,
+                "sup/prune_kl_base_logp": full, "sup/prune_kl_visual_all": novis,
+                "sup/action_probs": [list(np.exp(b)) for b in full], "action_history": ["forward", "left", "stop"]}))
+            (root / "rollout" / "results_0.jsonl").write_text(json.dumps({"episode_label": LABEL, "success": 1, "n_steps": 3}) + "\n")
+            rows = pk.load_r1_prune_kl(root)
+        self.assertEqual(len(rows), 12)
+        by = {(r["step"], r["method"], r["k"]): r for r in rows}
+        r = by[(1, "random", 1)]
+        self.assertEqual((r["flip"], r["flip_exec"], r["argmax_full"], r["argmax_pruned"], r["binding"], r["n_hidden"], r["n_kept"]),
+                         (1, 1, "left", "stop", 1, 5, 5))
+        self.assertAlmostEqual(r["kl"], inf.kl_from_logp(full[1], moved))
+        self.assertAlmostEqual(r["novis"], 0.4)
+        self.assertAlmostEqual(r["kl_floor"], 0.0, places=9)
+        # the budget binds for fastv too at step 1 (some method hides a token), though its own set is empty
+        self.assertEqual((by[(1, "fastv", 1)]["binding"], by[(1, "fastv", 1)]["kl"]), (1, 0.0))
+        self.assertEqual([by[(t, "random", 2)]["binding"] for t in range(3)], [0, 0, 1])
+        self.assertEqual(by[(0, "random", 1)]["binding"], 0)
+        curve = {(c["method"], c["k"]): c for c in pk.prune_kl_curve(rows)}
+        c = curve[("random", 1)]
+        self.assertEqual((c["n_steps"], c["n_steps_all"], c["n_episodes"]), (2, 3, 1))
+        self.assertAlmostEqual(c["kl_mean"], (kl[1][0] + kl[2][0]) / 2)
+        self.assertAlmostEqual(c["kl_all_mean"], (kl[1][0] + kl[2][0]) / 3)
+        self.assertAlmostEqual(c["flip_mean"], 0.5)
+        self.assertAlmostEqual(c["novis_mean"], 0.3)
+        self.assertAlmostEqual(c["kl_norm_balanced"], c["kl_mean"] / 0.3)
+        self.assertAlmostEqual(curve[("fastv", 1)]["kl_mean"], kl[2][2] / 2)  # same two decisions as random
+        self.assertEqual(curve[("fastv", 2)]["n_steps"], 1)
+        ep = {(e["method"], e["k"]): e for e in pk.prune_kl_episode_table(rows)}
+        self.assertEqual((ep[("random", 2)]["n_steps"], ep[("random", 2)]["n_steps_all"]), (1, 3))
+
+
 if __name__ == "__main__":
     unittest.main()

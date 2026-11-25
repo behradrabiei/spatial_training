@@ -1,4 +1,4 @@
-"""Smoke test for the protocols of paper/hybrid_prune (hybrid, no-window PyramidDrop, uniform).
+"""Smoke test for the protocols of paper/protocol (hybrid, no-window PyramidDrop, uniform).
 
 Hybrid: K-frame window (frame cut) + PyramidDrop-like attention stages below the information
 horizon + a random last stage with its own, aggressive budget (kv_prune_stage_importance,

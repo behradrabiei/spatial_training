@@ -14,3 +14,17 @@ COLUMN_RC = {"font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8, "xtick.la
              "grid.linewidth": 0.5, "xtick.major.width": 0.6, "ytick.major.width": 0.6,
              "xtick.major.size": 2.5, "ytick.major.size": 2.5,
              "pdf.fonttype": 42, "ps.fonttype": 42}  # TrueType in the PDF, no Type 3 fonts
+
+
+def top_legend(fig, handles, labels):
+    """Legend centred above the panels, in as few rows as fit the figure width. Returns the legend
+    height as a figure fraction (pass ``1 - height`` as the top of ``tight_layout``'s rect)."""
+    renderer = fig.canvas.get_renderer()
+    for rows in range(1, len(labels) + 1):
+        legend = fig.legend(handles, labels, loc="upper center", ncol=-(-len(labels) // rows), frameon=False,
+                            bbox_to_anchor=(0.5, 1.0), handlelength=2.8, columnspacing=1.0,
+                            handletextpad=0.5, borderaxespad=0.2)
+        box = legend.get_window_extent(renderer)
+        if box.width <= fig.bbox.width or rows == len(labels):
+            return (fig.bbox.height - box.y0) / fig.bbox.height
+        legend.remove()

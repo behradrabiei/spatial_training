@@ -58,12 +58,38 @@ Only K <= t is probed (at least one frame is lost). The rebuilt prompts go throu
 own sample builder and ViT path with a per-step copy of the episode's tubelet cache, so the
 navigation cache and the decision are untouched.
 
+``--measure blind_layer`` runs the depth analogue (paper/info_horizon/README.md, "Blind-from-layer
+KL"): ``Blind_t(L) = KL(P(action | full context) || P(action | every visual token hidden from
+decoder layer L on))``, the expectation under the full-context decision. One probe per ``L`` in
+``--layers`` (default: every second layer) after every decision: the same prompt with every
+``<|video_pad|>`` column closed for every query on layers ``>= L`` and open below, i.e. exactly
+the forward ``eval_blind.py --blind-layer L`` runs, on the unblinded trajectory. ``L = 0`` is the
+no-visual reference of the other two measures (``visual_all_mask``); the replay with nothing
+hidden is the noise floor and the ``L = n_layers`` point. Each record keeps every probe's 256
+log-probs, its six-bin fold and its free-run pointing tokens.
+
+``--measure prune_kl`` runs the pruning analogue (paper/prune_kl/README.md):
+``Prune_t(M, k) = KL(P(action | full context) || P(action | the visual tokens pruning method M
+holds at k frames' worth))``, the expectation under the full-context decision. One SHADOW pruner per
+``--prune-kl-arms method:k`` (default random / fastv / divprune / dart x k = 4, 8, 16, 32) is
+advanced along the full-context trajectory with ``eval_prune.py``'s own rule -- ledger of
+permanently dropped ``(f0, f1, pool, cell)`` tokens, pool = history tokens not in the ledger, the
+current tubelet exempt, budget ``k x 14`` tokens, selection BEFORE the decision of the same step,
+FastV / DART scored in a one-token pre-pass with that shadow's ledger hidden -- and after every
+decision the prompt is re-run with each shadow's hidden set closed on every layer. The tubelet
+layout depends on the step alone, so a shadow's ledger is well defined on a trajectory its own
+masks never steered; the random arm's masks are those of the live ``lightnav_random_b<k>`` run
+when ``--prune-kl-seed-episodes`` gives each episode its index in that run. ``recency:k`` arms
+are accepted as a check (they reproduce ``recent_keep`` at ``K = k + 2``).
+
 Runs in the LightNav client runtime (``baselines/.envs/lightnav``) with
 ``PYTHONPATH=baselines/LightNav-0/src``; ``baselines/run_lightnav.sh`` uses it when
 ``INFLUENCE=1`` (``INFLUENCE_MEASURE=recent_k MAX_K=32`` for the recent-window variant):
 
     python baselines/lightnav_hm3d/eval_influence.py --max-age 33 <eval_habitat args...>
     python baselines/lightnav_hm3d/eval_influence.py --measure recent_k --max-k 32 <eval_habitat args...>
+    python baselines/lightnav_hm3d/eval_influence.py --measure blind_layer --layers 0 2 4 <eval_habitat args...>
+    python baselines/lightnav_hm3d/eval_influence.py --measure prune_kl <eval_habitat args...>
 """
 
 from __future__ import annotations
@@ -86,20 +112,30 @@ try:
         _LAYER_RE, attention_mask, gather_kv, layer_index, masked_attention, visual_positions,
     )
     from baselines.lightnav_hm3d.eval_ctx import windowed_segments
-    from baselines.lightnav_hm3d.eval_prune import Tubelet, output_dir_from, single_current, split_history, tubelet_layout
+    from baselines.lightnav_hm3d.eval_prune import (
+        METHODS as PRUNE_METHODS, TOKENS_PER_FRAME, PruneState, Tubelet, apply_drop, decision_row, kept_per_tubelet,
+        output_dir_from, pack_bits, plan_step, select_keep, single_current, split_history, tubelet_layout,
+    )
 except ImportError:  # run as a script: sys.path[0] is this directory
     from eval_blind import (  # type: ignore
         _LAYER_RE, attention_mask, gather_kv, layer_index, masked_attention, visual_positions,
     )
     from eval_ctx import windowed_segments  # type: ignore
-    from eval_prune import Tubelet, output_dir_from, single_current, split_history, tubelet_layout  # type: ignore
+    from eval_prune import (  # type: ignore
+        METHODS as PRUNE_METHODS, TOKENS_PER_FRAME, PruneState, Tubelet, apply_drop, decision_row, kept_per_tubelet,
+        output_dir_from, pack_bits, plan_step, select_keep, single_current, split_history, tubelet_layout,
+    )
 
 N_CODES = 256  # <act_l0_*> coarse RVQ codes
 N_GENERATE = 6  # <apos><opos><act_l0><act_l1><act_l2><|im_end|>
 ACTION_POS = 2  # generated position of <act_l0_*>
 PROBE_TOKENS = ACTION_POS + 1
 MAX_AGE = 33  # current tubelet + the whole fast tier (ages 2-33 at pool 2)
-MEASURES = ("keep_one", "recent_k")
+MEASURES = ("keep_one", "recent_k", "blind_layer", "prune_kl")
+PRUNE_KL_METHODS = ("random", "fastv", "divprune", "dart")  # prune_kl: the flat study's selectors
+PRUNE_KL_BUDGETS = (4, 8, 16, 32)  # frames' worth
+PRUNE_KL_ARMS = tuple((m, k) for m in PRUNE_KL_METHODS for k in PRUNE_KL_BUDGETS)
+BLIND_LAYERS = tuple(range(0, 36, 2))  # blind_layer: default probe layers (every second of the 36)
 MAX_K = 32  # recent_k: largest number of most recent frames kept (within the dense tiers)
 BINS = ("stop", "fwd", "fwd_L", "fwd_R", "rot_L", "rot_R")
 # Habitat velocity_control of the ObjectNav server (habitat_server/lightnav_habitat/objectnav.py).
@@ -218,9 +254,50 @@ def recent_keep_sets(hist: Sequence[Tubelet], cur: Sequence[Tubelet], t_now: int
     return out
 
 
+def parse_arms(specs: Optional[Sequence[str]]) -> List[Tuple[str, int]]:
+    """``method:k`` strings -> ``[(method, k)]`` (prune_kl); None = the paper's 4 x 4 grid."""
+    if not specs:
+        return list(PRUNE_KL_ARMS)
+    arms: List[Tuple[str, int]] = []
+    for spec in specs:
+        method, _, k = str(spec).partition(":")
+        if method not in PRUNE_METHODS or not k.isdigit():
+            raise ValueError(f"prune_kl arm must be method:k with method in {PRUNE_METHODS}, got {spec!r}")
+        arms.append((method, int(k)))
+    if len(set(arms)) != len(arms):
+        raise ValueError(f"repeated prune_kl arm in {list(specs)}")
+    return arms
+
+
+def shadow_step(shadow: PruneState, items, tubelets: Sequence[Tubelet], t_now: int, pads: torch.Tensor,
+                pad_pos: Sequence[int], prompt_len: int, run_prepass: Callable[[PruneState, torch.Tensor], int]):
+    """One step of a shadow pruner on the prompt of decision ``t_now``: the selection
+    ``eval_prune``'s wrapper makes before its generate (``plan_step`` -> ``select_keep`` ->
+    ``apply_drop``, same order, same budget test), against the shadow's own ledger. Returns
+    ``(plan, n_pool, n_dropped, prepass_forwards)``; ``plan.hide`` is the hidden set that pruned
+    arm's decision at this step runs under. ``run_prepass(shadow, hide)`` runs the scoring
+    pre-pass of fastv / dart with ``hide`` closed and the captures written into ``shadow``."""
+    shadow.current_abs = int(t_now)
+    shadow.prompt_len = int(prompt_len)
+    plan = plan_step(tubelets, t_now, shadow.ledger, pad_pos, prompt_len)
+    n_pool, n_dropped, forwards = len(plan.cand_ranks), 0, 0
+    if n_pool > shadow.budget:
+        if shadow.budget == 0:
+            keep = torch.empty(0, dtype=torch.long)
+        else:
+            keep, forwards = select_keep(shadow, items, plan.cand_ranks, pads,
+                                         lambda: run_prepass(shadow, plan.hide), plan.cand_keys)
+        if int(keep.numel()) != shadow.budget:
+            raise RuntimeError(f"{shadow.method} kept {int(keep.numel())} of {n_pool} candidates, budget {shadow.budget}")
+        n_dropped = apply_drop(plan, keep, shadow.ledger, pad_pos)
+    return plan, n_pool, n_dropped, forwards
+
+
 # --- shared state -------------------------------------------------------------------------
 class InfluenceState:
-    def __init__(self, max_age: int = MAX_AGE, debug_steps: int = 0, measure: str = "keep_one", max_k: int = MAX_K):
+    def __init__(self, max_age: int = MAX_AGE, debug_steps: int = 0, measure: str = "keep_one", max_k: int = MAX_K,
+                 layers: Sequence[int] = BLIND_LAYERS, arms: Sequence[Tuple[str, int]] = PRUNE_KL_ARMS,
+                 seed_episodes: Optional[Sequence[int]] = None, tokens_per_frame: int = TOKENS_PER_FRAME):
         if max_age < 1:
             raise ValueError(f"max age must be >= 1, got {max_age}")
         if measure not in MEASURES:
@@ -230,6 +307,21 @@ class InfluenceState:
         self.max_age = int(max_age)
         self.measure = measure
         self.max_k = int(max_k)
+        # blind_layer: the probe layers (first decoder layer without visual tokens), ascending
+        self.layers = tuple(sorted({int(l) for l in layers}))
+        if measure == "blind_layer" and (not self.layers or self.layers[0] < 0):
+            raise ValueError(f"blind_layer needs non-negative probe layers, got {tuple(layers)}")
+        # prune_kl: one shadow pruner (eval_prune.PruneState: budget, seed, ledger, pre-pass captures)
+        # per (method, k); seed_episodes[i] = the episode counter the random selector seeds on for
+        # the i-th episode of this run (its index in the 100-episode pruning runs), default i
+        self.arms = [(str(m), int(k)) for m, k in arms] if measure == "prune_kl" else []
+        if measure == "prune_kl" and (not self.arms or len(set(self.arms)) != len(self.arms)):
+            raise ValueError(f"prune_kl needs distinct (method, k) arms, got {list(arms)}")
+        self.shadows = [PruneState(m, k, tokens_per_frame) for m, k in self.arms]
+        self.seed_episodes = None if seed_episodes is None else [int(e) for e in seed_episodes]
+        if self.seed_episodes is not None and (measure != "prune_kl" or min(self.seed_episodes, default=0) < 0):
+            raise ValueError("seed episodes are non-negative episode counters for the prune_kl measure")
+        self.capture_into: Optional[PruneState] = None  # the shadow whose scoring pre-pass is in flight
         # recent_k: the arguments of the decision in flight (to rebuild its prompt under another
         # frame layout) and the layout the sampler hook applies to the next sample it builds
         self.call: Optional[Tuple[Any, str, Any]] = None
@@ -248,6 +340,8 @@ class InfluenceState:
         # per generate call
         self.hide: Optional[torch.Tensor] = None  # bool [prompt_len]; None = no generate in flight
         self._hide_dev: Optional[torch.Tensor] = None
+        self.min_layer = 0  # the hidden set applies on decoder layers >= this (0 = every layer)
+        self.calls_hidden = 0  # layer calls of this generate that applied the hidden set
         self.prompt_len = 0
         self.calls = 0
         self.logits: List[torch.Tensor] = []  # one [V] fp32 row per compute_logits call
@@ -264,14 +358,26 @@ class InfluenceState:
             self._hide_dev = self.hide.to(device)
         return self._hide_dev
 
-    def set_hide(self, hide: Optional[torch.Tensor]) -> None:
+    def set_hide(self, hide: Optional[torch.Tensor], min_layer: int = 0) -> None:
         self.hide = hide
         self._hide_dev = None
+        self.min_layer = int(min_layer)
+
+    def seed_episode(self) -> int:
+        """The episode counter the shadows' random selector seeds on for the current episode."""
+        if self.seed_episodes is None:
+            return self.episode
+        if not 0 <= self.episode < len(self.seed_episodes):
+            raise RuntimeError(f"episode {self.episode} has no entry in the {len(self.seed_episodes)} seed episodes")
+        return self.seed_episodes[self.episode]
 
     def reset_episode(self) -> None:
         self.episode += 1
         self.segments = None
         self.current_abs = None
+        for shadow in self.shadows:  # not PruneState.reset_episode: that advances its own counter
+            shadow.ledger = set()
+            shadow.episode = self.seed_episode()
         if self._log is not None:
             self._log.close()
             self._log = None
@@ -286,6 +392,46 @@ class InfluenceState:
         self._log.flush()
 
     def describe(self) -> Dict[str, Any]:
+        if self.measure == "prune_kl":
+            return {"measure": "prune_kl", "arms": [[m, k] for m, k in self.arms],
+                    "tokens_per_frame": self.shadows[0].tokens_per_frame, "budgets": [s.budget for s in self.shadows],
+                    "seed": self.shadows[0].seed, "pivots": self.shadows[0].n_pivots, "seed_episodes": self.seed_episodes,
+                    "prefix": "free_run (each probe emits its own <apos><opos>; logits read at generated position 2)",
+                    "prune_kl_direction": "KL(full context || visual history pruned by the arm's shadow)", "temperature": 1.0,
+                    "action_token": "<act_l0_*> (256 coarse RVQ codes, renormalised)",
+                    "act_l0_ids": [int(self.act_ids[0]), int(self.act_ids[-1])] if self.act_ids is not None else None,
+                    "apos0_id": self.apos0, "opos0_id": self.opos0, "bins": list(BINS), "code_bins": self.bins,
+                    "bin_rule": {"dt": DT, "lin_vel_range": list(LIN_RANGE), "ang_vel_range": list(ANG_RANGE),
+                                 "min_abs_lin_speed": MIN_LIN, "min_abs_ang_speed": MIN_ANG, "fwd_straight_deg": FWD_STRAIGHT_DEG,
+                                 "decode": "coarse codeword alone (zero residual), first non-zero waypoint"},
+                    "shadow": "eval_prune.py's rule on the full-context trajectory: ledger of permanently dropped "
+                              "(f0, f1, pool, cell) tokens, pool = history tokens not in the ledger, current tubelet exempt, "
+                              "selection before the decision of the same step, budget = k x tokens_per_frame; fastv / dart "
+                              "scored in a one-token pre-pass with the shadow's ledger hidden",
+                    "hiding": "the shadow's dropped <|video_pad|> columns closed for every query on every layer, prefill and "
+                              "decode; timestamps, vision markers and text stay; positions unchanged",
+                    "probes_per_step": "replay (nothing hidden) + no-visual + one per arm whose shadow hides something",
+                    "bits": "keep mask over the history tokens in prompt order (numpy.packbits, base64), as eval_prune's log",
+                    "flip": "code = the probe's argmax <act_l0> code differs from the decision's; bin = its executed-action "
+                            "class (bin of the argmax code) differs from the decision's",
+                    "prefix_cache": "reset before every generate; each prefill asserted to cover the whole prompt"}
+        if self.measure == "blind_layer":
+            return {"measure": "blind_layer", "layers": list(self.layers),
+                    "prefix": "free_run (each probe emits its own <apos><opos>; logits read at generated position 2)",
+                    "blind_kl_direction": "KL(full context || every visual token hidden from layer L on)", "temperature": 1.0,
+                    "action_token": "<act_l0_*> (256 coarse RVQ codes, renormalised)",
+                    "act_l0_ids": [int(self.act_ids[0]), int(self.act_ids[-1])] if self.act_ids is not None else None,
+                    "apos0_id": self.apos0, "opos0_id": self.opos0, "bins": list(BINS), "code_bins": self.bins,
+                    "bin_rule": {"dt": DT, "lin_vel_range": list(LIN_RANGE), "ang_vel_range": list(ANG_RANGE),
+                                 "min_abs_lin_speed": MIN_LIN, "min_abs_ang_speed": MIN_ANG, "fwd_straight_deg": FWD_STRAIGHT_DEG,
+                                 "decode": "coarse codeword alone (zero residual), first non-zero waypoint"},
+                    "hiding": "every <|video_pad|> column (history and current tubelets) closed for every query on decoder "
+                              "layers >= L, prefill and decode, and open on the layers below; timestamps, vision markers and "
+                              "text stay; positions unchanged (= eval_blind.py --blind-layer L on the unblinded trajectory)",
+                    "probes_per_step": "replay (nothing hidden; the L = n_layers point and the noise floor) + one per layer",
+                    "flip": "code = the probe's argmax <act_l0> code differs from the decision's; bin = its executed-action "
+                            "class (bin of the argmax code) differs from the decision's",
+                    "prefix_cache": "reset before every generate; each prefill asserted to cover the whole prompt"}
         if self.measure == "recent_k":
             return {"measure": "recent_k", "max_k": self.max_k, "frame_unit": "frame; K = most recent frames kept, current included",
                     "prefix": "free_run (each probe emits its own <apos><opos>; logits read at generated position 2)",
@@ -324,7 +470,9 @@ class InfluenceState:
 # --- vLLM hooks ---------------------------------------------------------------------------
 def make_influence_forward(state: InfluenceState, original: Callable[..., torch.Tensor]) -> Callable[..., torch.Tensor]:
     """``FlashAttentionImpl.forward`` replacement: ``eval_blind``'s masked kernel with the hidden
-    set ``state.hide`` on every layer; a prefill must cover the whole prompt (no cached prefix)."""
+    set ``state.hide`` on every layer ``>= state.min_layer`` (0 for every measure but
+    ``blind_layer``; the layers below get the plain causal mask through the same kernel); a
+    prefill must cover the whole prompt (no cached prefix)."""
 
     def forward(self, layer, query, key, value, kv_cache, attn_metadata, output=None,
                 output_scale=None, output_block_scale=None):
@@ -360,7 +508,8 @@ def make_influence_forward(state: InfluenceState, original: Callable[..., torch.
         if seq_len > int(state.hide.numel()) + 4096:
             raise RuntimeError(f"seq_len {seq_len} far beyond the prompt ({int(state.hide.numel())} tokens)")
 
-        hide = state.hide_on(query.device)
+        hidden_here = state.min_layer <= 0 or layer_index(layer.layer_name) >= state.min_layer
+        hide = state.hide_on(query.device) if hidden_here else None
         key_cache, value_cache = kv_cache.unbind(0)
         row = attn_metadata.block_table[0]
         k = gather_kv(key_cache, row, seq_len)
@@ -369,10 +518,43 @@ def make_influence_forward(state: InfluenceState, original: Callable[..., torch.
         out = masked_attention(query[:n_query], k, v, float(self.scale), mask)
         output[:n_query].copy_(out.to(output.dtype))
         state.calls += 1
+        state.calls_hidden += int(hidden_here)
+        cap = state.capture_into
+        if cap is not None and cap.capture and n_query > 1 and layer_index(layer.layer_name) == 0:
+            # prune_kl scoring pre-pass (eval_prune.make_prune_forward): the last query's layer-0
+            # attention over the columns this shadow still holds, and the rotated layer-0 keys
+            if cap.row is not None:
+                raise RuntimeError("layer-0 prefill captured twice in one pre-pass (chunked prefill?)")
+            if seq_len != cap.prompt_len or not hidden_here:
+                raise RuntimeError(f"pre-pass prefill seq_len {seq_len} != prompt length {cap.prompt_len} "
+                                   "(or the shadow's hidden set is not applied on layer 0)")
+            cap.row = decision_row(query[n_query - 1], k, float(self.scale), mask[-1]).cpu()
+            cap.keys0 = key[:n_query].detach().float().cpu()
+            cap.offset = seq_len - n_query
         return output
 
     forward._influence = True  # type: ignore[attr-defined]
     return forward
+
+
+def make_capture_prehook(state: InfluenceState) -> Callable[..., None]:
+    """Forward pre-hook on decoder layer 1 (eval_prune.make_layer1_prehook for the shadow whose
+    pre-pass is in flight): the residual stream after layer 0 = ``hidden_states + residual``."""
+
+    def hook(module, args):
+        cap = state.capture_into
+        if cap is None or not cap.capture:
+            return
+        hidden_states, residual = args[1], args[2]
+        if hidden_states.shape[0] <= 1:
+            return  # decode forward
+        if residual is None:
+            raise RuntimeError("layer 1 received no residual stream")
+        if cap.h1 is not None:
+            raise RuntimeError("layer-1 input captured twice in one pre-pass")
+        cap.h1 = (hidden_states + residual).detach().float().cpu()
+
+    return hook
 
 
 def make_logits_hook(state: InfluenceState, original: Callable[..., Any]) -> Callable[..., Any]:
@@ -390,9 +572,10 @@ def make_logits_hook(state: InfluenceState, original: Callable[..., Any]) -> Cal
     return compute_logits
 
 
-def check_generate_counts(state: InfluenceState, prompt_len: int, n_visual: int, n_tokens: int) -> int:
-    """After one generate call: the masked kernel ran on every layer of every forward and the
-    logits of every generated position were captured. Returns the number of forwards."""
+def check_generate_counts(state: InfluenceState, prompt_len: int, n_visual: int, n_tokens: int, min_layer: int = 0) -> int:
+    """After one generate call: the masked kernel ran on every layer of every forward, the hidden
+    set was applied on exactly the layers ``>= min_layer`` of each, and the logits of every
+    generated position were captured. Returns the number of forwards."""
     n = state.n_layers
     if not n:
         raise RuntimeError("engine layer count unknown (engine hook did not run)")
@@ -403,7 +586,12 @@ def check_generate_counts(state: InfluenceState, prompt_len: int, n_visual: int,
         raise RuntimeError(f"prompt of {prompt_len} tokens has no <|video_pad|> token")
     if len(state.logits) < n_tokens:
         raise RuntimeError(f"{len(state.logits)} logits rows captured for {n_tokens} generated tokens")
-    return state.calls // n
+    forwards = state.calls // n
+    expected_hidden = forwards * max(n - max(int(min_layer), 0), 0)
+    if state.calls_hidden != expected_hidden:
+        raise RuntimeError(f"hidden set applied on {state.calls_hidden} layer calls, expected {expected_hidden} "
+                           f"({forwards} forwards x layers >= {min_layer} of {n})")
+    return forwards
 
 
 # --- one probe ------------------------------------------------------------------------------
@@ -533,11 +721,26 @@ def install_visual_influence(state: InfluenceState) -> None:
         if bundle.action_method != "rvq":
             raise RuntimeError(f"checkpoint action method {bundle.action_method!r}; the probe reads RVQ codes")
         state.n_layers = n_layers
+        if state.measure == "prune_kl":
+            # the DART capture is a forward pre-hook on decoder layer 1 (as eval_prune)
+            from vllm.config.compilation import CompilationMode
+            if cfg.compilation_config.mode != CompilationMode.NONE:
+                raise RuntimeError(f"torch.compile enabled ({cfg.compilation_config.mode}); the layer-1 pre-hook would not run")
+            if n_layers < 2:
+                raise RuntimeError(f"{n_layers} decoder layer(s): no layer 1 to read the DART hidden states from")
+            from lightnav.inference.vllm_utils import get_vllm_model
+            get_vllm_model(llm).language_model.model.layers[1].register_forward_pre_hook(make_capture_prehook(state))
+            for shadow in state.shadows:
+                shadow.hidden_size = int(cfg.model_config.hf_text_config.hidden_size)
+                shadow.n_layers = n_layers
+        if state.measure == "blind_layer" and state.layers[-1] >= n_layers:
+            raise RuntimeError(f"probe layers {state.layers} exceed the model's {n_layers} decoder layers "
+                               f"(L = {n_layers} hides nothing: that point is the replay)")
         state.strict = True
         # one "Successfully reset prefix cache" INFO line per probe would swamp the client log
         logging.getLogger("vllm.v1.core.block_pool").setLevel(logging.WARNING)
         print(f"[influence] n_layers={n_layers} eager={cfg.model_config.enforce_eager} act_l0 ids {act[0]}..{act[-1]} "
-              f"measure={state.measure} max_age={state.max_age} max_k={state.max_k} bins={ {b: state.bins.count(b) for b in BINS} }", flush=True)
+              f"measure={state.measure} max_age={state.max_age} max_k={state.max_k} layers={list(state.layers) if state.measure == 'blind_layer' else None} bins={ {b: state.bins.count(b) for b in BINS} }", flush=True)
         return bundle, llm
 
     model_mod.load_vllm_local = load_vllm_local
@@ -552,13 +755,15 @@ def install_visual_influence(state: InfluenceState) -> None:
 
     original_generate = engine_mod.VLNInferenceEngine.llm_generate_batch
 
-    def run(self, items, hide: torch.Tensor, max_new_tokens: int, prompt_len: int, n_visual: int) -> Tuple[Any, List[int], List[torch.Tensor], int]:
+    def run(self, items, hide: torch.Tensor, max_new_tokens: int, prompt_len: int, n_visual: int,
+            min_layer: int = 0) -> Tuple[Any, List[int], List[torch.Tensor], int]:
         """One hooked generate: ``(texts, token ids, logits rows, forwards)``. The token ids are
-        the greedy argmax of the captured rows (up to the first eos), checked against the text."""
+        the greedy argmax of the captured rows (up to the first eos), checked against the text.
+        ``hide`` applies on decoder layers ``>= min_layer``."""
         if not self.vllm_engine.reset_prefix_cache():
             raise RuntimeError("vLLM refused to reset its prefix cache (requests in flight?)")
-        state.set_hide(hide)
-        state.calls, state.logits = 0, []
+        state.set_hide(hide, min_layer)
+        state.calls, state.calls_hidden, state.logits = 0, 0, []
         try:
             out = original_generate(self, items, max_new_tokens)
         finally:
@@ -569,7 +774,7 @@ def install_visual_influence(state: InfluenceState) -> None:
             tokens.append(int(r.argmax()))
             if tokens[-1] == state.eos_id:
                 break
-        n_forwards = check_generate_counts(state, prompt_len, n_visual, len(tokens))
+        n_forwards = check_generate_counts(state, prompt_len, n_visual, len(tokens), min_layer)
         tok = self.bundle.tokenizer
         text = tok.decode(tokens, skip_special_tokens=False)
         text_no_eos = tok.decode([t for t in tokens if t != state.eos_id], skip_special_tokens=False)
@@ -681,9 +886,88 @@ def install_visual_influence(state: InfluenceState) -> None:
             exec_bin = waypoints_bin(wp)
         full.update({"codes": codes, "exec_bin": exec_bin})
 
-        def probe(hide):
-            _, toks, rws, _ = run(self, items, hide, PROBE_TOKENS, len(ids), n_visual)
+        def probe(hide, min_layer=0):
+            _, toks, rws, _ = run(self, items, hide, PROBE_TOKENS, len(ids), n_visual, min_layer)
             return probe_fields(state, rws, toks)
+
+        if state.measure == "blind_layer":
+            replay, replay_logp, replay_bin = probe(none_hidden)
+            replay.update({"kl": kl(full_logp, replay_logp), "kl_bin": kl(full_bin, replay_bin)})
+            blind = []
+            for L in state.layers:
+                fields, lp, lb = probe(visual.clone(), L)
+                blind.append({"layer": L, "kl": kl(full_logp, lp), "kl_bin": kl(full_bin, lb),
+                              "flip_code": None if lp is None or full.get("code") is None else bool(fields["code"] != full["code"]),
+                              "flip_bin": None if lp is None or full.get("bin") is None else bool(fields["bin"] != full["bin"]),
+                              **fields})
+            seconds = time.monotonic() - t0
+            state.generates += 1
+            state.log_record({
+                "step": t_now, "episode_label": f"episode_{state.episode:03d}", "prompt_tokens": len(ids), "n_visual": n_visual,
+                "n_tubelets": len(hist), "n_current": len(cur), "n_current_tokens": sum(c.n_tokens for c in cur),
+                "n_layers": state.n_layers, "layers": list(state.layers),
+                "full": full, "replay": replay, "blind_layer": blind,
+                "n_probes": 1 + len(blind), "probe_seconds": seconds, "forwards_decision": n_forwards,
+            })
+            if state.generates <= state.debug_steps:
+                def f4(x):
+                    return "none" if x is None else format(x, ".4f")
+                print(f"[influence] episode={state.episode} step={t_now} prompt_len={len(ids)} visual={n_visual} codes={codes} "
+                      f"exec={exec_bin} blind={ {r['layer']: f4(r['kl']) for r in blind} } "
+                      f"flip_bin={ {r['layer']: r['flip_bin'] for r in blind} } replay={f4(replay['kl'])} "
+                      f"{seconds * 1000:.0f}ms", flush=True)
+            return out
+
+        if state.measure == "prune_kl":
+            replay, replay_logp, replay_bin = probe(none_hidden)
+            replay.update({"kl": kl(full_logp, replay_logp), "kl_bin": kl(full_bin, replay_bin)})
+            ref, ref_logp, ref_bin = probe(visual.clone())
+            ref.update({"kl": kl(full_logp, ref_logp), "kl_bin": kl(full_bin, ref_bin)})
+            pads = torch.as_tensor(pad_pos, dtype=torch.long)
+
+            def prepass(shadow, hide) -> int:
+                state.capture_into = shadow
+                try:
+                    return run(self, items, hide, 1, len(ids), n_visual)[3]
+                finally:
+                    state.capture_into = None
+
+            arms, n_probes, n_prepass = [], 2, 0
+            for shadow in state.shadows:
+                plan, n_pool, n_dropped, fwd = shadow_step(shadow, items, tubelets, t_now, pads, pad_pos, len(ids), prepass)
+                n_prepass += fwd
+                n_kept, bits = kept_per_tubelet(plan, pad_pos)
+                if bool(plan.hide.any()):
+                    fields, lp, lb = probe(plan.hide)
+                    n_probes += 1
+                else:  # this arm still holds every history token: its decision is the replay
+                    fields, lp, lb = dict(replay), replay_logp, replay_bin
+                    fields.pop("kl", None), fields.pop("kl_bin", None)
+                arms.append({"method": shadow.method, "k": shadow.k, "budget": shadow.budget, "n_pool": n_pool,
+                             "n_dropped": n_dropped, "ledger": len(shadow.ledger), "n_hidden": int(plan.hide.sum()),
+                             "n_kept": int(sum(n_kept)), "bits": pack_bits(bits), "prepass_forwards": fwd,
+                             "kl": kl(full_logp, lp), "kl_bin": kl(full_bin, lb),
+                             "flip_code": None if lp is None or full.get("code") is None else bool(fields["code"] != full["code"]),
+                             "flip_bin": None if lp is None or full.get("bin") is None else bool(fields["bin"] != full["bin"]),
+                             **fields})
+            seconds = time.monotonic() - t0
+            state.generates += 1
+            state.log_record({
+                "step": t_now, "episode_label": f"episode_{state.episode:03d}", "seed_episode": state.seed_episode(),
+                "prompt_tokens": len(ids), "n_visual": n_visual, "n_tubelets": len(hist), "n_current": len(cur),
+                "frames": [t.f1 for t in hist], "n_tokens": [t.n_tokens for t in hist],
+                "tubelets": [[t.f0, t.f1] for t in hist], "pools": [t.pool for t in hist],
+                "full": full, "replay": replay, "visual_all_mask": ref, "prune_kl": arms,
+                "n_probes": n_probes, "prepass_forwards": n_prepass, "probe_seconds": seconds, "forwards_decision": n_forwards,
+            })
+            if state.generates <= state.debug_steps:
+                def f4(x):
+                    return "none" if x is None else format(x, ".4f")
+                print(f"[influence] episode={state.episode} step={t_now} prompt_len={len(ids)} visual={n_visual} codes={codes} "
+                      f"exec={exec_bin} K0={f4(ref['kl'])} prune_kl={ {a['method'] + ':' + str(a['k']): f4(a['kl']) for a in arms} } "
+                      f"kept={ {a['method'] + ':' + str(a['k']): a['n_kept'] for a in arms} } probes={n_probes} "
+                      f"prepass={n_prepass} replay={f4(replay['kl'])} {seconds * 1000:.0f}ms", flush=True)
+            return out
 
         if state.measure == "recent_k":
             _, replay_logp, replay_bin = probe(none_hidden)
@@ -774,9 +1058,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--max-age", type=int, default=MAX_AGE, help="probe history tubelets of age t - f1 <= this (default: the fast tier)")
     p.add_argument("--measure", choices=MEASURES, default="keep_one",
-                   help="keep_one (default: one probe per history tubelet against the no-visual reference) or recent_k "
-                        "(KL(full || K most recent frames), old blocks kept and windowed, K <= --max-k)")
+                   help="keep_one (default: one probe per history tubelet against the no-visual reference), recent_k "
+                        "(KL(full || K most recent frames), old blocks kept and windowed, K <= --max-k), blind_layer "
+                        "(KL(full || every visual token hidden from layer L on), L in --layers) or prune_kl "
+                        "(KL(full || the visual history a shadow pruner holds), one per --prune-kl-arms)")
     p.add_argument("--max-k", type=int, default=MAX_K, help="recent_k: largest number of most recent frames kept")
+    p.add_argument("--layers", type=int, nargs="+", default=list(BLIND_LAYERS),
+                   help="blind_layer: decoder layers L to probe (every visual token hidden on layers >= L); "
+                        "default every second layer")
+    p.add_argument("--prune-kl-arms", nargs="+", default=None, metavar="METHOD:K",
+                   help="prune_kl: shadow pruners as method:k (k = frames' worth); default random/fastv/divprune/dart x 4/8/16/32")
+    p.add_argument("--prune-kl-seed-episodes", type=int, nargs="+", default=None,
+                   help="prune_kl: per episode of this run (in order), the episode counter the random selector seeds on "
+                        "(its index in the 100-episode pruning runs); default: this run's own counter")
+    p.add_argument("--prune-kl-tokens-per-frame", type=int, default=TOKENS_PER_FRAME,
+                   help="prune_kl: history tokens one frame is worth (as eval_prune.py)")
     p.add_argument("--influence-log-dir", default=None, help="per-episode records (default <output_dir>/influence)")
     p.add_argument("--influence-debug-steps", type=int, default=0, help="Print the first N inferences' bookkeeping.")
     return p
@@ -784,7 +1080,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: List[str] | None = None) -> int:
     args, rest = build_parser().parse_known_args(argv)
-    state = InfluenceState(args.max_age, args.influence_debug_steps, args.measure, args.max_k)
+    if args.measure != "prune_kl" and (args.prune_kl_arms or args.prune_kl_seed_episodes):
+        raise SystemExit("--prune-kl-arms / --prune-kl-seed-episodes belong to --measure prune_kl")
+    state = InfluenceState(args.max_age, args.influence_debug_steps, args.measure, args.max_k, args.layers,
+                           arms=parse_arms(args.prune_kl_arms) if args.measure == "prune_kl" else (),
+                           seed_episodes=args.prune_kl_seed_episodes, tokens_per_frame=args.prune_kl_tokens_per_frame)
     model_path = arg_from(rest, "--model_path")
     if not model_path:
         raise SystemExit("--model_path is required (the RVQ bundle is read from <model_path>/action_tokenizer)")
@@ -800,7 +1100,11 @@ def main(argv: List[str] | None = None) -> int:
         (state.log_dir / "meta.json").write_text(json.dumps(state.describe(), indent=2) + "\n")
     install_visual_influence(state)
     what = (f"recent-window KL(full || K most recent frames), old blocks kept + windowed, K <= {state.max_k}"
-            if state.measure == "recent_k" else f"keep-one KL, history tubelets of age <= {state.max_age}")
+            if state.measure == "recent_k" else
+            f"blind-from-layer KL(full || no visual from layer L on), L in {list(state.layers)}"
+            if state.measure == "blind_layer" else
+            f"pruning KL(full || shadow-pruned history), arms {[m + ':' + str(k) for m, k in state.arms]}"
+            if state.measure == "prune_kl" else f"keep-one KL, history tubelets of age <= {state.max_age}")
     print(f"[influence] installed: {what} over <act_l0_*> (256-way + {len(BINS)} bins), free-run prefix, "
           f"eager vLLM, masked SDPA on every layer"
           + (f", records -> {state.log_dir}" if state.log_dir else ""), flush=True)

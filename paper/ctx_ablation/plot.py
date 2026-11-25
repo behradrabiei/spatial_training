@@ -12,7 +12,7 @@ The SR | SPL figures are drawn at the width of one column of a two-column paper 
 (old blocks removed) are not drawn; their numbers stay in results/summary.csv and table.tex, as
 does the eviction-minus-recompute gap (leak_* columns).
 
---dataset navverse draws the NavVerse indoor replicate (paper_results/ctx_ablation_navverse/):
+--dataset navverse draws the NavVerse indoor replicate (paper_results_archive/ctx_ablation_navverse/):
 the LongNav-R1 eviction arms (red) and the LightNav-0 old-blocks-kept arms (green) in
 ctx_ablation.{pdf,png}, plus ctx_ablation_hm3d_vs_navverse.{pdf,png} overlaying each model's HM3D
 curve (solid, circles) and its NavVerse one (dotted, squares), and failure_modes.{pdf,png} (LongNav-R1)
@@ -58,7 +58,7 @@ SERIES = {  # arm-name template, plot style (both LongNav-R1 variants share a co
     "lightnav_keep": (lambda k: "lightnav_full" if k == "full" else f"lightnav_keep_k{k}",
                       dict(color="tab:green", marker="o", markersize=3, linestyle="-", label="LightNav-0")),
 }
-NAVVERSE_SERIES = {  # the NavVerse indoor arms (paper_results/ctx_ablation_navverse/)
+NAVVERSE_SERIES = {  # the NavVerse indoor arms (paper_results_archive/ctx_ablation_navverse/)
     "nv_evict": (lambda k: "nv_full" if k == "full" else f"nv_evict_k{k}",
                  dict(color="tab:red", marker="o", markersize=3, linestyle="-", label="LongNav-R1")),
     "nv_recompute": (lambda k: "nv_full" if k == "full" else f"nv_recompute_k{k}",
@@ -85,7 +85,7 @@ DATASETS = {  # dataset -> (results root, series drawn in ctx_ablation, y-limits
     # NavVerse success rates sit an order of magnitude below HM3D's, so the standalone figure uses
     # a fitted y-range (widened by figure_metrics if a series exceeds it); the hm3d-vs-navverse
     # overlay keeps the full-scale axes.
-    "navverse": (HERE.parents[1] / "paper_results/ctx_ablation_navverse", NAVVERSE_SERIES,
+    "navverse": (HERE.parents[1] / "paper_results_archive/ctx_ablation_navverse", NAVVERSE_SERIES,
                  {"sr": (0, 0.3), "spl": (0, 0.12)}),
 }
 

@@ -19,7 +19,7 @@
 # arms but not host RAM, see K_WORKERS below). WORKERS_OVERRIDE / FULL_WORKERS / K_WORKERS set N; worker i posts to port PORT+i, so N servers are
 # started and the Ray VRAM reservations are set so the evaluator allocates N slots on the GPU.
 #
-# Output: paper_results/ctx_ablation_navverse/runs/<arm>/ holding NavVerse's dump for the arm
+# Output: paper_results_archive/ctx_ablation_navverse/runs/<arm>/ holding NavVerse's dump for the arm
 # (<arm>/result.json, data/, logs), server_config.json, server_steps.jsonl (server_steps_<i>.jsonl
 # per worker when N > 1), server*.log and driver.log. Arms resume (--resume_existing_results,
 # same run name); a complete arm is skipped.
@@ -32,7 +32,7 @@ PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"
 NAVVERSE_ROOT="${NAVVERSE_ROOT:-$ROOT/NavVerse-Benchmark}"
 IMAGE="${IMAGE:-navverse-release:local}"
 DATA_DIR="${DATA_DIR:-/mnt/vault/navverse_data}"
-OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results/ctx_ablation_navverse/runs}"
+OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results_archive/ctx_ablation_navverse/runs}"
 MANIFEST="${MANIFEST:-$ROOT/src/longnav/conf/episode_jsons/navverse_indoor_100_seed17.json}"
 EPISODE_SET="${EPISODE_SET:-navverse_indoor100_seed17}"   # <name>_set.txt in $DATA_DIR/episodes
 EPISODE_LABELS="${EPISODE_LABELS:-}"                        # comma list overrides the set (smoke runs)

@@ -71,8 +71,60 @@ def test_topk_frames():
     assert topk_frames([0, 1, 2, 3, 4], [-h for h in H], 2) == [1, 4]
     assert topk_frames([0, 1, 2, 3, 4], [-h for h in H], 3) == [1, 2, 4]
 
+def test_shadow_pruner_matches_slicing():
+    """paper/prune_kl: a ShadowPruner (an `alive` mask over a state that is never sliced) holds,
+    after every step, exactly the slots a physically sliced state holds under the same rule --
+    for the seeded random draw (position-based) and for a score ranking (identity-based)."""
+    from longnav.utils.kv_prune import frame_budget, step_seed
+    from longnav.utils.prune_kl_probe import NONE, ShadowPruner
+
+    kwargs = dict(prefix_len=2, context_window=None, holdback_n=1, recent_turns=0,
+                  candidate_scope="visual", frame_cut=False)
+    counts = [6, 9, 5, 0, 8, 7, 10, 4]
+    score = torch.rand(10_000, generator=torch.Generator().manual_seed(3))  # per global slot id
+    for method in ("random", "fastv"):
+        for k in (1, 2, 3):
+            full, ref = KVPruneState(seed=17), KVPruneState(seed=17)
+            shadow = ShadowPruner(method, k)
+            ref_ids = torch.zeros(0, dtype=torch.long)  # global ids the sliced state holds
+            n_total = 0
+            for turn, n_vis in enumerate(counts):
+                row = torch.tensor([0, 0] + [1] * n_vis + [0, 0, 0], dtype=torch.bool)
+                for state in (full, ref):
+                    state.append(row.numel(), row)
+                    state.fold_scores(torch.zeros(state.turn_id.numel()), 0.0)
+                ref_ids = torch.cat([ref_ids, torch.arange(n_total, n_total + row.numel())])
+                n_total += row.numel()
+                shadow.extend(n_total)
+                hidden = shadow.hidden(full)
+                assert not bool((hidden & (full.turn_id == turn)).any()), "the newest frame is never hidden"
+                assert torch.equal(torch.nonzero(~hidden).flatten(), ref_ids), \
+                    "the probe's visible set is the sliced state before this step's selection"
+
+                def select(ids, cand, capacity):
+                    if method == "random":
+                        gen = torch.Generator(device="cpu")
+                        gen.manual_seed(step_seed(17, "ep", turn))
+                        return random_select(cand, capacity, gen)
+                    return cand[torch.argsort(score[ids[cand]], descending=True, stable=True)[:capacity]]
+
+                dropped = shadow.select(full, kwargs, lambda m, cand, cap: select(torch.arange(n_total), cand, cap))
+                cap = frame_budget(ref, 0, k)
+                part = build_prune_partition(ref, budget=None, capacity=cap, **kwargs)
+                cand = torch.nonzero(part.candidates).flatten()
+                selected = cand if part.capacity == cand.numel() else select(ref_ids, cand, part.capacity)
+                keep = build_selected_keep(part, selected)
+                assert dropped == int((~keep).sum())
+                ref_ids = ref_ids[keep]
+                ref.slice(keep)
+                assert torch.equal(torch.nonzero(shadow.alive).flatten(), ref_ids), (method, k, turn)
+                assert shadow.cap == (NONE if cap is None else int(part.capacity))
+                assert bool(shadow.alive[~full.is_visual].all()), "text is never dropped"
+            assert int((shadow.alive & full.is_visual).sum()) == frame_budget(full, 0, k)
+
 if __name__ == "__main__":
     test_partition()
     test_deterministic_random()
     test_topk_frames()
+    test_shadow_pruner_matches_slicing()
     print("PASS")

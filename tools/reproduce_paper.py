@@ -51,7 +51,7 @@ def main():
     commands = [c for name, study in manifest['studies'].items() if name not in retired for c in study['commands']]
     # Keep dependencies first: other studies read context-ablation results.
     commands.sort(key=lambda c: (0 if 'ctx_ablation' in c[1] else 1))
-    commands += manifest['studies']['hybrid_prune'].get('cost_commands', [])
+    commands += manifest['studies']['protocol'].get('cost_commands', [])
     commands += manifest.get('additional_commands', [])
     env = dict(os.environ, PYTHONPATH=str(mirror / 'src'), PYTHONDONTWRITEBYTECODE='1', MPLBACKEND='Agg')
     report = []

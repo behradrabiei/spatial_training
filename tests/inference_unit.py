@@ -68,7 +68,7 @@ class ConfigTests(unittest.TestCase):
             normalize_inference_config(cfg)
 
     def test_saved_paper_config(self):
-        saved = OmegaConf.load('paper_results/hybrid_prune/runs/r1_hybrid_mp16/config.yaml')
+        saved = OmegaConf.load('paper_results/protocol/runs/r1_hybrid_mp16/config.yaml')
         normalized = normalize_inference_config(saved)
         self.assertEqual(normalized.adapter.path, saved.training.checkpoint)
         self.assertEqual(list(normalized.vlm.kv_prune_stages), [0, 7, 14, 20])

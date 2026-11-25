@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Aggregate the information-horizon experiment into paper_results/info_horizon/results/.
+"""Aggregate the information-horizon experiment into paper_results/info_horizon/results/
+(--dataset mp3d: the archived MP3D replicate, paper_results_archive/info_horizon_mp3d/results/).
 
 Reads the KL probe arms (runs/r1_probe_leaky, runs/r1_probe: rollout/*/*/sequence.json;
 runs/uninavid_probe: horizon/*.jsonl), the visual-blind SR/SPL arms (runs/r1_blind_l<L>,
@@ -35,8 +36,9 @@ ROOT = HERE.parents[1]
 DATASETS = {  # results root, SR/SPL manifest, KL-probe manifest, LongNav-R1 reference run
     "hm3d": (ROOT / "paper_results/info_horizon", "hm3d_v2_100.json", "hm3d_v2_10_seed17.json",
              ROOT / "paper_results/ctx_ablation/runs/r1_full"),
-    "mp3d": (ROOT / "paper_results/info_horizon_mp3d", "mp3d_100_seed17.json", "mp3d_10_seed17.json",
-             ROOT / "paper_results/info_horizon_mp3d/runs/r1_ref"),
+    # MP3D replicate, archived 2026-11-23 (not used in the paper)
+    "mp3d": (ROOT / "paper_results_archive/info_horizon_mp3d", "mp3d_100_seed17.json", "mp3d_10_seed17.json",
+             ROOT / "paper_results_archive/info_horizon_mp3d/runs/r1_ref"),
 }
 RESULTS_ROOT = DATASETS["hm3d"][0]
 MANIFEST_100 = ROOT / "src/longnav/conf/episode_jsons/hm3d_v2_100.json"
@@ -54,7 +56,7 @@ BLIND = {"LongNav-R1": ("r1_blind_l{L}", load_r1_run, ROOT / "paper_results/ctx_
          # LightNav-0 forced stops at the 500-step cap are re-scored as failures (results_io)
          "LightNav-0": ("lightnav_blind_l{L}", load_lightnav_run, RESULTS_ROOT / "runs/lightnav_ref")}
 LAYERS = {"LongNav-R1": [8, 12, 14, 16, 18, 20, 24], "Uni-NaVid": [8, 12, 16, 18, 20, 24, 28],
-          "LightNav-0": [12, 16, 18, 20, 22, 24, 26]}
+          "LightNav-0": [12, 16, 18, 20, 22, 24, 26, 28, 30]}
 OPTIONAL = {"r1_probe"}  # the leak-free LongNav-R1 probe: drawn if present, not required
 # lightnav_ref reruns the model through the eager masked-attention path of the blind arms; the
 # compiled-graph FlashAttention run it should agree with (kernel / eager check in summary.json)

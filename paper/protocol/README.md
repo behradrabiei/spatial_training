@@ -1,5 +1,16 @@
 # Experiment 7 — Hybrid pruning protocol vs PyramidDrop (+ the uniform protocol, Exp 7b)
 
+> **Renamed 2026-11-22 (user):** this study was `hybrid_prune` — code `paper/hybrid_prune`, results
+> `paper_results/hybrid_prune` and `paper_results/hybrid_prune_mp3d`; they are now `paper/protocol`,
+> `paper_results/protocol` and `paper_results/protocol_mp3d` (the MP3D replicate was then archived the same
+> day, see the MP3D section: `paper_results_archive/protocol_mp3d`). `protected_inputs.json` and the backup copies
+> carry the new paths (checksums unchanged). Run files were not edited: the absolute paths recorded inside
+> them (`raw/trace`, `trace`, `prune`, `output_dir` in saved configs) still name the old directory, and
+> `plot_cost.py` re-roots a recorded trace path on the run directory. Not renamed: arm names
+> (`r1_hybrid_mp<k>`), the `paper_hybrid` experiment preset, the wandb project `longnav_paper_hybrid`,
+> `cleanup_validation.json` (a dated record) and the obsolete-file archive under `.cleanup_archive`.
+
+
 **Question.** The three ablations say what a pruning protocol for these agents should look like:
 history is only needed over a short horizon (Exp 1, the context window), visual tokens stop mattering
 above a decoder layer (Exp 5/6, the information horizon: layer 18 of 28 in LongNav-R1), and below it
@@ -164,7 +175,7 @@ Knobs (LongNav-R1, `src/longnav/config_schema.py`): `vlm.kv_prune_stage_importan
   count; stopped for the PyramidDrop starvation described above.
 
 The superseded run directories and outputs are preserved under
-`.cleanup_archive/before-codebase-cleanup/obsolete/paper_results/hybrid_prune/` with
+`.cleanup_archive/before-codebase-cleanup/obsolete/paper_results/protocol/` with
 checksummed restoration manifests. Current reporting accepts only the retained model budget.
 The `last_stage` budget calculation remains available for the windowed token-pruning studies.
 
@@ -175,10 +186,13 @@ All three protocols also run on MP3D ObjectNav val (`DATASET=mp3d`): 24 arms, ea
 2195-episode split (`src/longnav/conf/episode_jsons/mp3d_100_seed17.json`, the manifest of the MP3D
 information-horizon replicate). LongNav-R1 runs with `+dataset=mp3d_val`; Uni-NaVid with
 `baselines/uninavid_hm3d/config/objectnav_mp3d.yaml` and the MP3D dataset and scene paths. Protocols,
-budgets, stages and seeds are unchanged. Data in `paper_results/hybrid_prune_mp3d/`, wandb project
+budgets, stages and seeds are unchanged. Data in `paper_results_archive/protocol_mp3d/` (**archived 2026-11-22
+at the user's request**: the paper does not use the MP3D replicate; the launchers, `aggregate.py --dataset mp3d`
+and `plot.py --dataset mp3d` point there, and its `results/` and `figures/` are local, git-ignored copies
+that rebuild from `runs/`), wandb project
 `longnav_paper_hybrid_mp3d` (the arm names repeat, and wandb resume keys on project + run name);
 `aggregate.py --dataset mp3d`, `plot.py --dataset mp3d`. The dashed reference in `protocol_curves` is
-the unpruned full-context arm of `paper_results/info_horizon_mp3d` (`r1_ref` .52/.236, `uninavid_ref`
+the unpruned full-context arm of `paper_results_archive/info_horizon_mp3d` (archived 2026-11-23; `r1_ref` .52/.236, `uninavid_ref`
 .38/.140).
 
 **Initial hybrid/PyramidDrop findings (sweep complete 2026-09-22 00:34, 16 arms × 100 episodes, ~6 h with two workers, no failed arm;
@@ -224,17 +238,17 @@ python tests/vtp_hybrid_smoke.py                       # both arm types, CPU + G
 PYTHONPATH=baselines:baselines/Uni-NaVid baselines/.envs/uninavid-hm3d/bin/python -m unittest baselines.tests.test_prune
 
 # serial (all three protocols; e.g. K_LIST="8 4" narrows the budgets)
-bash paper/hybrid_prune/run_r1.sh && bash paper/hybrid_prune/run_uninavid.sh
+bash paper/protocol/run_r1.sh && bash paper/protocol/run_uninavid.sh
 
 # or two lock-coordinated workers on the one GPU (only ONE may hold Uni-NaVid arms)
-nohup bash paper/hybrid_prune/run_worker.sh U uninavid_hybrid_mp8 uninavid_pyramiddrop_mp8 uninavid_uniform_mp8 &
-EXTRA_OVERRIDES="resources.osm_gb=10" nohup bash paper/hybrid_prune/run_worker.sh R r1_hybrid_mp8 r1_pyramiddrop_mp8 r1_uniform_mp8 &
+nohup bash paper/protocol/run_worker.sh U uninavid_hybrid_mp8 uninavid_pyramiddrop_mp8 uninavid_uniform_mp8 &
+EXTRA_OVERRIDES="resources.osm_gb=10" nohup bash paper/protocol/run_worker.sh R r1_hybrid_mp8 r1_pyramiddrop_mp8 r1_uniform_mp8 &
 
 # the MP3D replicate: prefix the same commands with DATASET=mp3d, and pass --dataset mp3d below
-python paper/hybrid_prune/aggregate.py --status          # progress
-python paper/hybrid_prune/aggregate.py --allow-partial   # interim
-python paper/hybrid_prune/aggregate.py --strict          # final whole-model protocol
-conda run -n vln python paper/hybrid_prune/plot.py
+python paper/protocol/aggregate.py --status          # progress
+python paper/protocol/aggregate.py --allow-partial   # interim
+python paper/protocol/aggregate.py --strict          # final whole-model protocol
+conda run -n vln python paper/protocol/plot.py
 # MP3D includes all three protocols: add --dataset mp3d to aggregate.py / plot.py
 ```
 
@@ -246,14 +260,42 @@ rerunning a launcher resumes an incomplete arm.
 
 ## Outputs
 
-`paper_results/hybrid_prune/`: `runs/<arm>/` (configs and per-episode results; new launch logs are ignored), `results/`
+`paper_results/protocol/`: `runs/<arm>/` (configs and per-episode results; new launch logs are ignored), `results/`
 (`per_episode.csv`, `summary.csv`, `paired.csv` = `<protocol>` − pyramiddrop per protocol (hybrid,
 uniform), model and k with bootstrap CI and paired sign-flip p, `table.tex`), `figures/`
-(`protocol_curves`, `budget_met`, `memory_tradeoff` — three lines each: PyramidDrop, Protocol (hybrid),
-Uniform + blind — and `cost_k16*`: see the cost benchmark below). The same three figures are also written
-once per protocol, each showing only PyramidDrop and that protocol labelled "Protocol":
-`<figure>_hybrid` and `<figure>_uniform` (`plot.py`; `--no-split` skips them), in `figures/` and in the
-MP3D replicate's `paper_results/hybrid_prune_mp3d/figures/`.
+(`protocol_curves` and `cost_k16_100_uniform`: see the cost benchmark below).
+
+**The paper's protocol is `uniform` (user, 2026-11-22):** "We will not be using the hybrid protocol anymore.
+Our protocol is keep the most recent 32, removed everything after information horizon, and if we still don't
+meet budget do random pruning." That is the `uniform` arm as run: the 32-frame window, visual-blind from the
+information horizon (layer 18 on LongNav-R1, 20 on Uni-NaVid, 26 on LightNav-0; current frame included), and
+one uniform random draw at layer 0 whenever the window's history tokens exceed the whole-model budget. No
+arm had to be rerun. In the figures it is the red line labelled "Protocol"; the hybrid arms stay in `runs/`,
+`results/` and `table.tex` and are drawn only on request (`plot.py --protocols pyramiddrop uniform hybrid`,
+where the hybrid is blue "Hybrid").
+
+**Figures kept (user, 2026-11-22: "so many figures ... delete the ones we don't need"; Uni-NaVid out of the
+figures).** `figures/` holds two figures only: `protocol_curves` (LongNav-R1 and LightNav-0 columns,
+PyramidDrop vs Protocol, drawn at single-column size with `paper/figstyle.py` like the flat token-prune
+figure) and `cost_k16_100_uniform` (LongNav-R1 row only; Protocol = uniform; PyramidDrop is drawn on all
+three panels since 2026-11-22 at the user's request, not only on inference time: at step 499, paired over the 11
+episodes running in both arms, its KV cache is 5.1× the protocol's and its GPU memory 0.9 GB higher). Uni-NaVid's arms stay in
+`results/` and `table.tex`. Everything else was deleted from `figures/` and is rebuilt on demand, not kept:
+
+| deleted | rebuild with |
+|---|---|
+| `budget_met*`, `memory_tradeoff*`, `protocol_curves_hybrid`, `protocol_curves_uniform` (per-protocol sets) | `plot.py --diagnostics` (`--no-split` skips the per-protocol sets) |
+| Uni-NaVid columns / row | `plot.py --models LongNav-R1 Uni-NaVid LightNav-0`, `plot_cost.py --uninavid` |
+| `compare_ctx`, `compare_flat` (never paper figures) | `plot_vs_ctx.py`, `plot_vs_flat.py` |
+| `cost_k16_100_min5`, `cost_k16_100_uniform_min5` | `plot_cost.py ... --edge min5` |
+| `cost_k16_100` (the hybrid's cost figure) | `plot_cost.py --bench paper_results/protocol/runs/cost_bench_100 --name cost_bench_100 --protocol hybrid` |
+| `cost_k16`, `cost_k16_seed17` (older benchmarks, unpaired bracket) | `plot_cost.py --bench runs/cost_bench[_seed17]` |
+
+The sections below still cite `figures/budget_met` and `figures/memory_tradeoff` for their numbers; those
+numbers are in `results/summary.csv` (`held_frames`, `kv_len_mean`). The deleted files are in
+`protected_inputs.json`, so `paper_inventory.py verify` reports them missing until the manifest is refrozen;
+the checksummed originals are in the `.cleanup_archive` backup. The MP3D replicate's
+`paper_results_archive/protocol_mp3d/figures/` was not touched (still the old three-figure sets with Uni-NaVid).
 
 ## Cost benchmark: memory and inference time at k = 16 (`figures/cost_k16_100`, `cost_k16_100_uniform`)
 
@@ -342,10 +384,10 @@ Uni-NaVid's ≈ 65 ms is close to LongNav-R1's early-episode 45–60 ms.
 
 ```bash
 conda activate longnav_vlm
-MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_100.json BENCH=cost_bench_100 bash paper/hybrid_prune/run_cost_bench.sh   # unpruned + hybrid, ~70 min
-MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_100.json BENCH=cost_bench_100 ARMS="uniform pyramiddrop" bash paper/hybrid_prune/run_cost_bench.sh   # ~67 min
+MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_100.json BENCH=cost_bench_100 bash paper/protocol/run_cost_bench.sh   # unpruned + hybrid, ~70 min
+MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_100.json BENCH=cost_bench_100 ARMS="uniform pyramiddrop" bash paper/protocol/run_cost_bench.sh   # ~67 min
 for P in hybrid uniform; do for E in last min5; do
-  conda run -n vln python paper/hybrid_prune/plot_cost.py --bench paper_results/hybrid_prune/runs/cost_bench_100 \
+  conda run -n vln python paper/protocol/plot_cost.py --bench paper_results/protocol/runs/cost_bench_100 \
     --name cost_bench_100 --protocol $P --edge $E
 done; done
 ```
@@ -504,3 +546,106 @@ p < .05 (paired sign-flip, uncorrected), † = survives Bonferroni over the 16 t
 4. **Uni-NaVid: tie at every k** (uniform − pyramiddrop SR +0.05 / +0.07 / +0.01 / +0.03, all p ≥ .19;
    uniform − hybrid |ΔSR| ≤ 0.03), no dose response (SR .32–.38), all at the model's MP3D full-context
    level (.38 / .140).
+
+## LightNav-0 arms (`pyramiddrop` and `uniform`, added 2026-11-21)
+
+Third model of the experiment, HM3D only, two of the three protocols (the hybrid is not run on it):
+`lightnav_<protocol>_mp<k>`, `k ∈ {16, 8, 4, 2}`, 8 arms × 100 episodes, the comparable 1.0 m protocol of
+`baselines/run_lightnav.sh full`. The wrapper is `baselines/lightnav_hm3d/eval_protocol.py` (upstream clone
+untouched), the staged counterpart of the flat study's `eval_prune.py` on the same eager masked-attention
+kernel; `PROTOCOL=<p> PRUNE_K=<k> bash baselines/run_lightnav.sh full`, driver `run_lightnav.sh` here.
+
+**Budget.** As for the other two models: `k` frames' worth of history visual tokens held by the whole model,
+i.e. averaged over LightNav-0's 36 decoder layers, with one frame's worth = 14 tokens (a fast-tier tubelet is
+2 frames in 28 tokens, the unit of the flat study's LightNav-0 arms). The current 2-frame tubelet (112
+tokens) is never pruned below the cut and is not counted. The schedule is re-solved every step by
+`model_stage_budgets` (a checked copy of Uni-NaVid's) from the tokens stage 0 can draw from (pool anchor), and
+deletions are permanent and nested by stage, keyed by tubelet identity `(frame0, frame1, pool, cell)` because
+the model rebuilds and re-prefills its prompt every step (a tubelet recurs every other step).
+
+| | `lightnav_pyramiddrop_mp<k>` | `lightnav_uniform_mp<k>` |
+|---|---|---|
+| History in scope | the whole history (840 tokens at the plateau), no window | the newest 32 frames: current pair + 30 history frames = 420 tokens; older visual tokens are hidden on every layer, their timestamps and vision markers stay in the prompt (the "old blocks kept" window of Exp 1's LightNav-0 line), not a rebuilt 32-frame episode — **user decision 2026-11-21** |
+| Stages | attention stages hiding from layers **0 / 9 / 18 / 27** (quarter depths, as 0/8/16/24 of 32 and 0/7/14/21 of 28 — user decision 2026-11-21); stage 0 ranked by the layer-0 row in a scoring pre-pass (`max_tokens=1`), stages 1–3 by the rows of layers 8 / 17 / 26 inside the real prefill; query = the last prompt token, mean over heads | one seeded uniform draw at layer 0 (`selection_seed(17, episode, step)`, the flat study's random rule), held by layers 0–25; **visual-blind from layer 26** (every `<|video_pad|>` column, current pair included) — the information horizon the user set for LightNav-0 (Exp 6: blind-from-26 SR .78 / SPL .445 vs .84 / .458 unpruned, blind-from-24 .76, from-22 .59) |
+| Budgets | `model_stage_budgets(pool, 14k, [9, 9, 9, 9])` | `model_stage_budgets(pool, 14k, [26], tail=(10, 0))`: layers 0–25 hold `36·14k/26` = 310 / 155 / 78 / 39 tokens at k = 16 / 8 / 4 / 2 |
+
+Unpruned reference in the figure: `lightnav_ref` of `paper_results/info_horizon` (SR .84 / SPL .458), the
+same eager kernel with nothing hidden. LightNav-0 forced stops at the 500-step cap are re-scored as failures,
+as everywhere (`results_io.load_lightnav_run`).
+
+**Checks before the sweep (2026-11-21, episode 0 unless noted).** The wrapper reproduces three existing runs
+exactly: uniform with nothing to prune and the window off = `lightnav_blind_l26` (93 steps, SPL .558);
+PyramidDrop restricted to its layer-0 stage = the flat `lightnav_fastv_b8` (68 steps, SPL .783); uniform with
+the blind cut at layer 36 and the window off = the flat `lightnav_random_b4` (64 steps, SPL .810). Budget
+audit at k = 8: uniform holds 111.94 tokens on every binding step (26·155/36); PyramidDrop holds 112.0 on
+most and less on the rest (mean 110.1, min 96.0 on binding steps): a deeper stage cannot take back a token it
+deleted under an earlier, tighter schedule — the same under-holding the other two models show in
+`figures/budget_met`. Leak probe (2 episodes per protocol, k = 4, stage masks frozen and the decision
+replayed): noise in tokens hidden on every layer leaves the final hidden state bit-identical (88 + 120
+decisions), noise in tokens visible only below a deeper stage changes the action on 67 % of decisions, noise
+in the kept tokens on 72 % (PyramidDrop) / 88 % (uniform). Pilot, 3 episodes per protocol at k = 2: 3/3
+successes each. Unit tests: `baselines/tests/test_lightnav_protocol.py` (16).
+
+`aggregate.py` / `plot.py`: LightNav-0 is the third model (`MODEL_PROTOCOLS`, `STAGE_MODELS`,
+`DATASET_MODELS`; a model column is drawn when the summary holds its arms); the LongNav-R1 and Uni-NaVid rows
+and figures are unchanged by the extension (checked byte-identical on HM3D and MP3D).
+
+Sweep launched 2026-11-21 12:01 (`runs/lightnav_driver.log`; uniform k = 8, 4, 16, 2, then PyramidDrop
+k = 8, 4, 16, 2); all 8 arms complete 2026-11-21 23:54 (11 h 53 min, no errors; ~1.1–1.3 h per uniform arm,
+1.5–2.1 h per PyramidDrop arm). `results/` and `figures/` regenerated in place with the LightNav-0 column
+(the LongNav-R1 and Uni-NaVid rows of the three CSVs are unchanged).
+
+### LightNav-0 results (100 episodes, forced stops at the cap re-scored as failures)
+
+| k | protocol | SR | SPL | steps | at the 500-step cap | held (frames' worth) |
+|---|---|---|---|---|---|---|
+| – | unpruned (`lightnav_ref`) | .84 | .458 | 139 | | |
+| – | blind from 26 only (`lightnav_blind_l26`) | .78 | .445 | 147 | | |
+| 16 | PyramidDrop | .80 | .457 | 152 | 10 | 14.0 |
+| 16 | uniform | .77 | .444 | 155 | 12 | 13.5 |
+| 8 | PyramidDrop | .78 | .431 | 165 | 12 | 7.4 |
+| 8 | uniform | .80 | .429 | 148 | 5 | 7.3 |
+| 4 | PyramidDrop | .71 | .417 | 195 | 17 | 3.8 |
+| 4 | uniform | **.84** | .462 | 160 | 9 | 3.8 |
+| 2 | PyramidDrop | .75 | .406 | 188 | 11 | 1.9 |
+| 2 | uniform | .77 | .446 | 171 | 13 | 1.9 |
+
+Paired, uniform − PyramidDrop (sign-flip test, n = 100): k = 16 ΔSR −.03 (p = .64), k = 8 +.02 (p = .81),
+**k = 4 +.13 [+.05, +.21] (p = .005)** with −34 steps (p = .013) and ΔSPL +.045 (p = .11), k = 2 +.02
+(p = .79), ΔSPL +.039 (p = .21).
+
+**Findings.**
+
+1. **Both protocols keep LightNav-0 within a few points of unpruned down to k = 2.** The worst arm is
+   PyramidDrop at k = 4 (.71); every other arm is .75–.84 against .84 unpruned, and every bootstrap interval
+   except PyramidDrop's at k = 4 and k = 2 (upper ends .80 and .83) reaches the reference. This is the flat study's LightNav-0 result (random .81–.82
+   from k = 32 to k = 2) carried over to a whole-model budget: the model does not need more than a couple of
+   frames' worth of history tokens next to its unpruned 112-token current pair. There is no budget curve to
+   speak of, unlike LongNav-R1 (.86 → .36 for the hybrid over the same range).
+2. **Uniform is never significantly worse than PyramidDrop and is better at k = 4.** One of four budgets is
+   significant (+.13 SR, 34 fewer steps); the others are ties on SR. SPL and steps favour uniform at k ≤ 8 in
+   direction only. So the LongNav-R1 ordering (uniform ≥ PyramidDrop at small k) holds in sign, with a much
+   smaller effect: LightNav-0 looks like Uni-NaVid here (protocol choice barely matters), not like LongNav-R1.
+   The k = 4 gap is as much a PyramidDrop dip (.71, below its own k = 2 at .75) as a uniform peak (.84, above
+   its k = 8 and k = 16), so it should be read as one significant cell out of four, not as a trend.
+3. **Uniform's price is the blind cut, not the budget.** The uniform arms sit at .77–.84, i.e. around the
+   blind-from-26 arm with nothing else pruned (.78 / .445, 147 steps): removing all but 39–310 history tokens
+   from layers 0–25 and windowing to 32 frames costs nothing measurable on top of the cut itself. The cut's own
+   cost versus unpruned (−.06 SR, p = .21 in Exp 6) is the ceiling uniform works under; at k = 16 that is
+   where its −.03 against PyramidDrop comes from in direction (PyramidDrop keeps 172 history tokens and the
+   current pair in layers 27–35).
+4. **Attention selection does not help LightNav-0 here either.** PyramidDrop restricted to its layer-0 stage
+   is the flat study's FastV; that arm scored .80 / .77 at k = 8 / 4 against random's .82 / .81, and the staged
+   version is .78 / .71. The cost shows in episode length before it shows in SR: PyramidDrop's mean steps rise
+   152 → 165 → 195 → 188 with shrinking k (unpruned 139), uniform's 155 → 148 → 160 → 171.
+5. **Budgets are met as for the other models.** Held history tokens averaged over the 36 layers: 1.9 / 3.8 /
+   7.3–7.4 / 13.5–14.0 frames' worth at k = 2 / 4 / 8 / 16 (`figures/budget_met`, mean over episodes). The
+   shortfall at k = 16 is the start of each episode, when the pool is still smaller than the budget (the
+   budget is held on 85 % / 77 % of all steps, uniform / PyramidDrop; pooled over steps the mean is 14.7 /
+   15.0), and short episodes weigh as much as long ones in the per-episode mean. The two protocols hold the
+   same amount to within half a frame, so the comparison is at matched memory.
+
+Caveats: one seed, 100 episodes (an SR difference under ~.10 is inside the intervals); the hybrid protocol
+was not run on LightNav-0; uniform draws from a 32-frame window while PyramidDrop ranks the whole history, as
+in the other two models, so "uniform vs PyramidDrop" compares the two protocols as defined, not random versus
+attention in isolation (the flat study does that).

@@ -9,9 +9,18 @@
 **/*.jpg
 **/wandb/
 **/frames/
+# info_horizon_mp3d: per-step probe sidecars (the tracked uninavid_probe ones were force-added)
+**/horizon/
 **/driver.log
 **/driver.log.partial
 **/*.ready
+
+# NavVerse arms (ctx_ablation_navverse): per-episode trajectory/action dumps and videos stay local;
+# result.json, server_config.json and server_steps.jsonl are the inputs aggregate.py reads.
+ctx_ablation_navverse/runs/*/*/data/
+ctx_ablation_navverse/runs/*/*/vid/
+# LightNav-0 NavVerse arms: per-step pruning records (tens of MB per arm) stay local.
+ctx_ablation_navverse/runs/*/prune/
 
 # Rebuilt outputs stay local: aggregate.py / plot.py regenerate them from runs/.
 */results/

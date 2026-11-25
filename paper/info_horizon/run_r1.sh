@@ -7,7 +7,9 @@
 # Arms: r1_blind_l<L> (every visual token hidden from decoder layer L on, 100 episodes;
 # +experiment=paper_horizon) | r1_probe_leaky, r1_probe (layer-wise keep-one-in / leave-one-out
 # KL of the current frame after every step on the 10 seed-17 episodes;
-# +experiment=paper_horizon_probe, leaky = prune mode, leak-free = evict mode). Finished arms
+# +experiment=paper_horizon_probe, leaky = prune mode, leak-free = evict mode) |
+# r1_probe_leaky_dense (ARMS= only: the leaky probe at every layer 0..27 plus
+# KL(P_full || P_no_visual_from_L) and the probe log-probs, vlm.horizon_probe_blind). Finished arms
 # are skipped; an unfinished arm resumes through wandb (same task.run_name).
 set -uo pipefail  # no -e: a failed arm is reported and the loop moves on (re-run to resume it)
 
@@ -16,9 +18,9 @@ cd "$ROOT"
 
 PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"
 RESOURCES="${RESOURCES:-single}"
-DATASET="${DATASET:-hm3d}"  # hm3d | mp3d (paper_results/info_horizon_mp3d, seed-17 manifests, +dataset=mp3d_val)
+DATASET="${DATASET:-hm3d}"  # hm3d | mp3d (paper_results_archive/info_horizon_mp3d, seed-17 manifests, +dataset=mp3d_val)
 if [[ "$DATASET" == "mp3d" ]]; then
-  OUT_ROOT="$ROOT/paper_results/info_horizon_mp3d/runs"
+  OUT_ROOT="$ROOT/paper_results_archive/info_horizon_mp3d/runs"  # archived 2026-11-23
   MANIFEST_100="src/longnav/conf/episode_jsons/mp3d_100_seed17.json"
   MANIFEST_9="src/longnav/conf/episode_jsons/mp3d_10_seed17.json"
   HYDRA_DATASET=mp3d_val
@@ -51,10 +53,17 @@ for ARM in $ARMS; do
     EXPERIMENT=paper_horizon_probe
     MANIFEST="$MANIFEST_9"
     OVERRIDES+=("vlm.context_window_mode=prune")
+  elif [[ "$ARM" == "r1_probe_leaky_dense" ]]; then
+    # 2026-11-23: the leaky probe at EVERY decoder layer with vlm.horizon_probe_blind, i.e. also
+    # KL(P_full || P_no_visual_from_L) and the per-layer probe log-probs (not in the default set).
+    EXPERIMENT=paper_horizon_probe
+    MANIFEST="$MANIFEST_9"
+    DENSE_LAYERS="$(seq -s, 0 27)"  # LongNav-R1 has 28 decoder layers; L = 28 (nothing hidden) is 0 by construction
+    OVERRIDES+=("vlm.context_window_mode=prune" "vlm.horizon_probe_layers=[$DENSE_LAYERS]" "vlm.horizon_probe_blind=true")
   elif [[ "$ARM" == "r1_ref" ]]; then
     EXPERIMENT=paper_ctx  # the unblinded full-context protocol of ctx_ablation/r1_full
   else
-    echo "Unknown arm '$ARM' (expected r1_blind_l<L>, r1_probe or r1_probe_leaky)" >&2
+    echo "Unknown arm '$ARM' (expected r1_blind_l<L>, r1_probe, r1_probe_leaky or r1_probe_leaky_dense)" >&2
     exit 2
   fi
 
@@ -68,7 +77,7 @@ for ARM in $ARMS; do
   echo "$(date '+%F %T')  starting $ARM  ${OVERRIDES[*]:-}"
   echo "========================================"
   # Under DATASET=mp3d the presets' HM3D manifest / output dir are overridden on the command line.
-  [[ "$DATASET" == "mp3d" ]] && OVERRIDES+=("task.episode_json=$MANIFEST" "task.output_dir=./paper_results/info_horizon_mp3d/runs")
+  [[ "$DATASET" == "mp3d" ]] && OVERRIDES+=("task.episode_json=$MANIFEST" "task.output_dir=./paper_results_archive/info_horizon_mp3d/runs")
   "$PYTHON" -m longnav.scripts.eval \
     +checkpoint=longnav +dataset="$HYDRA_DATASET" +experiment="$EXPERIMENT" +resources="$RESOURCES" \
     task.run_name="$ARM" "${OVERRIDES[@]}" \

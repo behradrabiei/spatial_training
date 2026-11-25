@@ -32,8 +32,11 @@ obsolete artifacts were archived locally; their restoration manifests are docume
 | `../paper_results_archive/frame_influence_keepone/` | [Keep-one-in influence](../paper/frame_influence/README.md), including the documented masking/splicing comparison. Archived 2026-11-21, runs only, as above. |
 | `token_prune_flat/` | [Flat pruning](../paper/token_prune/README.md): random, FastV, DivPrune, DART; layer-0 selection without the 32-frame window. |
 | `layer_token_info/` and its `nohist/` study | [Layer-token information](../paper/layer_token_info/README.md): leaky/leak-free token KL, the no-visual-history study, and the historical windowed horizon figure. |
-| `info_horizon/`, `info_horizon_mp3d/` | [Information horizon](../paper/info_horizon/README.md): full-context probes and visual-blind SR/SPL on HM3D and MP3D. |
-| `hybrid_prune/`, `hybrid_prune_mp3d/` | [Hybrid, uniform, and PyramidDrop](../paper/hybrid_prune/README.md): whole-model budgets, 24 complete 100-episode arms per dataset; documented cost benchmarks also retained. |
+| `info_horizon/` | [Information horizon](../paper/info_horizon/README.md): full-context probes and visual-blind SR/SPL on HM3D. |
+| `../paper_results_archive/info_horizon_mp3d/` | The MP3D replicate of `info_horizon/` (18 arms). Archived 2026-11-23 (not used in the paper); `results/` and `figures/` rebuild from `runs/`. The archived `protocol_mp3d` figure reads its `results/horizon.csv` for the unpruned reference. |
+| `../paper_results_archive/ctx_ablation_navverse/` | The [NavVerse indoor replicate](../paper/ctx_ablation/README.md) of the context-window ablation (LongNav-R1 and LightNav-0, 12 arms). Archived 2026-11-23 (not used in the paper); not part of `protected_inputs.json`; `results/` and `figures/` rebuild from `runs/`. |
+| `protocol/` | [Pruning protocol (uniform) vs PyramidDrop, and the retired hybrid](../paper/protocol/README.md) on HM3D: whole-model budgets, 24 complete 100-episode arms for LongNav-R1 and Uni-NaVid plus 8 LightNav-0 arms; documented cost benchmarks also retained. Named `hybrid_prune/` until 2026-11-22. |
+| `../paper_results_archive/protocol_mp3d/` | The MP3D replicate of `protocol/` (24 complete 100-episode arms). Archived 2026-11-22 (not used in the paper); `results/` and `figures/` rebuild from `runs/`. |
 | `selector_kl/` | [Selector criteria vs no-history keep-one-in KL](../paper/selector_kl/README.md), both models; LongNav-R1 showcase heatmaps. |
 
 The windowed horizon figure additionally reads

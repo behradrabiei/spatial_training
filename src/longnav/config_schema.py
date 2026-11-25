@@ -113,6 +113,12 @@ class VLMConfig:
     # evict mode, leaky decision replay in prune mode; 1 + 3 * len(layers) forwards per step.
     # Requires token_info_probe. Rows land raw in sequence.json as sup/horizon_*.
     horizon_probe_layers: List[int] = field(default_factory=list)
+    # Also log, per probe layer, KL(P_full || P_no_visual_from_L) -- every visual token (history
+    # and current frame) hidden from the layer on, the depth analogue of the recent-window measure --
+    # and the action log-probs of the probe's three hidden-set distributions (sup/horizon_blind,
+    # sup/horizon_logp_{blind,only_cur,minus_cur}). No extra forward on steps with a current-frame
+    # token; steps without one are probed with the all-visual set alone. Requires horizon_probe_layers.
+    horizon_probe_blind: bool = False
     # paper/selector_kl: after every decision, for each visual token of the current frame, the
     # layer-0 criterion of every flat-variant selector (FastV decision-row attention, DivPrune greedy
     # position, DART and random keep rank at each frames'-worth budget) next to the leaky
@@ -123,6 +129,17 @@ class VLMConfig:
     selector_probe: bool = False
     selector_probe_budgets: List[int] = field(default_factory=lambda: [4, 8, 16, 32])  # frames' worth
     selector_probe_measures: List[str] = field(default_factory=lambda: ["keep_cur", "leave"])
+    # paper/prune_kl: after every decision, KL(P full context || P with only the visual slots a flat
+    # token-pruning arm would still hold) for one SHADOW pruner per (method, frames'-worth budget),
+    # each advanced along the full-context trajectory with the flat arm's rule (permanent deletion,
+    # pool = survivors + the newest frame, capacity = frame_budget) -- longnav.utils.prune_kl_probe.
+    # Leaky decision replay, as the recent-window measure. Nothing is pruned; requires
+    # context_window_mode='prune', kv_prune_candidate_scope='visual', kv_prune_recent_turns=0,
+    # kv_prune_layer_start=0, no stages / frame budget; forces kv_prune_score_layer=0. Rows land raw
+    # in sequence.json as sup/prune_kl_*. 2 + (shadows that dropped something) replays per step.
+    prune_kl_probe: bool = False
+    prune_kl_methods: List[str] = field(default_factory=lambda: ["random", "fastv", "divprune", "dart"])
+    prune_kl_budgets: List[int] = field(default_factory=lambda: [4, 8, 16, 32])  # frames' worth
     # --- layer-selective pruning ("When Token Pruning is Worse than Random", CVPR'26, arXiv
     # 2512.07580): the budget applies only to decoder layers [layer_start, layer_end); the other
     # layers keep the window-only cache, so memory savings scale with the fraction of layers
@@ -141,7 +158,7 @@ class VLMConfig:
     # [layer_start, layer_end) no query may attend to ANY visual slot -- cached history and the
     # current frame alike -- and visual slots are dropped from those layers' caches after each
     # step. Text and the frame window are untouched; kv_budget / importance are ignored. Together
-    # with kv_prune_stages it blinds the LAST stage instead (paper/hybrid_prune 'uniform' arm):
+    # with kv_prune_stages it blinds the LAST stage instead (paper/protocol 'uniform' arm):
     # that stage's layers hide every visual column and hold no visual slot -- an implicit
     # kv_prune_tail_budget_frames of 0, so leave that unset; the stage's selector entry is ignored.
     kv_prune_visual_blind: bool = False
@@ -177,7 +194,7 @@ class VLMConfig:
     # as sup/kl_select.
     kv_prune_budget_frames: Optional[float] = None
     kv_prune_stages: Optional[List[int]] = None  # first layer of each PyramidDrop stage (ascending; 0 = every layer pruned)
-    # --- paper/hybrid_prune: per-stage rule on top of kv_prune_stages. kv_prune_stage_importance
+    # --- paper/protocol: per-stage rule on top of kv_prune_stages. kv_prune_stage_importance
     # names each stage's selector ('attn' = ranked at the layer below the stage, 'random' = uniform
     # draw among the previous stage's survivors; None = every stage 'attn'). With
     # kv_prune_tail_budget_frames=j the LAST stage keeps j frames' worth on its own (from the
@@ -196,7 +213,7 @@ class VLMConfig:
     # frame in scope -- bounded under a window, but without one it grows all episode and the ratio
     # collapses (deep stages starve). 'pool': the slots the first stage can draw from NOW (its
     # survivors + the entering frame) -- "keep a fraction lambda of what the previous stage holds",
-    # stationary and independent of episode length. paper/hybrid_prune uses 'pool' for both protocols.
+    # stationary and independent of episode length. paper/protocol uses 'pool' for both protocols.
     kv_prune_schedule_anchor: str = "original"
     kv_prune_tail_budget_frames: Optional[float] = None
     kv_prune_dart_pivots: int = 8  # DART: pivots by key L1 norm at layer_start-1 (layer 0 when layer_start=0)

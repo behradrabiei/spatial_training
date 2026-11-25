@@ -9,10 +9,25 @@ on layers ``>= i`` only (layers ``< i`` untouched, as in the paper):
     keep_cur[i, k] = KL( P_{only k; history intact}     || P_{current frame hidden} )
     keep_all[i, k] = KL( P_{only k; every other visual hidden} || P_{no visual} )
     leave_nohist[i, k] = KL( P_{history visuals hidden}  || P_{history visuals hidden, -k} )
+    keep_full[i, k] = KL( P_full                        || P_{only k; every other visual hidden} )
 
 ``leave_nohist`` is the leave-one-out counterpart of ``keep_all``: both describe the current frame
 with no visual history (every history frame's visual tokens hidden on layers ``>= i``; the text of
 the history -- the past actions -- stays). ``measures`` selects which are computed.
+
+``keep_full`` (2026-11-23) is the per-token counterpart of the blind-from-layer KL of
+paper/info_horizon, ``KL(P_full || P_{every visual token hidden on layers >= i})`` (stored here as
+``text_all_kl``): the same reference and direction, with token ``k`` alone left visible. With no
+token kept it is ``text_all_kl[i]``, so ``text_all_kl[i] - keep_full[i, k]`` is how much of that
+gap token ``k`` closes on its own. It shares its forward with ``keep_all`` (same hidden set) and
+stores that forward's action log-probs (``only_all_logp``), from which either KL can be recomputed.
+
+``leave_b<n>`` (2026-11-23, ``n`` odd: ``leave_b3``, ``leave_b5``, ...) is leave-one-out for a block
+of patches: ``KL(P_full || P_{the n x n block of the current frame centred on k hidden})``, the block
+clipped at the image border, everything else visible. One patch alone is redundant with its
+neighbours (``leave`` sits at the float floor); a block is not. ``leave_b1`` is ``leave`` and a block
+that covers the frame is ``text_cur_kl``. The probe's log-probs are stored as ``<measure>_logp``
+and the number of patches each block holds as ``<measure>_n``.
 
 ``P`` is the action distribution at the decision token (``worker.vocab_ids``), KL in nats with
 the expectation under the first argument (``VLMWorker._action_kl``). Two arms, one function each:
@@ -44,6 +59,7 @@ the frame-level diagnostic and the fp32 reading against the live argmax.
 from __future__ import annotations
 
 import contextlib
+import re
 import time
 
 import numpy as np
@@ -55,6 +71,31 @@ from longnav.utils.pre_rope import hide_columns
 MEASURES = ("leave", "keep_cur", "keep_all")  # the default set
 NOHIST_MEASURES = ("keep_all", "leave_nohist")  # the current frame without any visual history
 ALL_MEASURES = MEASURES + ("leave_nohist",)
+FULL_REF_MEASURES = ("keep_full",)  # KL to the full decision of the lone token (shares keep_all's forward)
+PROBE_MEASURES = ALL_MEASURES + FULL_REF_MEASURES  # what probe_*_arm accept (plus leave_b<n>);
+#                                                    ALL_MEASURES is the set the selector probe and the smokes iterate
+_BLOCK = re.compile(r"leave_b(\d+)$")
+
+
+def block_size(measure):
+    """Side ``n`` of a ``leave_b<n>`` block measure (odd, >= 1), else None."""
+    m = _BLOCK.match(str(measure))
+    if m is None:
+        return None
+    n = int(m.group(1))
+    if n < 1 or n % 2 == 0:
+        raise ValueError(f"{measure}: the block side must be odd and >= 1")
+    return n
+
+
+def block_members(raster, grid_thw, n):
+    """Per token ``k`` the indices (into ``raster``) of the kept tokens inside the ``n x n`` block of
+    the merged grid centred on ``k`` (clipped at the border; ``k`` itself included)."""
+    gw = int(grid_thw[2]) // 2
+    r, c = raster // gw, raster % gw
+    half = n // 2
+    near = ((r[:, None] - r[None, :]).abs() <= half) & ((c[:, None] - c[None, :]).abs() <= half)
+    return [torch.nonzero(near[k], as_tuple=False).flatten() for k in range(raster.numel())]
 
 
 def _check(worker, mode):
@@ -122,9 +163,9 @@ def current_frame_tokens(worker):
 
 def _resolve_measures(measures):
     measures = tuple(MEASURES if measures is None else measures)
-    unknown = [m for m in measures if m not in ALL_MEASURES]
+    unknown = [m for m in measures if m not in PROBE_MEASURES and block_size(m) is None]
     if unknown or not measures:
-        raise ValueError(f"measures must be a non-empty subset of {ALL_MEASURES}, got {measures}")
+        raise ValueError(f"measures must be a non-empty subset of {PROBE_MEASURES} or leave_b<n>, got {measures}")
     return measures
 
 
@@ -146,22 +187,39 @@ def _empty_result(layers, n_tokens, n_vocab, measures=MEASURES):
         # the reference of leave_nohist: every history frame's visual tokens hidden
         out["text_hist_logp"] = np.zeros((L, n_vocab), dtype=np.float32)
         out["text_hist_kl"] = np.zeros(L, dtype=np.float32)
+    if "keep_full" in measures:
+        # action log-probs of every lone-token forward (only k visible among all visual tokens)
+        out["only_all_logp"] = np.zeros((L, n_tokens, n_vocab), dtype=np.float32)
+    for m in measures:
+        if block_size(m) is not None:  # action log-probs of every block-hidden forward, block sizes
+            out[f"{m}_logp"] = np.zeros((L, n_tokens, n_vocab), dtype=np.float32)
+            out[f"{m}_n"] = np.zeros(n_tokens, dtype=np.int64)
     return out
 
 
 def n_forwards(n_layers, n_tokens, measures=MEASURES):
     """Forwards / replays one arm costs: the base, per layer the references, per token one per measure."""
-    return 1 + n_layers * (2 + int("leave_nohist" in measures) + len(measures) * n_tokens)
+    per_token = len(set(measures)) - int("keep_full" in measures and "keep_all" in measures)  # one shared forward
+    return 1 + n_layers * (2 + int("leave_nohist" in measures) + per_token * n_tokens)
 
 
-def _run_probes(worker, out, layers, measures, cols, cur, visual_all, forward, full, progress, t0):
+def _run_probes(worker, out, layers, measures, cols, cur, visual_all, forward, full, progress, t0,
+                raster=None, grid=None):
     """The probe loop both arms share. ``forward(hide, start)`` -> action log-probs with the bool
     ``hide`` columns hidden on layers ``>= start``; ``cur`` / ``visual_all`` are bool masks in the
     arm's column space (master slots or re-prefill positions) and ``cols`` the current frame's
-    columns in raster order."""
+    columns in raster order. ``raster`` / ``grid`` (the tokens' grid indices and the frame's
+    (t, h, w)) are needed by the ``leave_b<n>`` block measures only."""
     kl = worker._action_kl
     hist = visual_all & ~cur
     none = torch.zeros_like(cur)
+    blocks = {}
+    for m in measures:
+        if block_size(m) is not None:
+            if raster is None or grid is None:
+                raise RuntimeError(f"{m} needs the current frame's raster indices and grid")
+            blocks[m] = block_members(raster, grid, block_size(m))
+            out[f"{m}_n"][:] = [int(b.numel()) for b in blocks[m]]
     for li, start in enumerate(layers):
         text_cur = forward(cur, start)
         text_all = forward(visual_all, start)
@@ -181,12 +239,22 @@ def _run_probes(worker, out, layers, measures, cols, cur, visual_all, forward, f
             if "keep_cur" in measures:
                 h = cur.clone(); h[c] = False
                 out["keep_cur"][li, k] = kl(forward(h, start), text_cur)
-            if "keep_all" in measures:
+            if "keep_all" in measures or "keep_full" in measures:
                 h = visual_all.clone(); h[c] = False
-                out["keep_all"][li, k] = kl(forward(h, start), text_all)
+                only = forward(h, start)
+                if "keep_all" in measures:
+                    out["keep_all"][li, k] = kl(only, text_all)
+                if "keep_full" in measures:
+                    out["keep_full"][li, k] = kl(full, only)
+                    out["only_all_logp"][li, k] = only.float().cpu().numpy()
             if "leave_nohist" in measures:
                 h = hist.clone(); h[c] = True
                 out["leave_nohist"][li, k] = kl(text_hist, forward(h, start))
+            for m, members in blocks.items():
+                h = none.clone(); h[cols[members[k]]] = True
+                hidden = forward(h, start)
+                out[m][li, k] = kl(full, hidden)
+                out[f"{m}_logp"][li, k] = hidden.float().cpu().numpy()
         if progress is not None:
             progress(li, start, time.perf_counter() - t0)
 
@@ -256,7 +324,8 @@ def probe_mask_arm(worker, layers=None, progress=None, fp32_head=True, measures=
     out["base_logp"][:] = full.float().cpu().numpy()
     visual_all = ps.is_visual.clone().cpu()
     cur = visual_all & (ps.turn_id == ps.n_turns - 1).cpu()
-    _run_probes(worker, out, layers, measures, cols, cur, visual_all, forward, full, progress, t0)
+    _run_probes(worker, out, layers, measures, cols, cur, visual_all, forward, full, progress, t0,
+                raster=raster, grid=grid)
     out["raster"] = raster.numpy()
     out["grid_thw"] = np.asarray(grid, dtype=np.int64)
     out["fp32_head"] = np.bool_(fp32_head)
@@ -397,7 +466,8 @@ def probe_recompute_arm(worker, layers=None, progress=None, fp32_head=True, meas
         full = forward()
         out = _empty_result(layers, n, full.numel(), measures)
         out["base_logp"][:] = full.float().numpy()
-        _run_probes(worker, out, layers, measures, cols, cur, visual_all, forward, full, progress, t0)
+        _run_probes(worker, out, layers, measures, cols, cur, visual_all, forward, full, progress, t0,
+                    raster=raster, grid=grid)
     out["raster"] = raster.numpy()
     out["grid_thw"] = np.asarray(grid, dtype=np.int64)
     out["fp32_head"] = np.bool_(fp32_head)
@@ -428,7 +498,7 @@ def joint_current_frame_kl(worker, start=0, fp32_head=True):
 # ----------------------------------------------------------------- frame-level horizon probe
 
 
-def horizon_probe(worker, layers, fp32_head=True):
+def horizon_probe(worker, layers, fp32_head=True, blind=False):
     """Frame-level information horizon of the current frame (paper/info_horizon).
 
     Per probe layer ``L`` the current frame's visual tokens are hidden on layers ``>= L``:
@@ -439,6 +509,16 @@ def horizon_probe(worker, layers, fp32_head=True):
     with the columns hidden from that one query only (leaky, ``_decision_replay``). Both cost
     ``1 + 3 * #{L < n_layers}`` forwards/replays; ``L >= n_layers`` is 0 with no forward.
     Returns plain lists so the row can go straight into the step log.
+
+    ``blind=True`` (``vlm.horizon_probe_blind``) adds the depth analogue of the recent-window
+    measure, ``blind = KL(P_full || P_no_visual_from_L)`` -- every visual token, history and
+    current frame, hidden on layers ``>= L``; the probe already computes that distribution as
+    the keep-one reference, so it costs no forward -- and the action log-probs of the three
+    hidden-set distributions per layer (``logp_blind``, ``logp_only_cur``, ``logp_minus_cur``;
+    ``base_logp`` is the full one), from which every pairwise KL and argmax flip can be derived
+    offline. A step whose current frame kept no visual token still has a history to hide: with
+    ``blind`` it is probed with the all-visual set alone (one forward per layer; keep-one and
+    leave-one-out stay 0 there, ``only_cur`` = the blind distribution, ``minus_cur`` = full).
     """
     mode = worker.context_window_mode
     _check(worker, mode)
@@ -450,6 +530,19 @@ def horizon_probe(worker, layers, fp32_head=True):
     t0 = time.perf_counter()
     keep, leave, extra = [], [], {}
     zeros = [0.0] * len(layers)
+    blind_kl, lp_blind, lp_only, lp_minus = [], [], [], []
+
+    def tolist(logp):
+        return [float(x) for x in logp.float().cpu().tolist()]
+
+    def record(text_all, only_cur, minus_cur):
+        """One layer's blind row; ``None`` = nothing hidden at this layer (the full decision)."""
+        if not blind:
+            return
+        blind_kl.append(0.0 if text_all is None else worker._action_kl(full, text_all))
+        lp_blind.append(tolist(full if text_all is None else text_all))
+        lp_only.append(tolist(full if only_cur is None else only_cur))
+        lp_minus.append(tolist(full if minus_cur is None else minus_cur))
     if mode == "evict":
         cols, _, _ = current_frame_tokens(worker)
         prefix, turns = worker._device_recs()
@@ -465,17 +558,25 @@ def horizon_probe(worker, layers, fp32_head=True):
         n_cur = int(cols.numel())
         n0 = worker._influence_probe_count
         hider = _ColumnHider(worker)
+        n_vis = int(visual_all.sum())
         with hider:
             full = hider.forward(recs, head=head)
             if n_cur:
                 for L in layers:
                     if L >= n_layers:
-                        keep.append(0.0); leave.append(0.0); continue
+                        keep.append(0.0); leave.append(0.0); record(None, None, None); continue
                     minus_cur = hider.forward(recs, cur, L, head)
                     text_all = hider.forward(recs, visual_all, L, head)
                     only_cur = hider.forward(recs, visual_all & ~cur, L, head)
                     leave.append(worker._action_kl(full, minus_cur))
                     keep.append(worker._action_kl(only_cur, text_all))
+                    record(text_all, only_cur, minus_cur)
+            elif blind and n_vis:  # no current-frame token: only the history is there to hide
+                for L in layers:
+                    if L >= n_layers:
+                        record(None, None, None); continue
+                    text_all = hider.forward(recs, visual_all, L, head)
+                    record(text_all, text_all, None)
         n_probes = worker._influence_probe_count - n0
     else:
         if worker.context_window is not None:
@@ -489,22 +590,38 @@ def horizon_probe(worker, layers, fp32_head=True):
         visual_all = ps.is_visual.clone()
         cur = visual_all & (ps.turn_id == ps.n_turns - 1)
         n_cur = int(cur.sum())
+        n_vis = int(visual_all.sum())
         if n_cur:
             term_cur = worker._replay_ablation_term(cur)
             term_all = worker._replay_ablation_term(visual_all)
             term_only = worker._replay_ablation_term(visual_all & ~cur)
             for L in layers:
                 if L >= n_layers:
-                    keep.append(0.0); leave.append(0.0); continue
+                    keep.append(0.0); leave.append(0.0); record(None, None, None); continue
                 ext = range(L, n_layers)
                 minus_cur = replay_action_logp(worker, head, base_bias, extra=term_cur, extra_layers=ext)
                 text_all = replay_action_logp(worker, head, base_bias, extra=term_all, extra_layers=ext)
                 only_cur = replay_action_logp(worker, head, base_bias, extra=term_only, extra_layers=ext)
                 leave.append(worker._action_kl(full, minus_cur))
                 keep.append(worker._action_kl(only_cur, text_all))
+                record(text_all, only_cur, minus_cur)
+        elif blind and n_vis:  # no current-frame token: only the history is there to hide
+            term_all = worker._replay_ablation_term(visual_all)
+            for L in layers:
+                if L >= n_layers:
+                    record(None, None, None); continue
+                text_all = replay_action_logp(worker, head, base_bias, extra=term_all, extra_layers=range(L, n_layers))
+                record(text_all, text_all, None)
         n_probes = worker._prune_replay_count - n0
     if not n_cur:  # no visual token survived the sparse filter: nothing to hide
         keep, leave = list(zeros), list(zeros)
-    return {"layers": layers, "keep_one": keep, "leave_one": leave,
-            "base_logp": [float(x) for x in full.float().cpu().tolist()],
-            "n_cur_tokens": n_cur, "n_probes": int(n_probes), "seconds": time.perf_counter() - t0}
+    row = {"layers": layers, "keep_one": keep, "leave_one": leave,
+           "base_logp": [float(x) for x in full.float().cpu().tolist()],
+           "n_cur_tokens": n_cur, "n_probes": int(n_probes), "seconds": time.perf_counter() - t0}
+    if blind:
+        if not n_vis:  # no visual token anywhere in the context: every hidden set is empty
+            for _ in layers:
+                record(None, None, None)
+        row |= {"blind": blind_kl, "logp_blind": lp_blind, "logp_only_cur": lp_only, "logp_minus_cur": lp_minus,
+                "n_visual_tokens": n_vis}
+    return row

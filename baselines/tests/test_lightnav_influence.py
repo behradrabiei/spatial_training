@@ -41,16 +41,21 @@ if HAVE_TORCH:
         entropy,
         fold_logp,
         kl,
+        make_capture_prehook,
         make_influence_forward,
         make_logits_hook,
         only_mask,
+        parse_arms,
+        shadow_step,
         recent_keep_sets,
         pack_f16,
         probe_fields,
         unpack_f16,
         velocity_bin,
     )
-    from baselines.lightnav_hm3d.eval_prune import split_history, tubelet_layout
+    from baselines.lightnav_hm3d.eval_prune import (
+        PruneState, apply_drop, decision_row, kept_per_tubelet, plan_step, select_keep, split_history, tubelet_layout,
+    )
 
 H, KVH, D = 4, 2, 8
 BLOCK = 4
@@ -275,6 +280,17 @@ class MaskTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 InfluenceState(**bad)
 
+    def test_blind_layer_state_and_meta(self):
+        st = InfluenceState(measure="blind_layer", layers=[8, 0, 4, 4])
+        self.assertEqual(st.layers, (0, 4, 8))
+        meta = st.describe()
+        self.assertEqual((meta["measure"], meta["layers"]), ("blind_layer", [0, 4, 8]))
+        self.assertIn("full context", meta["blind_kl_direction"])
+        self.assertEqual(InfluenceState(measure="blind_layer").layers, tuple(range(0, 36, 2)))
+        for bad in ([], [-1, 4]):
+            with self.assertRaises(ValueError):
+                InfluenceState(measure="blind_layer", layers=bad)
+
 
 @unittest.skipUnless(HAVE_TORCH, "needs torch (run with baselines/.envs/lightnav)")
 class HookTest(unittest.TestCase):
@@ -308,7 +324,28 @@ class HookTest(unittest.TestCase):
             mask = attention_mask(1, 15, hide)
             torch.testing.assert_close(out.double(), naive_attention(query, key, value, 1 / math.sqrt(D), mask), rtol=1e-5, atol=1e-5)
         self.assertEqual(st.calls, 6)
+        self.assertEqual(st.calls_hidden, 6)
         self.assertEqual(self.original_calls, [])
+
+    def test_hidden_set_from_min_layer_on(self):
+        """blind_layer: the hidden set applies on layers >= min_layer; the layers below see everything."""
+        st, _ = fake_state()
+        hide = torch.zeros(12, dtype=torch.bool)
+        hide[4:7] = True
+        st.set_hide(hide, 20)
+        self.assertEqual(st.min_layer, 20)
+        for index, hidden in ((0, False), (19, False), (20, True), (35, True)):
+            for seq_len, n_query in ((12, 12), (15, 1)):  # prefill, decode
+                out, query, key, value = self.run_forward(st, index, seq_len=seq_len, n_query=n_query)
+                mask = attention_mask(n_query, seq_len, hide if hidden else None)
+                torch.testing.assert_close(out.double(), naive_attention(query, key, value, 1 / math.sqrt(D), mask), rtol=1e-5, atol=1e-5)
+                if hidden:  # and the hidden columns do change the output there
+                    open_mask = attention_mask(n_query, seq_len, None)
+                    self.assertFalse(torch.allclose(out.double(), naive_attention(query, key, value, 1 / math.sqrt(D), open_mask), atol=1e-4))
+        self.assertEqual((st.calls, st.calls_hidden), (8, 4))
+        self.assertEqual(self.original_calls, [])
+        st.set_hide(hide)  # the default is every layer again
+        self.assertEqual(st.min_layer, 0)
 
     def test_cached_prefix_is_refused(self):
         st, _ = fake_state()
@@ -346,16 +383,23 @@ class HookTest(unittest.TestCase):
         self.assertEqual(float(st.logits[2][1]), 4.0)
         with self.assertRaises(RuntimeError):
             hook(torch.zeros(2, 4))
-        st.calls = N_LAYERS * 3
+        st.calls = st.calls_hidden = N_LAYERS * 3
         self.assertEqual(check_generate_counts(st, 12, 6, 3), 3)
         with self.assertRaises(RuntimeError):
             check_generate_counts(st, 12, 6, 4)  # fewer logits rows than tokens
-        st.calls = N_LAYERS - 1
+        st.calls = st.calls_hidden = N_LAYERS - 1
         with self.assertRaises(RuntimeError):
             check_generate_counts(st, 12, 6, 3)
-        st.calls = N_LAYERS
+        st.calls = st.calls_hidden = N_LAYERS
         with self.assertRaises(RuntimeError):
             check_generate_counts(st, 12, 0, 1)
+        # blind_layer: the hidden set must have been applied on exactly the layers >= min_layer
+        st.calls, st.calls_hidden = N_LAYERS * 3, (N_LAYERS - 20) * 3
+        self.assertEqual(check_generate_counts(st, 12, 6, 3, min_layer=20), 3)
+        with self.assertRaises(RuntimeError):
+            check_generate_counts(st, 12, 6, 3)  # some layers skipped the hidden set
+        with self.assertRaises(RuntimeError):
+            check_generate_counts(st, 12, 6, 3, min_layer=22)
 
     def test_episode_reset_and_record_log(self):
         st = InfluenceState()
@@ -370,6 +414,195 @@ class HookTest(unittest.TestCase):
             self.assertEqual(len(Path(d, "episode_001.jsonl").read_text().splitlines()), 2)
         self.assertEqual(st.describe()["max_age"], 33)
         self.assertEqual(st.describe()["bins"], list(BINS))
+
+
+def flat_layout(t_now):
+    """Synthetic step layout: every earlier frame pair anchored at 0 in one pool-2 segment
+    (28 tokens a tubelet), then the current pair (t-1, t) at pool 1."""
+    n_hist = max((t_now - 1) // 2, 0)
+    segs = [(list(range(2 * n_hist)), 2)] if n_hist else []
+    grids = [grid_for(2, n_hist)] if n_hist else []
+    segs.append(([max(t_now - 1, 0), t_now], 1))
+    grids.append(grid_for(1, 1))
+    return tubelet_layout(segs, grids)
+
+
+@unittest.skipUnless(HAVE_TORCH, "needs torch (run with baselines/.envs/lightnav)")
+class PruneKlTest(unittest.TestCase):
+    HIDDEN = 6
+
+    def drive(self, shadow, steps, prepass=None):
+        """Run a shadow over ``steps``; returns per step (plan, n_pool, n_dropped, forwards, pads)."""
+        out = []
+        for t in steps:
+            tubs = flat_layout(t)
+            ids, pads = prompt_for(tubs)
+            emb = torch.randn(len(pads), self.HIDDEN, generator=torch.Generator().manual_seed(100 + t))
+            items = [SimpleNamespace(video_embeds=emb)]
+            out.append((*shadow_step(shadow, items, tubs, t, torch.as_tensor(pads), pads, len(ids),
+                                     prepass or (lambda sh, hide: self.fail("unexpected pre-pass"))), pads, items, tubs, ids))
+        return out
+
+    def live(self, method, k, episode, steps):
+        """eval_prune's own loop (plan -> select -> drop) on the same layouts: the keep bits per step."""
+        st = PruneState(method, k)
+        st.hidden_size, st.episode = self.HIDDEN, episode
+        bits = []
+        for t in steps:
+            tubs = flat_layout(t)
+            ids, pads = prompt_for(tubs)
+            emb = torch.randn(len(pads), self.HIDDEN, generator=torch.Generator().manual_seed(100 + t))
+            st.current_abs, st.prompt_len = t, len(ids)
+            plan = plan_step(tubs, t, st.ledger, pads, len(ids))
+            if len(plan.cand_ranks) > st.budget:
+                keep, _ = select_keep(st, [SimpleNamespace(video_embeds=emb)], plan.cand_ranks, torch.as_tensor(pads),
+                                      lambda: self.fail("unexpected pre-pass"), plan.cand_keys)
+                apply_drop(plan, keep, st.ledger, pads)
+            bits.append(kept_per_tubelet(plan, pads)[1])
+        return bits
+
+    def test_parse_arms(self):
+        self.assertEqual(len(parse_arms(None)), 16)
+        self.assertEqual(parse_arms(None)[:5], [("random", 4), ("random", 8), ("random", 16), ("random", 32), ("fastv", 4)])
+        self.assertEqual(parse_arms(["dart:8", "recency:2"]), [("dart", 8), ("recency", 2)])
+        for bad in (["bogus:4"], ["random"], ["random:x"], ["random:4", "random:4"]):
+            with self.assertRaises(ValueError):
+                parse_arms(bad)
+
+    def test_shadow_reproduces_the_live_loop(self):
+        steps = list(range(0, 14, 2))  # one parity: the anchored pairs recur at every step
+        for method in ("random", "recency", "divprune"):
+            for k in (2, 4):
+                shadow = PruneState(method, k)
+                shadow.hidden_size, shadow.episode = self.HIDDEN, 37
+                rows = self.drive(shadow, steps)
+                ref = self.live(method, k, 37, steps)
+                for (plan, n_pool, n_dropped, fwd, pads, *_), bits, t in zip(rows, ref, steps):
+                    self.assertEqual(kept_per_tubelet(plan, pads)[1], bits, (method, k, t))
+                    self.assertEqual(fwd, 0)
+                    n_hist = sum(tub.n_tokens for tub in plan.history)
+                    self.assertEqual(n_hist - int(plan.hide.sum()), min(n_hist, 14 * k))  # visible history == budget
+                    self.assertEqual(n_pool - n_dropped, min(n_pool, 14 * k))
+                    cur = split_history(flat_layout(t), t)[1]
+                    self.assertFalse(any(plan.hide[pads[c.start + i]] for c in cur for i in range(c.n_tokens)))
+                self.assertEqual(shadow.current_abs, steps[-1])
+        # the random draw keys on the shadow's episode counter
+        a, b = PruneState("random", 2), PruneState("random", 2)
+        a.episode, b.episode = 3, 4
+        bits_a = [kept_per_tubelet(r[0], r[4])[1] for r in self.drive(a, steps)]
+        bits_b = [kept_per_tubelet(r[0], r[4])[1] for r in self.drive(b, steps)]
+        self.assertNotEqual(bits_a, bits_b)
+        self.assertEqual(bits_a, self.live("random", 2, 3, steps))
+
+    def test_recency_shadow_keeps_the_newest_tokens(self):
+        shadow = PruneState("recency", 2)
+        shadow.episode = 0
+        for plan, _, _, _, pads, _, tubs, _ in self.drive(shadow, [8, 10, 12]):
+            newest = max(plan.history, key=lambda t: (t.f1, t.f0))
+            visible = {pads[t.start + c] for t in plan.history for c in range(t.n_tokens)} - set(torch.nonzero(plan.hide).flatten().tolist())
+            self.assertEqual(visible, {pads[newest.start + c] for c in range(newest.n_tokens)})
+
+    def test_prepass_runs_with_the_ledger_hidden_and_feeds_the_selection(self):
+        seen = []
+
+        def prepass(sh, hide):
+            self.assertTrue(sh.capture)
+            seen.append(hide.clone())
+            sh.row = torch.linspace(0.0, 1.0, int(hide.numel()))  # later prompt positions score higher
+            sh.keys0 = torch.zeros(int(hide.numel()), KVH, D)
+            sh.offset = 0
+            return 1
+
+        shadow = PruneState("fastv", 2)
+        shadow.episode = 0
+        rows = self.drive(shadow, [8, 10], prepass)
+        self.assertEqual([r[3] for r in rows], [1, 1])
+        self.assertFalse(seen[0].any())  # first selection: nothing in the ledger yet
+        self.assertEqual(int(seen[1].sum()), 3 * 28 - 28)  # the second pre-pass hides the first step's drops
+        self.assertFalse(shadow.capture)
+        for plan, _, _, _, pads, *_ in rows:
+            cand = [pads[t.start + c] for t in plan.history for c in range(t.n_tokens)]
+            visible = [pos for pos in cand if not plan.hide[pos]]
+            self.assertEqual(len(visible), 28)
+        plan, pads = rows[0][0], rows[0][4]
+        cand = [pads[t.start + c] for t in plan.history for c in range(t.n_tokens)]
+        self.assertEqual([pos for pos in cand if not plan.hide[pos]], sorted(cand)[-28:])
+
+    def test_state_meta_and_episode_reset(self):
+        st = InfluenceState(measure="prune_kl", arms=[("random", 4), ("dart", 8)], seed_episodes=[22, 37])
+        self.assertEqual([(s.method, s.k, s.budget) for s in st.shadows], [("random", 4, 56), ("dart", 8, 112)])
+        meta = st.describe()
+        self.assertEqual((meta["measure"], meta["arms"], meta["budgets"], meta["seed_episodes"]),
+                         ("prune_kl", [["random", 4], ["dart", 8]], [56, 112], [22, 37]))
+        st.reset_episode()
+        st.shadows[0].ledger.add((0, 1, 2, 0))
+        self.assertEqual((st.episode, st.seed_episode(), [s.episode for s in st.shadows]), (0, 22, [22, 22]))
+        st.reset_episode()
+        self.assertEqual((st.seed_episode(), [s.episode for s in st.shadows], [len(s.ledger) for s in st.shadows]),
+                         (37, [37, 37], [0, 0]))
+        with self.assertRaises(RuntimeError):
+            st.reset_episode()  # a third episode has no seed entry
+        plain = InfluenceState(measure="prune_kl")
+        plain.reset_episode()
+        self.assertEqual((len(plain.shadows), plain.seed_episode()), (16, 0))
+        self.assertEqual(InfluenceState().shadows, [])  # the other measures carry no shadow
+        for kwargs in (dict(arms=[]), dict(arms=[("random", 4), ("random", 4)])):
+            with self.assertRaises(ValueError):
+                InfluenceState(measure="prune_kl", **kwargs)
+        with self.assertRaises(ValueError):
+            InfluenceState(measure="recent_k", seed_episodes=[0])
+
+    def test_capture_hooks_write_into_the_shadow_in_flight(self):
+        st, _ = fake_state()
+        st.n_layers = N_LAYERS
+        hide = torch.zeros(12, dtype=torch.bool)
+        hide[3] = True
+        st.set_hide(hide)
+        shadow = PruneState("dart", 4)
+        shadow.prompt_len, shadow.capture = 12, True
+        forward = make_influence_forward(st, lambda *a, **k: self.fail("original kernel called"))
+
+        def call(index, seq_len, n_query, seed=1):
+            cache, row, key, value = paged_cache(seq_len, seed)
+            query = torch.randn(n_query, H, D, generator=torch.Generator().manual_seed(seed + 7))
+            layer = SimpleNamespace(layer_name=f"language_model.model.layers.{index}.self_attn.attn")
+            forward(FakeImpl(), layer, query, key[:n_query], value[:n_query], cache, metadata(seq_len, n_query, row),
+                    output=torch.zeros(n_query + 2, H, D))
+            return query, key
+
+        call(0, 12, 12)  # no shadow in flight: nothing captured
+        self.assertIsNone(shadow.row)
+        st.capture_into = shadow
+        call(1, 12, 12)  # layer 1: not the scored layer
+        self.assertIsNone(shadow.row)
+        query, key = call(0, 12, 12)
+        mask = attention_mask(12, 12, hide)
+        torch.testing.assert_close(shadow.row, decision_row(query[-1], key, 1 / math.sqrt(D), mask[-1]))
+        self.assertEqual(float(shadow.row[3]), 0.0)  # a column the shadow dropped gets no mass
+        self.assertAlmostEqual(float(shadow.row.sum()), 1.0, places=5)
+        self.assertTrue(torch.equal(shadow.keys0, key.float()))
+        self.assertEqual(shadow.offset, 0)
+        call(0, 13, 1)  # a decode forward is not captured
+        with self.assertRaises(RuntimeError):
+            call(0, 12, 12)  # a second prefill in one pre-pass
+        shadow.row, shadow.prompt_len = None, 11
+        with self.assertRaises(RuntimeError):
+            call(0, 12, 12)  # not this shadow's prompt
+        # layer-1 pre-hook
+        hook = make_capture_prehook(st)
+        hidden, residual = torch.randn(5, 3), torch.randn(5, 3)
+        st.capture_into = None
+        hook(None, (None, hidden, residual))
+        self.assertIsNone(shadow.h1)
+        st.capture_into = shadow
+        hook(None, (None, hidden[:1], residual[:1]))  # decode
+        self.assertIsNone(shadow.h1)
+        hook(None, (None, hidden, residual))
+        torch.testing.assert_close(shadow.h1, hidden + residual)
+        with self.assertRaises(RuntimeError):
+            hook(None, (None, hidden, residual))
+        shadow.capture = False
+        hook(None, (None, hidden, residual))  # not capturing: ignored
 
 
 @unittest.skipUnless(HAVE_TORCH, "needs torch (run with baselines/.envs/lightnav)")
@@ -387,6 +620,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual((d.measure, d.max_k), ("keep_one", 32))
         r = build_parser().parse_known_args(["--measure", "recent_k", "--max-k", "8"])[0]
         self.assertEqual((r.measure, r.max_k), ("recent_k", 8))
+        b = build_parser().parse_known_args(["--measure", "blind_layer", "--layers", "0", "12", "24", "--episodes", "-1"])
+        self.assertEqual((b[0].measure, b[0].layers, b[1]), ("blind_layer", [0, 12, 24], ["--episodes", "-1"]))
+        self.assertEqual(d.layers, list(range(0, 36, 2)))
+        self.assertEqual((d.prune_kl_arms, d.prune_kl_seed_episodes, d.prune_kl_tokens_per_frame), (None, None, 14))
+        k = build_parser().parse_known_args(["--measure", "prune_kl", "--prune-kl-arms", "random:4", "dart:8",
+                                             "--prune-kl-seed-episodes", "22", "37", "--episodes", "-1"])
+        self.assertEqual((k[0].measure, k[0].prune_kl_arms, k[0].prune_kl_seed_episodes, k[1]),
+                         ("prune_kl", ["random:4", "dart:8"], [22, 37], ["--episodes", "-1"]))
 
 
 def write_fake_run(root: Path) -> None:
@@ -492,6 +733,52 @@ class RecentLoaderTest(unittest.TestCase):
             write_fake_run(Path(d))
             with self.assertRaises(ValueError):
                 inf.load_lightnav_influence(d, measure="recent_k")
+
+
+@unittest.skipUnless(HAVE_LONGNAV, "needs longnav on PYTHONPATH (PYTHONPATH=src)")
+class PruneKlLoaderTest(unittest.TestCase):
+    def test_rows_binding_and_method_filter(self):
+        from longnav.analysis import prune_kl as pk
+
+        full = {"exec_bin": "fwd", "code": 12, "bin": "fwd", "bin_argmax": "fwd", "entropy": 1.2}
+        novis = {"kl": 9.0, "kl_bin": 3.0, "code": 3, "bin_argmax": "stop"}
+
+        def arm(method, k, kl, n_hidden, code=12, bin_argmax="fwd"):
+            return {"method": method, "k": k, "kl": kl, "kl_bin": None if kl is None else kl / 2, "n_hidden": n_hidden,
+                    "n_kept": 56, "code": code, "bin_argmax": bin_argmax, "entropy": 1.0, "p_mass": 0.99, "bits": ""}
+
+        recs = [
+            {"step": 1, "full": full, "visual_all_mask": novis, "replay": {"kl": 0.0, "kl_bin": 0.0}, "probe_seconds": 1.0,
+             "prune_kl": [arm("random", 4, 0.0, 0), arm("dart", 4, 0.0, 0), arm("recency", 2, 0.0, 0)]},
+            {"step": 9, "full": full, "visual_all_mask": novis, "replay": {"kl": 0.0, "kl_bin": 0.0}, "probe_seconds": 2.0,
+             "prune_kl": [arm("random", 4, 0.8, 28, code=5, bin_argmax="rot_L"), arm("dart", 4, 0.0, 0),
+                          arm("recency", 2, None, 84, code=None)]},
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "episodes").mkdir()
+            (root / "influence").mkdir()
+            (root / "episodes" / "ep_a.json").write_text(json.dumps({
+                "episode_label": "ep_a", "metrics": {"success": 1.0, "spl": 0.5, "distance_to_goal": 0.3}, "steps": 10,
+                "forced_stop": False}))
+            (root / "influence" / "ep_a.jsonl").write_text("\n".join(json.dumps(r) for r in recs) + "\n")
+            rows = pk.load_lightnav_prune_kl(root)
+            every = pk.load_lightnav_prune_kl(root, methods=None)
+        self.assertEqual(len(rows), 4)  # the recency check arm is not a paper method
+        self.assertEqual(len(every), 6)
+        by = {(r["step"], r["method"]): r for r in rows}
+        r = by[(9, "random")]
+        self.assertEqual((r["kl"], r["kl_exec"], r["flip"], r["flip_exec"], r["binding"], r["novis"], r["novis_exec"], r["chosen_action"]),
+                         (0.8, 0.4, 1, 1, 1, 9.0, 3.0, "fwd"))
+        self.assertEqual((by[(9, "dart")]["binding"], by[(9, "dart")]["flip"]), (1, 0))  # binds through random's hidden set
+        self.assertEqual(by[(1, "random")]["binding"], 0)
+        trunc = [r for r in every if r["method"] == "recency" and r["step"] == 9][0]
+        self.assertTrue(math.isnan(trunc["kl"]))
+        self.assertEqual(trunc["flip"], "")
+        curve = {(c["method"], c["k"]): c for c in pk.prune_kl_curve(rows)}
+        self.assertEqual((curve[("random", 4)]["n_steps"], curve[("random", 4)]["kl_mean"], curve[("random", 4)]["kl_all_mean"]),
+                         (1, 0.8, 0.4))
+        self.assertAlmostEqual(curve[("random", 4)]["kl_norm_balanced"], 0.8 / 9.0)
 
 
 @unittest.skipUnless(HAVE_LONGNAV, "needs longnav on PYTHONPATH (PYTHONPATH=src)")

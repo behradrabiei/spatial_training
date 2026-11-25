@@ -1,0 +1,65 @@
+# @package _global_
+# Pruning KL of LongNav-R1 (paper/prune_kl/README.md): KL(P full context || P pruned context) per
+# flat pruning method and frame budget, on the full-context trajectory.
+#
+# Same substrate and trajectories as paper_influence_recent (full context, sparse filter on,
+# nothing pruned, deterministic argmax). After every decision the worker advances one SHADOW
+# pruner per (method, k) -- random / FastV / DivPrune / DART at k in {4, 8, 16, 32} frames' worth,
+# each with the flat arm's rule of paper_prune_flat (permanent deletion, pool = survivors + the
+# newest frame, layer-0 criteria) -- and replays the decision token with the slots that shadow has
+# dropped so far hidden on every layer (longnav.utils.prune_kl_probe; rows in sequence.json as
+# sup/prune_kl_*). Leaky, as the recent-window measure: the surviving slots keep the K/V they were
+# encoded with. The joint probes of kv_prune_log_influence stay on with no age band, so the run also
+# carries base / history_all / visual_all under the recent-window run's keys (reference check).
+#
+# Launch from the repo root:
+#   python -m longnav.scripts.eval +checkpoint=longnav +dataset=hm3d_v2_val \
+#     +experiment=paper_prune_kl +resources=single task.run_name=r1_prune_kl
+#
+# task.run_name must NOT reuse a name from another experiment in the same wandb project: resume
+# keys on the run name and would skip every already-logged episode.
+task:
+  run_name: "name me"
+  wandb_project: "longnav_paper_prune_kl"
+  output_dir: ./paper_results/prune_kl/runs  # git-ignored (paper_results/.gitignore)
+  jobtype: eval
+  subset_label: ""
+  episode_json: src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json  # 10 episodes, seed-17 sample of the 100 split
+  shard_size: 5
+rollout:
+  max_steps: 500
+  deterministic: true  # argmax actions
+  visualize_token_filtering: false
+  visualize_attention: false
+  visualize_attention_heads: false
+  visualize_attention_3d: false
+sim:
+  fp_guard: false
+  fn_guard: false
+  ep_seed: 17
+  add_top_down_map: false
+  visualize_3d: false
+  visualize_attn3d: false
+vlm:
+  use_sparse: true  # the model's native regime (and required by the prune substrate)
+  sparse_threshold: 0.95  # filter ON: the r1_full trajectory
+  context_cut: header  # inert without a window
+  context_frames: null
+  context_window: null  # full episode in context
+  context_window_mode: prune  # replay substrate only; the budget below is never reached
+  kv_budget: 1000000000
+  kv_prune_importance: random  # identity at this budget; the probe arms the captures itself
+  kv_prune_candidate_scope: visual  # the flat variant's pool: text is never a candidate
+  kv_prune_recent_turns: 0  # the just-decided frame is a candidate
+  kv_prune_ema_beta: 0.0
+  kv_prune_layer_start: 0  # every layer in play; FastV scored at layer 0 (kv_prune_score_layer forced to 0)
+  kv_prune_seed: 17
+  kv_prune_seed_per_step: true
+  kv_prune_log_masks: false
+  kv_prune_log_influence: true  # base / history_all / visual_all, as paper_influence_recent
+  kv_prune_influence_stride: 1
+  kv_prune_influence_horizons: []
+  kv_prune_influence_measures: []  # joint probes only
+  prune_kl_probe: true
+  prune_kl_methods: [random, fastv, divprune, dart]
+  prune_kl_budgets: [4, 8, 16, 32]  # frames' worth, the flat sweep's k

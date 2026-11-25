@@ -266,7 +266,7 @@ class PruningMixin:
             # PyramidDrop: stage s keeps a subset of stage s-1's slots under budget c_s, ranked
             # by the decision row read at the layer just below the stage. Budgets follow the
             # geometric schedule from the window's original visual count down to `capacity`.
-            # paper/hybrid_prune: a 'random' stage draws uniformly among the previous stage's
+            # paper/protocol: a 'random' stage draws uniformly among the previous stage's
             # survivors instead, and with kv_prune_tail_budget_frames the last stage has its own
             # budget while the schedule ends one stage earlier.
             stages = st.stages

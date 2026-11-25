@@ -31,9 +31,9 @@ sweep is still running. Runs in longnav_vlm (numpy only):
 --dataset navverse aggregates the NavVerse indoor replicate: the LongNav-R1 arms (nv_full,
 nv_evict_k<K>) and the LightNav-0 old-blocks-kept arms (nvl_full, nvl_keep_k<K>: the model behind
 the same NavVerse client via baselines/lightnav_hm3d/serve_navverse.py, every arm's rows read from
-paper_results/ctx_ablation_navverse/runs/<arm>/<arm>/result.json via results_io.load_navverse_run:
+paper_results_archive/ctx_ablation_navverse/runs/<arm>/<arm>/result.json via results_io.load_navverse_run:
 the benchmark's own measures, forced stops at the 500-step cap re-scored as failures, the
-server's per-step log for kv/latency/memory) into paper_results/ctx_ablation_navverse/results/
+server's per-step log for kv/latency/memory) into paper_results_archive/ctx_ablation_navverse/results/
 with the same columns plus per-arm forced-stop and time-out counts, each episode's outcome class
 (results_io.navverse_failure_mode: success / fell / cap_never_near_goal / cap_near_goal_no_stop /
 wrong_stop) in per_episode.csv and summary.csv, and results/failure_modes.csv with one count column
@@ -71,7 +71,7 @@ LOADERS = {"r1": load_r1_run, "uninavid": load_uninavid_run, "lightnav": load_li
 DATASETS = {  # dataset -> (results root, manifest, models with arms, episode-set note for the table)
     "hm3d": (RESULTS_ROOT, ROOT / "src/longnav/conf/episode_jsons/hm3d_v2_100.json",
              ("r1", "uninavid", "lightnav"), "HM3D-v2 val episodes"),
-    "navverse": (ROOT / "paper_results/ctx_ablation_navverse",
+    "navverse": (ROOT / "paper_results_archive/ctx_ablation_navverse",
                  ROOT / "src/longnav/conf/episode_jsons/navverse_indoor_100_seed17.json",
                  ("nv", "nvl"), "NavVerse indoor (GRScenes commercial) ObjectNav episodes, benchmark500_indoor seed-17 subset"),
 }

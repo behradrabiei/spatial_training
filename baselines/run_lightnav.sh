@@ -25,13 +25,25 @@
 #        no-visual-history control) under rule M with a
 #        per-episode deletion ledger -- same eager masked kernel as BLIND_LAYER, dropped columns
 #        hidden on every layer; the records land in raw/prune/ and are renamed by the converter),
+#        PROTOCOL=P PRUNE_K=k (P in uniform|pyramiddrop: run the client through
+#        lightnav_hm3d/eval_protocol.py, the staged pruning protocols of paper/protocol at a
+#        whole-model budget of k x 14 history visual tokens averaged over the 36 layers -- same eager
+#        masked kernel, a hidden set per stage; PROTOCOL_BLIND_LAYER (26) is uniform's first
+#        visual-blind layer; records land in raw/prune/ as for PRUNE_METHOD),
 #        INFLUENCE=1 (run the client through lightnav_hm3d/eval_influence.py: normal navigation plus,
 #        after every decision, the keep-one KL probes of paper/frame_influence -- same eager masked
 #        kernel; records land in raw/influence/ and are renamed by the converter; MAX_AGE (33)
 #        bounds the probed history tubelets' age. INFLUENCE_MEASURE=recent_k probes
 #        KL(full || K most recent frames) instead, K <= MAX_K (32), both with the old blocks kept
-#        (masked) and as a rebuilt K-frame window).
-#        The four wrappers are not combined.
+#        (masked) and as a rebuilt K-frame window; INFLUENCE_MEASURE=blind_layer probes
+#        KL(full || every visual token hidden from decoder layer L on) for each L in PROBE_LAYERS
+#        (space-separated; default every second layer), paper/info_horizon; INFLUENCE_MEASURE=prune_kl
+#        probes KL(full || the visual history a shadow pruner holds) for each PRUNE_KL_ARMS entry
+#        (space-separated method:k; default random/fastv/divprune/dart x 4/8/16/32), each shadow
+#        advanced along the full-context trajectory with eval_prune.py's rule; PRUNE_KL_SEED_EPISODES
+#        (space-separated, one per episode in run order) = the episode counter the random selector
+#        seeds on, paper/prune_kl).
+#        The five wrappers are not combined.
 #        LABELS (a JSON list of episode labels, default the 100-episode file): the dataset subset
 #        is built under .cache/datasets/objectnav_<labels stem> with that many episodes.
 # The model, its camera (480x270, hfov 120), velocity_control actions, greedy decoding and the
@@ -76,7 +88,26 @@ fi
 PRUNE_METHOD="${PRUNE_METHOD:-}"
 PRUNE_K="${PRUNE_K:-}"
 PRUNE_CURRENT_FRAMES="${PRUNE_CURRENT_FRAMES:-}"  # 1: current frame doubled (upstream's K = 1 layout); default 2
-if [[ -n "$PRUNE_METHOD" || -n "$PRUNE_K" ]]; then
+PROTOCOL="${PROTOCOL:-}"
+PROTOCOL_BLIND_LAYER="${PROTOCOL_BLIND_LAYER:-}"  # uniform's first visual-blind layer; default 26 (eval_protocol.py)
+if [[ -n "$PROTOCOL" ]]; then
+  if [[ ! "$PROTOCOL" =~ ^(uniform|pyramiddrop)$ ]]; then
+    echo "PROTOCOL must be uniform|pyramiddrop, got '$PROTOCOL'" >&2
+    exit 2
+  fi
+  if [[ ! "$PRUNE_K" =~ ^[1-9][0-9]*$ ]]; then
+    echo "PROTOCOL needs PRUNE_K, a positive integer (whole-model budget in frames' worth), got '$PRUNE_K'" >&2
+    exit 2
+  fi
+  if [[ -n "$PROTOCOL_BLIND_LAYER" && ( "$PROTOCOL" != uniform || ! "$PROTOCOL_BLIND_LAYER" =~ ^[1-9][0-9]*$ ) ]]; then
+    echo "PROTOCOL_BLIND_LAYER is a positive integer for PROTOCOL=uniform only, got '$PROTOCOL_BLIND_LAYER'" >&2
+    exit 2
+  fi
+  if [[ -n "$PRUNE_METHOD" || -n "$PRUNE_CURRENT_FRAMES" || -n "$BLIND_LAYER" || -n "$CONTEXT_FRAMES" ]]; then
+    echo "PROTOCOL is a separate ablation; do not set PRUNE_METHOD, PRUNE_CURRENT_FRAMES, BLIND_LAYER or CONTEXT_FRAMES with it" >&2
+    exit 2
+  fi
+elif [[ -n "$PRUNE_METHOD" || -n "$PRUNE_K" ]]; then
   if [[ -z "$PRUNE_METHOD" || -z "$PRUNE_K" ]]; then
     echo "PRUNE_METHOD and PRUNE_K go together, got method='$PRUNE_METHOD' k='$PRUNE_K'" >&2
     exit 2
@@ -102,17 +133,32 @@ INFLUENCE="${INFLUENCE:-}"
 MAX_AGE="${MAX_AGE:-33}"
 INFLUENCE_MEASURE="${INFLUENCE_MEASURE:-keep_one}"
 MAX_K="${MAX_K:-32}"
+PROBE_LAYERS="${PROBE_LAYERS:-}"  # blind_layer: decoder layers to probe; default (eval_influence.py) every second layer
+PRUNE_KL_ARMS="${PRUNE_KL_ARMS:-}"  # prune_kl: shadow pruners as method:k; default (eval_influence.py) the 4 x 4 grid
+PRUNE_KL_SEED_EPISODES="${PRUNE_KL_SEED_EPISODES:-}"  # prune_kl: per episode, the counter the random selector seeds on
 if [[ -n "$INFLUENCE" ]]; then
   if [[ "$INFLUENCE" != 1 || ! "$MAX_AGE" =~ ^[1-9][0-9]*$ ]]; then
     echo "INFLUENCE must be 1 and MAX_AGE a positive integer, got INFLUENCE='$INFLUENCE' MAX_AGE='$MAX_AGE'" >&2
     exit 2
   fi
-  if [[ ! "$INFLUENCE_MEASURE" =~ ^(keep_one|recent_k)$ || ! "$MAX_K" =~ ^[1-9][0-9]*$ ]]; then
-    echo "INFLUENCE_MEASURE must be keep_one|recent_k and MAX_K a positive integer, got '$INFLUENCE_MEASURE' / '$MAX_K'" >&2
+  if [[ ! "$INFLUENCE_MEASURE" =~ ^(keep_one|recent_k|blind_layer|prune_kl)$ || ! "$MAX_K" =~ ^[1-9][0-9]*$ ]]; then
+    echo "INFLUENCE_MEASURE must be keep_one|recent_k|blind_layer|prune_kl and MAX_K a positive integer, got '$INFLUENCE_MEASURE' / '$MAX_K'" >&2
     exit 2
   fi
-  if [[ -n "$BLIND_LAYER" || -n "$CONTEXT_FRAMES" || -n "$PRUNE_METHOD" ]]; then
-    echo "INFLUENCE is a separate experiment; do not set BLIND_LAYER, CONTEXT_FRAMES or PRUNE_METHOD with it" >&2
+  if [[ -n "$PRUNE_KL_ARMS" && ( "$INFLUENCE_MEASURE" != prune_kl || ! "$PRUNE_KL_ARMS" =~ ^(random|fastv|divprune|dart|recency):[0-9]+(\ (random|fastv|divprune|dart|recency):[0-9]+)*$ ) ]]; then
+    echo "PRUNE_KL_ARMS is a space-separated list of method:k for INFLUENCE_MEASURE=prune_kl only, got '$PRUNE_KL_ARMS'" >&2
+    exit 2
+  fi
+  if [[ -n "$PRUNE_KL_SEED_EPISODES" && ( "$INFLUENCE_MEASURE" != prune_kl || ! "$PRUNE_KL_SEED_EPISODES" =~ ^[0-9]+(\ [0-9]+)*$ ) ]]; then
+    echo "PRUNE_KL_SEED_EPISODES is a space-separated list of episode counters for INFLUENCE_MEASURE=prune_kl only, got '$PRUNE_KL_SEED_EPISODES'" >&2
+    exit 2
+  fi
+  if [[ -n "$PROBE_LAYERS" && ( "$INFLUENCE_MEASURE" != blind_layer || ! "$PROBE_LAYERS" =~ ^[0-9]+(\ [0-9]+)*$ ) ]]; then
+    echo "PROBE_LAYERS is a space-separated list of decoder layers for INFLUENCE_MEASURE=blind_layer only, got '$PROBE_LAYERS'" >&2
+    exit 2
+  fi
+  if [[ -n "$BLIND_LAYER" || -n "$CONTEXT_FRAMES" || -n "$PRUNE_METHOD" || -n "$PROTOCOL" ]]; then
+    echo "INFLUENCE is a separate experiment; do not set BLIND_LAYER, CONTEXT_FRAMES, PRUNE_METHOD or PROTOCOL with it" >&2
     exit 2
   fi
 fi
@@ -148,8 +194,8 @@ SERVER_ENV=(env -u CUDA_VISIBLE_DEVICES
 NVIDIA_EGL=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
 [[ -f "$NVIDIA_EGL" ]] && SERVER_ENV+=(__EGL_VENDOR_LIBRARY_FILENAMES="$NVIDIA_EGL")
 CLIENT_ENV=(env CUDA_VISIBLE_DEVICES="$GPU" PYTHONPATH="$LN/src" HF_HUB_OFFLINE=1)
-# The blind and prune wrappers need eager vLLM (no torch.compile, no CUDA graphs) so their hooks run.
-[[ -n "$BLIND_LAYER" || -n "$PRUNE_METHOD" || -n "$INFLUENCE" ]] && CLIENT_ENV+=(VLN_VLLM_ENFORCE_EAGER=1)
+# The blind, prune and protocol wrappers need eager vLLM (no torch.compile, no CUDA graphs) so their hooks run.
+[[ -n "$BLIND_LAYER" || -n "$PRUNE_METHOD" || -n "$PROTOCOL" || -n "$INFLUENCE" ]] && CLIENT_ENV+=(VLN_VLLM_ENFORCE_EAGER=1)
 
 subset() {
   python3 -I "$BASELINE_ROOT/lightnav_hm3d/make_subset.py" --labels "$LABELS" --expected-count "$EXPECTED_COUNT" \
@@ -246,9 +292,18 @@ run_eval() {
   elif [[ -n "$PRUNE_METHOD" ]]; then
     entry=("$BASELINE_ROOT/lightnav_hm3d/eval_prune.py" --prune-method "$PRUNE_METHOD" --prune-k "$PRUNE_K")
     [[ -n "$PRUNE_CURRENT_FRAMES" ]] && entry+=(--prune-current-frames "$PRUNE_CURRENT_FRAMES")
+  elif [[ -n "$PROTOCOL" ]]; then
+    entry=("$BASELINE_ROOT/lightnav_hm3d/eval_protocol.py" --protocol "$PROTOCOL" --prune-k "$PRUNE_K")
+    [[ -n "$PROTOCOL_BLIND_LAYER" ]] && entry+=(--blind-layer "$PROTOCOL_BLIND_LAYER")
   elif [[ -n "$INFLUENCE" ]]; then
     entry=("$BASELINE_ROOT/lightnav_hm3d/eval_influence.py" --max-age "$MAX_AGE")
     [[ "$INFLUENCE_MEASURE" != keep_one ]] && entry+=(--measure "$INFLUENCE_MEASURE" --max-k "$MAX_K")
+    # shellcheck disable=SC2206  # PROBE_LAYERS is a validated list of integers
+    [[ "$INFLUENCE_MEASURE" == blind_layer && -n "$PROBE_LAYERS" ]] && entry+=(--layers $PROBE_LAYERS)
+    # shellcheck disable=SC2206  # both are validated space-separated lists
+    [[ "$INFLUENCE_MEASURE" == prune_kl && -n "$PRUNE_KL_ARMS" ]] && entry+=(--prune-kl-arms $PRUNE_KL_ARMS)
+    # shellcheck disable=SC2206
+    [[ "$INFLUENCE_MEASURE" == prune_kl && -n "$PRUNE_KL_SEED_EPISODES" ]] && entry+=(--prune-kl-seed-episodes $PRUNE_KL_SEED_EPISODES)
   fi
   local args=("${entry[@]}" --model_path "$CKPT" --server "tcp://localhost:$PORT"
     --backend "$BACKEND" --episodes "$episodes" --max_steps 500
@@ -280,6 +335,7 @@ ln = os.path.join(root, "LightNav-0")
 ctx = os.environ.get("CONTEXT_FRAMES") or None
 blind = os.environ.get("BLIND_LAYER") or None
 prune = os.environ.get("PRUNE_METHOD") or None
+protocol = os.environ.get("PROTOCOL") or None
 prune_k = os.environ.get("PRUNE_K") or None
 prune_meta = os.path.join(run_dir, "raw", "prune", "meta.json")
 influence = os.environ.get("INFLUENCE") or None
@@ -301,15 +357,17 @@ info = {
     "backend": backend, "gpu_memory_utilization": float(gmu),
     "server_cmd": server_cmd, "client_cmd": client_cmd,
     "client_entry": ("lightnav_hm3d/eval_ctx.py" if ctx else "lightnav_hm3d/eval_blind.py" if blind
-                     else "lightnav_hm3d/eval_prune.py" if prune else "lightnav_hm3d/eval_influence.py" if influence
+                     else "lightnav_hm3d/eval_prune.py" if prune else "lightnav_hm3d/eval_protocol.py" if protocol
+                     else "lightnav_hm3d/eval_influence.py" if influence
                      else "lightnav.cli.eval_habitat"),
     "context_frames": int(ctx) if ctx else None,
     "blind_layer": int(blind) if blind else None,
     "prune_method": prune,
+    "protocol": protocol,
     "prune_k": int(prune_k) if prune_k else None,
-    "prune": json.load(open(prune_meta)) if prune and os.path.isfile(prune_meta) else None,
+    "prune": json.load(open(prune_meta)) if (prune or protocol) and os.path.isfile(prune_meta) else None,
     "influence": json.load(open(influence_meta)) if influence and os.path.isfile(influence_meta) else None,
-    "enforce_eager": bool(blind or prune or influence),
+    "enforce_eager": bool(blind or prune or protocol or influence),
     "lightnav_sha": sha(ln),
     "lightnav_repo_sha": sha(root),
     "checkpoint": os.environ["CKPT"],
@@ -329,7 +387,7 @@ PY
   echo "[lightnav] done: $run_dir/summary.json (client rc=$rc)"
   return "$rc"
 }
-export LABELS_PATH="$LABELS" SUBSET_ROOT CKPT BASELINE_ROOT CONTEXT_FRAMES BLIND_LAYER PRUNE_METHOD PRUNE_K PRUNE_CURRENT_FRAMES INFLUENCE MAX_AGE
+export LABELS_PATH="$LABELS" SUBSET_ROOT CKPT BASELINE_ROOT CONTEXT_FRAMES BLIND_LAYER PRUNE_METHOD PRUNE_K PRUNE_CURRENT_FRAMES PROTOCOL INFLUENCE MAX_AGE
 
 MODE="${1:-}"; shift || true
 case "$MODE" in

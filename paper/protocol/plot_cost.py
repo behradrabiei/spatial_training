@@ -14,12 +14,13 @@ interquartile range across them):
   (e) Uni-NaVid   peak GPU memory during the call (GB; the y-axis starts just under the 15.8 GB
                   fp16 weight floor, so the cache is what is visible)
   (f) Uni-NaVid   inference time per LLM call (ms; one call per two env steps)
-Uni-NaVid rows are held over the two env steps each call decides.
+Uni-NaVid rows are held over the two env steps each call decides. Panels (d)-(f) are drawn only with
+--uninavid (default since 2026-11-22: the LongNav-R1 row alone; Uni-NaVid is not a paper baseline).
 
-Curves: Unpruned (gray), Protocol (k=16) (red; --protocol hybrid | uniform) and, on the two
-inference-time panels only, PyramidDrop (k=16) (green; no-window PyramidDrop, Uni-NaVid 64 frames).
-PyramidDrop meets the same visual budget, so only its time is compared; its total KV also carries
-every past action's text.
+Curves, on every panel (since 2026-11-22; PyramidDrop used to be on the inference-time panels only):
+Unpruned (gray), Protocol (k=16) (red; --protocol hybrid | uniform) and PyramidDrop (k=16) (green;
+no-window PyramidDrop, Uni-NaVid 64 frames). PyramidDrop meets the same visual budget, but with no
+window its KV cache also carries every past action's text, so its cache and memory keep growing.
 
 The bracket compares Unpruned with the Protocol PAIRED: at step t* it averages both arms over the SAME
 episodes -- those still running in both at t* -- and prints the ratio (memory: the GB difference, since
@@ -30,15 +31,15 @@ kinks in the unpruned curve are episodes ending). t* = the last step with >= 1 s
 (--edge last) or >= 5 (--edge min5). The PyramidDrop / Protocol inference-time ratio at its own t*
 (same rule) is printed to the console only.
 
-Data: paper_results/hybrid_prune/runs/<bench>/, clean re-measurements with ONE ARM AT A TIME on the GPU
+Data: paper_results/protocol/runs/<bench>/, clean re-measurements with ONE ARM AT A TIME on the GPU
 (the sweep ran two arms concurrently, so its latencies are not comparable); launcher
-paper/hybrid_prune/run_cost_bench.sh. LongNav-R1 is argmax and Uni-NaVid is sampled with
+paper/protocol/run_cost_bench.sh. LongNav-R1 is argmax and Uni-NaVid is sampled with
 --sampling-seed 30; both reproduce the sweep's trajectories. Figure: cost_k16<bench suffix>
 [_uniform][_min5].{pdf,png}; the console prints every paired and unpaired value.
 
 Needs matplotlib, so run in the vln env:
-    /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot_cost.py \\
-        --bench paper_results/hybrid_prune/runs/cost_bench_100 --name cost_bench_100 --protocol uniform
+    /home/brabiei/miniconda3/envs/vln/bin/python paper/protocol/plot_cost.py \\
+        --bench paper_results/protocol/runs/cost_bench_100 --name cost_bench_100 --protocol uniform
 """
 from __future__ import annotations
 
@@ -51,7 +52,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1] / "paper_results/hybrid_prune"
+ROOT = HERE.parents[1] / "paper_results/protocol"
 BENCH = ROOT / "runs/cost_bench"
 UNPRUNED, PYRAMIDDROP, PROTOCOL = "Unpruned", "PyramidDrop (k=16)", "Protocol (k=16)"
 RUN_DIRS = {  # arm -> (LongNav-R1 run dir, Uni-NaVid run dir)
@@ -79,7 +80,10 @@ def r1_traces(run: Path) -> dict[str, Series]:
     for f in glob.glob(str(run / "rollout/results_*")):
         for line in open(f):
             r = json.loads(line)
-            s = json.load(open(r["raw/trace"]))
+            trace = Path(r["raw/trace"])  # recorded as an absolute path when the arm ran
+            if not trace.is_file():  # run directory renamed or the repo moved: the same file under `run`
+                trace = run / str(trace)[str(trace).index("/rollout/") + 1:]
+            s = json.load(open(trace))
             label = r["episode_label"]
             out["kv"][label] = np.asarray(s["kv_len"], dtype=float)
             out["mem"][label] = np.asarray(s["vlm_mem_GB"], dtype=float)
@@ -219,6 +223,7 @@ def main() -> None:
                     help="bracket step: last step with >= 1 (last) or >= 5 (min5, adds _min5) shared episodes")
     ap.add_argument("--out", type=Path, default=ROOT / "figures")
     ap.add_argument("--smooth", type=int, default=9, help="moving-average window (steps) for the latency panels")
+    ap.add_argument("--uninavid", action="store_true", help="also draw the Uni-NaVid row, panels (d)-(f)")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -232,33 +237,35 @@ def main() -> None:
 
     dirs = {UNPRUNED: RUN_DIRS[UNPRUNED], PYRAMIDDROP: RUN_DIRS[PYRAMIDDROP], PROTOCOL: RUN_DIRS[args.protocol]}
     r1 = {label: r1_traces(d) if (d := find(pair[0])) else {"kv": {}, "mem": {}, "lat": {}} for label, pair in dirs.items()}
-    uni = {label: uninavid_traces(d) if (d := find(pair[1])) else {k: {} for k in UNI_FIELDS}
+    uni = {label: uninavid_traces(d) if args.uninavid and (d := find(pair[1])) else {k: {} for k in UNI_FIELDS}
            for label, pair in dirs.items()}
     for label in dirs:
-        print(f"{label}: LongNav-R1 {len(r1[label]['kv'])} episodes, Uni-NaVid {len(uni[label]['lat'])} episodes")
+        print(f"{label}: LongNav-R1 {len(r1[label]['kv'])} episodes"
+              + (f", Uni-NaVid {len(uni[label]['lat'])} episodes" if args.uninavid else ""))
 
-    no_pd = (UNPRUNED, PROTOCOL)  # PyramidDrop is compared on inference time only
     ms = EDGE_MIN_SHARED[args.edge]
     report: dict = {}
-    fig, axes = plt.subplots(2, 3, figsize=(8.6, 5.2))
-    draw(axes[0][0], {l: r1[l]["kv"] for l in no_pd}, "KV slots per layer (×10³)", "LongNav-R1: KV cache",
+    n_rows = 2 if args.uninavid else 1
+    fig, axes = plt.subplots(n_rows, 3, figsize=(8.6, 2.6 * n_rows + (0 if args.uninavid else 0.3)), squeeze=False)
+    draw(axes[0][0], {l: r1[l]["kv"] for l in dirs}, "KV slots per layer (×10³)", "LongNav-R1: KV cache",
          "r1_kv", report, ms, scale=1e-3)
-    draw(axes[0][1], {l: r1[l]["mem"] for l in no_pd}, "GPU memory (GB)", "LongNav-R1: memory",
+    draw(axes[0][1], {l: r1[l]["mem"] for l in dirs}, "GPU memory (GB)", "LongNav-R1: memory",
          "r1_mem", report, ms, annot="diff")
     draw(axes[0][2], {l: r1[l]["lat"] for l in dirs}, "inference time (ms / step)", "LongNav-R1: inference time",
          "r1_lat", report, ms, w=args.smooth)
-    draw(axes[1][0], {l: uni[l]["tok"] for l in no_pd}, "prompt tokens per call", "Uni-NaVid: visual history",
-         "uni_tok", report, ms)
-    draw(axes[1][1], {l: uni[l]["mem"] for l in no_pd}, "peak GPU memory (GB)", "Uni-NaVid: memory",
-         "uni_mem", report, ms, annot="diff", ylim=(15.5, 16.6))
-    draw(axes[1][2], {l: uni[l]["lat"] for l in dirs}, "inference time (ms / call)", "Uni-NaVid: inference time",
-         "uni_lat", report, ms, w=args.smooth)
+    if args.uninavid:
+        draw(axes[1][0], {l: uni[l]["tok"] for l in dirs}, "prompt tokens per call", "Uni-NaVid: visual history",
+             "uni_tok", report, ms)
+        draw(axes[1][1], {l: uni[l]["mem"] for l in dirs}, "peak GPU memory (GB)", "Uni-NaVid: memory",
+             "uni_mem", report, ms, annot="diff", ylim=(15.5, 16.6))
+        draw(axes[1][2], {l: uni[l]["lat"] for l in dirs}, "inference time (ms / call)", "Uni-NaVid: inference time",
+             "uni_lat", report, ms, w=args.smooth)
     for ax, tag in zip(axes.ravel(), "abcdef"):
         ax.set_title(f"({tag}) {ax.get_title()}", fontsize=9)
-    handles, labels = axes[0][2].get_legend_handles_labels()  # the time panel carries all three arms
+    handles, labels = axes[0][2].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=len(labels), fontsize=8, frameon=False,
                bbox_to_anchor=(0.5, 1.0))
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.tight_layout(rect=(0, 0, 1, 0.96 if args.uninavid else 0.92))
     name = f"cost_k16{suffix}" + ("" if args.protocol == "hybrid" else f"_{args.protocol}") \
         + ("" if args.edge == "last" else f"_{args.edge}")
     out = args.out / name

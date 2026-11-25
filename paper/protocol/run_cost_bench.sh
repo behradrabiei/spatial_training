@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Clean cost benchmark for paper/hybrid_prune/plot_cost.py: the unpruned model and the protocol at
+# Clean cost benchmark for paper/protocol/plot_cost.py: the unpruned model and the protocol at
 # k = 16, for LongNav-R1 and Uni-NaVid, each arm ALONE on the GPU (the sweep ran two arms at a time,
 # so its latencies are not comparable), on the 17 HM3D-v2 val episodes that run >= 250 steps under
 # either LongNav-R1 arm (src/longnav/conf/episode_jsons/hm3d_v2_17_long.json). Output:
-# paper_results/hybrid_prune/runs/cost_bench/cost_<arm>/. ~35 min on one RTX 5090.
+# paper_results/protocol/runs/cost_bench/cost_<arm>/. ~35 min on one RTX 5090.
 #
-#   conda activate longnav_vlm && bash paper/hybrid_prune/run_cost_bench.sh
+#   conda activate longnav_vlm && bash paper/protocol/run_cost_bench.sh
 #   MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_10_seed17.json BENCH=cost_bench_seed17 bash ...   # another split
 #   MANIFEST=src/longnav/conf/episode_jsons/hm3d_v2_100.json BENCH=cost_bench_100 ARMS="uniform pyramiddrop" bash ...
 set -uo pipefail
@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 PY="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"
 MANIFEST="$ROOT/${MANIFEST:-src/longnav/conf/episode_jsons/hm3d_v2_17_long.json}"
-OUT="$ROOT/paper_results/hybrid_prune/runs/${BENCH:-cost_bench}"
+OUT="$ROOT/paper_results/protocol/runs/${BENCH:-cost_bench}"
 # wandb resume keys on (project, run name) and skips already-logged episode labels, so a second
 # benchmark on another split needs its own run names
 RUN_SUFFIX=""; [[ "${BENCH:-cost_bench}" != "cost_bench" ]] && RUN_SUFFIX="_${BENCH#cost_bench_}"
@@ -62,4 +62,4 @@ for A in $ARMS; do
     *) echo "unknown arm '$A' (expected full, hybrid, uniform, pyramiddrop)" >&2; exit 2 ;;
   esac
 done
-echo "$(date '+%F %T') done. Next: /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot_cost.py --bench $OUT --name ${BENCH:-cost_bench}"
+echo "$(date '+%F %T') done. Next: /home/brabiei/miniconda3/envs/vln/bin/python paper/protocol/plot_cost.py --bench $OUT --name ${BENCH:-cost_bench}"

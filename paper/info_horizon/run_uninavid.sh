@@ -15,9 +15,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"  # only for the completeness check
-DATASET="${DATASET:-hm3d}"  # hm3d | mp3d (paper_results/info_horizon_mp3d, seed-17 manifests, MP3D scenes)
+DATASET="${DATASET:-hm3d}"  # hm3d | mp3d (paper_results_archive/info_horizon_mp3d, seed-17 manifests, MP3D scenes)
 if [[ "$DATASET" == "mp3d" ]]; then
-  OUT_ROOT="$ROOT/paper_results/info_horizon_mp3d/runs"
+  OUT_ROOT="$ROOT/paper_results_archive/info_horizon_mp3d/runs"  # archived 2026-11-23
   MANIFEST_100="$ROOT/src/longnav/conf/episode_jsons/mp3d_100_seed17.json"
   MANIFEST_9="$ROOT/src/longnav/conf/episode_jsons/mp3d_10_seed17.json"
   PROBE_COUNT=10

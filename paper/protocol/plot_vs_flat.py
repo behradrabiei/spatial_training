@@ -13,9 +13,9 @@ differs between the curves is then the selection rule, the spread over depth and
 
 Uni-NaVid caveat: the flat arms left the per-call sampler unseeded, this experiment seeds it
 (--sampling-seed 30), so that panel carries the model's +-0.04 SR run-to-run floor between the two sets.
-Means only, no CIs. Writes paper_results/hybrid_prune/figures/compare_flat.{pdf,png}; run in vln:
+Means only, no CIs. Writes paper_results/protocol/figures/compare_flat.{pdf,png}; run in vln:
 
-    /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot_vs_flat.py
+    /home/brabiei/miniconda3/envs/vln/bin/python paper/protocol/plot_vs_flat.py
 """
 from __future__ import annotations
 
@@ -26,8 +26,8 @@ import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[2]
 FLAT = ROOT / "paper_results/token_prune_flat/results/summary.csv"
-HYBRID = ROOT / "paper_results/hybrid_prune/results/summary.csv"
-OUT = ROOT / "paper_results/hybrid_prune/figures"
+HYBRID = ROOT / "paper_results/protocol/results/summary.csv"
+OUT = ROOT / "paper_results/protocol/figures"
 MODELS = ("LongNav-R1", "Uni-NaVid")
 PANELS = {"sr": "Success rate", "spl": "SPL"}
 # flat methods keep their colours from paper/token_prune; this experiment's protocols are drawn heavier

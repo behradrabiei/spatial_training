@@ -322,14 +322,20 @@ Identity: `r1_identity` must reproduce the ctx ablation's `r1_full` episode for 
 (`aggregate.py --variant flat --check-identity`); `uninavid_identity` at 64 frames is a new unpruned
 reference with no ctx-ablation counterpart; `lightnav_identity` (= `lightnav_ref`) is checked
 against the ctx ablation's `lightnav_full` as a noise-level pair only (different kernel path, vLLM
-not bit-reproducible). `figures/budget_curves.{pdf,png}`: SR and SPL vs frames'
-worth, one column per model (LightNav-0 third since 2026-10-19), one plain line per method — no reference line, no error bars (the CIs are in
-`results/summary.csv`); since 2026-10-09 the ctx-ablation recency windows are the black squares. Since
-2026-10-28 the LightNav-0 Random line continues below the k grid through the layout-check arms `random_b2` /
-`b1` / `b0` (k = 2 / 1 / 0, the last with no visual history; `plot.py` `FLAT_EXTRA`), so the x axis starts at 0;
-`table.tex` stays on the k grid.
-`figures/budget_curves_keep_one.{pdf,png}` is the same figure restricted to the two keep-one arms, random, FastV and whole-frame recency
-(`plot.py --variant flat --methods random,fastv,kl_keep_one,entropy_keep_one,recency --name budget_curves_keep_one`).
+not bit-reproducible). `figures/budget_curves.{pdf,png}` is the paper figure (since 2026-11-21): SR and SPL
+vs frames' worth on the k grid 4 … 32, LongNav-R1 and LightNav-0 columns, random / FastV / DivPrune / DART as
+plain lines and the unpruned identity arm as the dotted reference, no error bars (the CIs are in
+`results/summary.csv`), drawn at single-column size (`paper/figstyle.py`). Uni-NaVid, the whole-frame arms,
+the ctx-ablation windows and the layout-check arms below the k grid are not drawn; their numbers stay in
+`results/summary.csv` and `table.tex`. `plot.py --variant flat --methods ...` draws other method sets.
+`plot.py --variant flat --recency --name <name>` draws a reference view instead (not kept in `figures/`): x axis
+from 0, the context-window ablation's recency curve as black squares — the series its own figure draws, read from
+`paper_results/ctx_ablation/results/summary.csv` (`plot.py` `RECENCY_SOURCE`): LongNav-R1 KV eviction
+`r1_evict_k{K}` at x = K − 1 history frames, LightNav-0 old blocks kept `lightnav_keep_k{K}` at x = K − 2
+(its history is 14 (K − 2) tokens; K = 2 is the no-history run) — and the LightNav-0 Random line continued
+through `random_b2` / `b1` / `b0` (k = 2 / 1 / 0; `FLAT_EXTRA`). The keep-one comparison figure
+`budget_curves_keep_one.{pdf,png}` was removed on 2026-11-21 (redraw: `plot.py --variant flat --methods
+random,fastv,kl_keep_one,entropy_keep_one,recency --name budget_curves_keep_one`).
 Tests: `tests/vtp_flat_smoke.py` (incl. the whole-frame checks 5–7: stubbed-score selection on CPU,
 and on the GPU the selectors' scores equal the `keep_one` diagnostic's KL row / the entropy of its
 only-f log-prob rows on the same cache),

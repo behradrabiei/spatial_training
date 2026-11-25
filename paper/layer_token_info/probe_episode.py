@@ -346,8 +346,9 @@ def main():
     p.add_argument("--episode", help="default: runs/selected.json, else " + DEFAULT_EPISODE)
     p.add_argument("--layers", nargs="*", type=int, help="decoder layers to probe (default: all)")
     p.add_argument("--steps", nargs="*", type=int, help="1-based decisions to probe (default: the last)")
-    p.add_argument("--measures", nargs="*", help="subset of leave keep_cur keep_all leave_nohist "
-                                                 "(default: the first three)")
+    p.add_argument("--measures", nargs="*", help="subset of leave keep_cur keep_all leave_nohist keep_full "
+                                                 "leave_b<n> (block of n x n patches, n odd; "
+                                                 "default: the first three)")
     args = ap.parse_args()
     set_study(args.study)
     {"survey": cmd_survey, "probe": cmd_probe}[args.cmd](args)

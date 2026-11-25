@@ -13,9 +13,9 @@ symlog to hold it. The dashed gray line is the unpruned full-context model (r1_f
 "Context window" is KV eviction on LongNav-R1 and the native frame window on Uni-NaVid.
 What the axis does NOT equalise: the window also drops the old frames' action text, the protocols keep
 all of it (compare kv_len_mean in the two summary.csv files for total resident KV). Means only, no CIs.
-Writes paper_results/hybrid_prune/figures/compare_ctx.{pdf,png}; run in vln:
+Writes paper_results/protocol/figures/compare_ctx.{pdf,png}; run in vln:
 
-    /home/brabiei/miniconda3/envs/vln/bin/python paper/hybrid_prune/plot_vs_ctx.py
+    /home/brabiei/miniconda3/envs/vln/bin/python paper/protocol/plot_vs_ctx.py
 """
 from __future__ import annotations
 
@@ -26,8 +26,8 @@ import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[2]
 CTX = ROOT / "paper_results/ctx_ablation/results/summary.csv"
-HYBRID = ROOT / "paper_results/hybrid_prune/results/summary.csv"
-OUT = ROOT / "paper_results/hybrid_prune/figures"
+HYBRID = ROOT / "paper_results/protocol/results/summary.csv"
+OUT = ROOT / "paper_results/protocol/figures"
 MODELS = ("LongNav-R1", "Uni-NaVid")
 PANELS = {"sr": "Success rate", "spl": "SPL"}
 FULL = {"LongNav-R1": "r1_full", "Uni-NaVid": "uninavid_full"}

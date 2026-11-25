@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# LongNav-R1 arms of the hybrid-pruning comparison (paper/hybrid_prune/README.md).
+# LongNav-R1 arms of the hybrid-pruning comparison (paper/protocol/README.md).
 #
-#   bash paper/hybrid_prune/run_r1.sh                                  # every arm
-#   ARMS="r1_hybrid_mp8 r1_pyramiddrop_mp8" bash paper/hybrid_prune/run_r1.sh
+#   bash paper/protocol/run_r1.sh                                  # every arm
+#   ARMS="r1_hybrid_mp8 r1_pyramiddrop_mp8" bash paper/protocol/run_r1.sh
 #
 # Arm names: r1_<protocol>_<mp|m|b><k>, protocol in {hybrid, pyramiddrop, uniform}, k = frames' worth of
 # history visual tokens. uniform (mp only): K=32 frame cut, one uniform random draw at layer 0 (layers
@@ -19,7 +19,7 @@
 # episodes, so it goes last.
 #
 # DATASET=mp3d runs the MP3D replicate: +dataset=mp3d_val, the seed-17 100-episode manifest, data in
-# paper_results/hybrid_prune_mp3d/ and its own wandb project (the arm names repeat, and wandb resume
+# paper_results_archive/protocol_mp3d/ and its own wandb project (the arm names repeat, and wandb resume
 # keys on (project, run name)).
 #
 # A pilot writes elsewhere: OUT_ROOT=<dir> MANIFEST=<labels.json> EXTRA_OVERRIDES="task.output_dir=<dir>
@@ -36,17 +36,17 @@ DATASET="${DATASET:-hm3d}"  # hm3d | mp3d
 DATASET_OVERRIDES=()
 if [[ "$DATASET" == "mp3d" ]]; then
   MANIFEST="${MANIFEST:-src/longnav/conf/episode_jsons/mp3d_100_seed17.json}"
-  OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results/hybrid_prune_mp3d/runs}"
+  OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results_archive/protocol_mp3d/runs}"
   HYDRA_DATASET=mp3d_val
   # the preset pins the HM3D manifest / output dir / wandb project; a key given in EXTRA_OVERRIDES
   # (a pilot) is left to it
-  for KV in "task.episode_json=$MANIFEST" "task.output_dir=./paper_results/hybrid_prune_mp3d/runs" \
+  for KV in "task.episode_json=$MANIFEST" "task.output_dir=./paper_results_archive/protocol_mp3d/runs" \
             "task.wandb_project=longnav_paper_hybrid_mp3d"; do
     [[ " ${EXTRA_OVERRIDES[*]:-} " == *" ${KV%%=*}="* ]] || DATASET_OVERRIDES+=("$KV")
   done
 else
   MANIFEST="${MANIFEST:-src/longnav/conf/episode_jsons/hm3d_v2_100.json}"
-  OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results/hybrid_prune/runs}"
+  OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results/protocol/runs}"
   HYDRA_DATASET=hm3d_v2_val
 fi
 K_LIST="${K_LIST:-8 4 16 2}"
@@ -99,4 +99,4 @@ for ARM in $ARMS; do
   fi
 done
 
-echo "All requested LongNav-R1 arms done. Next: python paper/hybrid_prune/aggregate.py${DATASET:+ --dataset $DATASET}"
+echo "All requested LongNav-R1 arms done. Next: python paper/protocol/aggregate.py${DATASET:+ --dataset $DATASET}"

@@ -17,21 +17,18 @@
 # Chained launch logs (Ray/progress noise).
 **/driver.log
 **/driver.log.partial
-# NavVerse arms (ctx_ablation_navverse): per-episode trajectory/action dumps and videos stay local;
-# result.json, server_config.json and server_steps.jsonl are the inputs aggregate.py reads.
-ctx_ablation_navverse/runs/*/*/data/
-ctx_ablation_navverse/runs/*/*/vid/
-
-# LightNav-0 NavVerse arms: per-step pruning records (~1.5 KB per step, tens of MB per arm) stay local;
-# server_config.json / server_steps.jsonl carry the per-step summary aggregate.py reads.
-ctx_ablation_navverse/runs/*/prune/
-
 # Server-ready marker files written by the LightNav / NavVerse launch scripts.
 **/*.ready
 
 # Kept locally, not on GitHub (2026-11-20: code and documentation only for the newer studies);
 # see the recent-window section of paper/frame_influence/README.md.
 frame_influence_recent/
+# Pruning KL (2026-11-24), kept locally: KL(full context || pruned context) per pruning method and
+# frame budget; rebuild the tables and figure with paper/prune_kl/{aggregate.py,plot.py}.
+prune_kl/
+# SimpleMemVLA velocity-field influence (2026-11-23), kept locally; rebuild with
+# paper/simplememvla_ablation/{run_influence.sh,aggregate_influence.py,plot_influence.py}.
+simplememvla_influence/
 
 # ctx_ablation additions of 2026-11-20, kept locally (see "Outputs" in paper/ctx_ablation/README.md):
 # the standalone SR / SPL figures.
@@ -39,3 +36,22 @@ ctx_ablation*/figures/*_sr.pdf
 ctx_ablation*/figures/*_sr.png
 ctx_ablation*/figures/*_spl.pdf
 ctx_ablation*/figures/*_spl.png
+
+# Information horizon, blind-from-layer KL probes (2026-11-23), kept locally: the dense LongNav-R1
+# leaky probe, the LightNav-0 probe and their tables; rebuild the tables with
+# paper/info_horizon/aggregate_blind.py.
+info_horizon/runs/r1_probe_leaky_dense/
+info_horizon/runs/lightnav_probe/
+info_horizon/runs/probe_chain_driver.log
+info_horizon/results/blind_*
+info_horizon/figures/information_kl_blind*
+# full-reference keep-one-in token maps (2026-11-23): local only
+layer_token_info/keepfull/
+# block leave-out token maps (2026-11-23): local only
+layer_token_info/leaveblock/
+
+# LightNav-0 arms run after 2026-11-20, kept locally (code and documentation only on GitHub):
+# the protocol arms (paper/protocol/run_lightnav.sh) and the blind-from-28/30 arms.
+protocol/runs/lightnav_*
+info_horizon/runs/lightnav_blind_l28/
+info_horizon/runs/lightnav_blind_l30/

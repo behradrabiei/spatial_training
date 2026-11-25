@@ -358,7 +358,7 @@ def pyramid_budgets(total, capacity, n_stages):
 
 def model_budgets(total, capacity, widths, n_unpruned=0, tail=None, unpruned_total=None):
     """Nested stage budgets total*lambda^s (s = 1..S) whose LAYER-WEIGHTED MEAN over the whole model
-    equals `capacity` (paper/hybrid_prune, kv_prune_budget_scope='model'): the constant-ratio
+    equals `capacity` (paper/protocol, kv_prune_budget_scope='model'): the constant-ratio
     PyramidDrop schedule with lambda solved for a whole-model budget instead of being fixed.
     `total` anchors the schedule: the slots the first stage draws from (kv_prune_schedule_anchor:
     the original count of the frames in scope, or the slots the cache holds now).

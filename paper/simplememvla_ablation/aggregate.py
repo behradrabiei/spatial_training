@@ -88,7 +88,8 @@ def main():
             + [f"sr_{t}" for t in tasks] + [f"n_{t}" for t in tasks]
             + ["dsr_vs_full", "dsr_lo", "dsr_hi", "p_sr_vs_full", "dsteps_vs_full", "p_steps_vs_full", "n_paired"]
             + [f"dsr_{t}" for t in tasks] + [f"p_sr_{t}" for t in tasks]
-            + ["max_history_age_steps", "max_history_frames"])
+            + ["max_history_age_steps", "max_history_frames"]
+            + [f"steps_{t}" for t in tasks])  # mean steps per task, all episodes (as `steps`)
     summary = []
     for arm, rows in arms.items():
         rs = list(rows.values())
@@ -108,6 +109,7 @@ def main():
             tr = [r for (task, _), r in rows.items() if task == t]
             row[f"n_{t}"] = len(tr)
             row[f"sr_{t}"] = float(np.mean([bool(r["success"]) for r in tr])) if tr else float("nan")
+            row[f"steps_{t}"] = float(np.mean([float(r["steps"]) for r in tr])) if tr else float("nan")
         if full is not None and arm != "full":
             d = paired_delta(rows, full, "success")
             ds = paired_delta(rows, full, "steps")

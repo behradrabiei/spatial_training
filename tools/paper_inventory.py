@@ -30,19 +30,19 @@ STUDIES = {
     'layer_token_info': [('layer_token_info/plot.py',), ('layer_token_info/plot.py', '--study', 'nohist', '--layers', '1', '12', '18'), ('layer_token_info/horizon.py',)],
     'info_horizon': [('info_horizon/aggregate.py',), ('info_horizon/plot.py',)],
     'info_horizon_mp3d': [('info_horizon/aggregate.py', '--dataset', 'mp3d'), ('info_horizon/plot.py', '--dataset', 'mp3d')],
-    'hybrid_prune': [('hybrid_prune/aggregate.py', '--strict'), ('hybrid_prune/plot.py',)],
-    'hybrid_prune_mp3d': [('hybrid_prune/aggregate.py', '--dataset', 'mp3d', '--strict'), ('hybrid_prune/plot.py', '--dataset', 'mp3d')],
+    'protocol': [('protocol/aggregate.py', '--strict'), ('protocol/plot.py',)],
+    'protocol_mp3d': [('protocol/aggregate.py', '--dataset', 'mp3d', '--strict'), ('protocol/plot.py', '--dataset', 'mp3d')],
     'selector_kl': [('selector_kl/aggregate.py',), ('selector_kl/plot.py',)],
 }
 
 
-ADDITIONAL_COMMANDS = [['python', 'paper/hybrid_prune/plot_vs_ctx.py'],
- ['python', 'paper/hybrid_prune/plot_vs_flat.py'],
+ADDITIONAL_COMMANDS = [['python', 'paper/protocol/plot_vs_ctx.py'],
+ ['python', 'paper/protocol/plot_vs_flat.py'],
  ['python', 'paper/layer_token_info/plot.py', '--episode', 'q5QZSEeHe5g_0'],
  ['python',
-  'paper/hybrid_prune/plot_cost.py',
+  'paper/protocol/plot_cost.py',
   '--bench',
-  'paper_results/hybrid_prune/runs/cost_bench_100',
+  'paper_results/protocol/runs/cost_bench_100',
   '--name',
   'cost_bench_100',
   '--protocol',
@@ -50,9 +50,9 @@ ADDITIONAL_COMMANDS = [['python', 'paper/hybrid_prune/plot_vs_ctx.py'],
   '--edge',
   'min5'],
  ['python',
-  'paper/hybrid_prune/plot_cost.py',
+  'paper/protocol/plot_cost.py',
   '--bench',
-  'paper_results/hybrid_prune/runs/cost_bench_100',
+  'paper_results/protocol/runs/cost_bench_100',
   '--name',
   'cost_bench_100',
   '--protocol',
@@ -71,7 +71,7 @@ def digest(path):
 
 def obsolete(path):
     parts = path.relative_to(ROOT).parts
-    if len(parts) < 3 or parts[:2] != ('paper_results', 'hybrid_prune'):
+    if len(parts) < 3 or parts[:2] != ('paper_results', 'protocol'):
         return False
     return parts[2] in ('runs_aborted', 'results_last_stage', 'figures_last_stage') or (
         len(parts) > 3 and parts[2] == 'runs' and
@@ -127,9 +127,9 @@ def freeze():
         studies[name] = {'commands': [['python', 'paper/' + c[0], *c[1:]] for c in commands],
                          'runs': runs, 'outputs': str(root.relative_to(ROOT)),
                          'shared_references': [f'paper_results/{reference}/runs/{arm}' for arm in arms]}
-    studies['hybrid_prune']['cost_commands'] = [
-        ['python', 'paper/hybrid_prune/plot_cost.py', '--bench',
-         'paper_results/hybrid_prune/runs/' + bench, '--name', bench, '--protocol', protocol]
+    studies['protocol']['cost_commands'] = [
+        ['python', 'paper/protocol/plot_cost.py', '--bench',
+         'paper_results/protocol/runs/' + bench, '--name', bench, '--protocol', protocol]
         for bench in ('cost_bench', 'cost_bench_seed17', 'cost_bench_100')
         for protocol in (('hybrid', 'uniform') if bench == 'cost_bench_100' else ('hybrid',))]
     for name in EXTRA:

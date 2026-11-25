@@ -188,6 +188,14 @@ class EpisodeRolloutMixin:
                     vlm_logs["horizon_keep_one"] = list(row.get("keep_one", []))
                     vlm_logs["horizon_leave_one"] = list(row.get("leave_one", []))
                     vlm_logs["horizon_base_logp"] = list(row.get("base_logp", []))
+                    if getattr(self, "horizon_probe_blind", False):
+                        # KL(P_full || P_no_visual_from_L) and the per-layer probe log-probs
+                        # (blind / only-current / current-hidden), one entry per probe layer.
+                        vlm_logs["horizon_blind"] = list(row.get("blind", []))
+                        vlm_logs["horizon_logp_blind"] = list(row.get("logp_blind", []))
+                        vlm_logs["horizon_logp_only_cur"] = list(row.get("logp_only_cur", []))
+                        vlm_logs["horizon_logp_minus_cur"] = list(row.get("logp_minus_cur", []))
+                        vlm_logs["mean/kv_visual_total"] = row.get("n_visual_tokens", 0)
                     vlm_logs["mean/kv_visual_new"] = row.get("n_cur_tokens", 0)
                     vlm_logs |= {"max/horizon_probe_count": self._horizon_probe_count,
                                  "max/horizon_probe_latency": self._horizon_probe_latency}
@@ -197,6 +205,11 @@ class EpisodeRolloutMixin:
                     # sup/selector_*; no '/' in the names).
                     from longnav.utils.selector_probe import log_rows
                     vlm_logs |= log_rows(self)
+                if getattr(self, "prune_kl_probe", False):
+                    # paper/prune_kl: KL(P full || P pruned) per shadow (method, frame budget) pruner
+                    # (raw rows in sequence.json as sup/prune_kl_*; no '/' in the names).
+                    from longnav.utils.prune_kl_probe import log_rows as prune_kl_rows
+                    vlm_logs |= prune_kl_rows(self)
                 if getattr(self, "context_window_mode", None) == "prune":
                     vlm_logs |= {
                         "mean/prune_score_latency": self._prune_score_latency,

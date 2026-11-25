@@ -30,7 +30,7 @@ Protocol -- permanent deletion:
   layer-0 attention; layer-0 keys and output hidden states), selects, and removes the freshly
   deleted rows -- and an emptied frame's separator -- before the real prefill. The four
   methods then differ in the selection rule only. ``random`` / ``divprune`` are unchanged.
-* ``hybrid`` (paper/hybrid_prune): PyramidDrop-like attention stages at layers 8/16 whose
+* ``hybrid`` (paper/protocol): PyramidDrop-like attention stages at layers 8/16 whose
   geometric schedule ends at ``B'`` (``lambda = (B'/V0)^(1/2)``), then a RANDOM last stage from
   layer 24 onward that keeps ``TAIL_FRAMES`` frames' worth (4 tokens) of the previous stage's
   survivors whatever ``k`` is -- it binds as soon as the pool exceeds it, before the schedule does.
@@ -43,7 +43,7 @@ Protocol -- permanent deletion:
 * Schedule anchor (``anchor``, ``--prune-schedule-anchor``): the stage budgets shrink from the
   history's ORIGINAL token count (``original``, paper/token_prune) or from the tokens the first stage
   can draw from now -- its survivors plus the frames that just became history (``pool``,
-  paper/hybrid_prune: "keep a fraction lambda of what the previous stage holds").
+  paper/protocol: "keep a fraction lambda of what the previous stage holds").
 * The selection RNG (random, hybrid) is a private generator reseeded per (seed, episode, step),
   so the official sampled decoding is untouched.
 
@@ -81,7 +81,7 @@ PROBE_BATCH = 8  # keep-one probes per full forward
 UNIFORM_BLIND_LAYER = 20  # uniform: first visual-blind decoder layer (LongNav-R1 cuts at 18 of 28)
 # (scoring layer, first hidden layer) per stage; LLaMA-7B has 32 decoder layers. A stage without
 # a scoring layer is a random stage, drawn when its first hidden layer runs. 'uniform'
-# (paper/hybrid_prune): stage 0 is an input-level uniform draw whose rows leave the prompt (every
+# (paper/protocol): stage 0 is an input-level uniform draw whose rows leave the prompt (every
 # layer below the cut holds the same tokens), stage 1 a BLIND stage from UNIFORM_BLIND_LAYER on --
 # budget 0 for the history, and the current frame's group + fine tokens hidden as well.
 STAGES = {"fastv": ((1, 2),), "dart": ((1, 2),), "pyramiddrop": ((7, 8), (15, 16), (23, 24)),

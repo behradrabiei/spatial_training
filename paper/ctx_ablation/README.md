@@ -219,8 +219,11 @@ resume (append-only `results.jsonl`) and asks for a partial arm to be moved away
 The same K arms of our LongNav-R1 stack on NavVerse's indoor ObjectNav benchmark
 (`NavVerse-Benchmark/`, Isaac Sim, GRScenes commercial scenes), added 2026-10-20, and the
 LightNav-0 "old blocks kept" arms behind the same client (added 2026-10-28, see the subsection
-below). Outputs live under `paper_results/ctx_ablation_navverse/` with the HM3D layout (`runs/`,
-`results/`, `figures/`).
+below). Outputs live under `paper_results_archive/ctx_ablation_navverse/` with the HM3D layout (`runs/`,
+`results/`, `figures/`). **Archived 2026-11-23 at the user's request**: the paper does not use the NavVerse
+replicate; the launchers, `aggregate.py --dataset navverse` and `plot.py --dataset navverse` point there, and
+its `results/` and `figures/` are local, git-ignored copies that rebuild from `runs/` (the tables were
+rebuilt byte-identically after the move). The figure and table paths quoted below are relative to that directory.
 
 - **Model and serving.** NavVerse's LongNav client (`baselines/longnav_r1/longnav_agent.py`)
   posts one JPEG frame per step and the goal word on the first step to an HTTP `/act` endpoint

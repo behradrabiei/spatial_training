@@ -96,7 +96,8 @@ differences vs `full` paired on (task, episode), two-sided sign-flip test (10,00
 Permanence suite, 200 episodes per arm (50 per task). SR with ΔSR vs `full` (paired; sign-flip p),
 mean steps, and per-task SR. Sweep complete 2026-11-16 (14:40–18:40, 4 h); K = 1 not run. Figures:
 `paper_results/simplememvla_ablation/permanence/figures/ctx_ablation.png` (SR | steps vs K) and
-`ctx_by_task.png`.
+`ctx_by_task.png` (the same two panels with one line per task), both in the paper's single-column format (3.5 in wide, 8 pt text, means only;
+`paper/figstyle.py`, the format of `paper_results/ctx_ablation/figures/ctx_ablation`).
 
 | arm | SR (ΔSR; p) | steps | fail / timeout | VideoUnmask | ButtonUnmask | VideoUnmaskSwap | ButtonUnmaskSwap |
 |---|---|---|---|---|---|---|---|
@@ -212,7 +213,9 @@ bash paper/simplememvla_ablation/run_depth.sh                     # blind_l28 �
 ARMS="blind_l4 blind_l0" bash paper/simplememvla_ablation/run_depth.sh
 ```
 
-Aggregation and plots as above (`information_perf.png`: SR | steps vs L; `depth_by_task.png`).
+Aggregation and plots as above (`information_perf.png`: SR | steps vs L; `depth_by_task.png`: the same per task), in
+the same single-column format as the context-window figures. The last tick, L = 32, is the
+unblinded `full` arm.
 
 ## Checks (2026-11-17, real decision, 2 VideoUnmask episodes, same process)
 
@@ -301,3 +304,122 @@ with what layers 0–7 read, not slow recoveries. L = 4 and L = 0 were not run.
   depth), the first loss is at 75 %, and the decline is spread over at least 20 of the 32 layers. One
   difference in the method should be kept in mind: 24 of the 32 layers are recurrent and are blinded
   by skipping the visual positions, not by closing attention columns.
+
+# Velocity-field influence of the context window
+
+The navigation paper measures how much old frames move a decision with a KL between the
+full-context action distribution and the one with only the K most recent frames
+(`recent_k`, `paper/frame_influence/`). SimpleMemVLA's action head is a flow-matching DiT, so the
+counterpart here is the squared L2 distance between velocity fields:
+
+    Infl(K) = E_{a_t, t} || v_full(a_t, t) − v_K(a_t, t) ||²
+
+## Definition
+
+Measured offline, at every decision of an ordinary full-context rollout (the `full` arm; the
+actions that are executed come from the unmodified model):
+
+* **`v_full`** is the DiT conditioned on the rollout's own decision: the generated sub-task
+  tokens, their last-layer hidden states, proprioception.
+* **`v_K`** is the DiT conditioned on the same decision run again with the K-frame window of the
+  context-window ablation (`context_frames = K`, same definition of K as above). The window run
+  decodes its own sub-task, so the measure is end to end: a changed sub-task and changed hidden
+  states both count.
+* **`(a_t, t)`** are the states the full-context sampler visits: 8 noise draws per decision,
+  integrated with `v_full` by the model's own rule (10 Euler steps, t = 1.0 … 0.1), every step
+  kept, 80 points per decision. Both fields are evaluated at exactly these points.
+* The squared norm is over the whole action chunk (30 steps × 8 dimensions) in the model's
+  normalised action space; `infl_exec` restricts it to the 16 executed steps and `rel` divides by
+  the same mean of `||v_full||²`.
+
+Arms: K ∈ {1, 2, 4, 8, 16, 32, 64} and `replay`, the full input once more through the probe path
+(numerical floor). Model weights, prompt shape, wrist image, instruction and proprioception are
+the same in both evaluations; only the history frames differ.
+
+A window that covers the whole history changes nothing: the input is identical and the influence
+is exactly 0 (`same_input`). The tables therefore give three decision sets: `cut` (the window
+removes at least one frame, n_history > K), `all` (every decision, the zeros included: what a K
+window does to the episode as it ran) and `fixed` (more than 32 history frames, the same decisions
+for every K ≤ 32). Means are episode-balanced ± SEM across episodes.
+
+## Running
+
+```bash
+bash paper/simplememvla_ablation/run_influence.sh          # tmux; Permanence, test episodes 0–11 per task
+robomme_benchmark/.venv-simplememvla/bin/python paper/simplememvla_ablation/aggregate_influence.py
+/home/brabiei/miniconda3/envs/vln/bin/python paper/simplememvla_ablation/plot_influence.py
+```
+
+`KS=4,8,16,32`, `NOISE=8`, `EPISODES_PER_TASK`, `SUITE`, `TASKS` as environment variables.
+Twelve consecutive episodes per task because difficulty cycles with the episode index mod 4.
+Code: `robomme_sim/influence_probe.py` (`VelocityInfluenceProbe`), `--influence_ks` in
+`robomme_sim/eval_success.py`, a guarded `condition_tap` in `robomme_sim/batched_policy.py`
+(policy submodule, branch `local`); `INFLUENCE_KS` in `robomme_benchmark/run_simplememvla_eval.sh`.
+Raw run: `/mnt/vault/robomme/runs/simplememvla_ablation/<suite>/influence_recent/`
+(`influence.jsonl`, one line per decision). Tables and the figure go to
+`paper_results/simplememvla_influence/<suite>/` and are kept locally (git-ignored).
+
+The probe leaves the rollout as it is: probe passes return from `generate_batch` before the action
+head samples, the probe's noise comes from its own generator, and the rollout buffer's caches are
+only read. `measure` raises if the global random state changed.
+
+## Checks
+
+* `tests/simplememvla_influence_unit.py` (CPU, fake action head): the probe states follow the
+  sampler's Euler rule, identical conditions give exactly 0, known gaps are recovered, the global
+  random stream is untouched, probe passes never sample.
+* GPU smoke (2026-11-23, VideoUnmask episodes 0–3, one group of 4): `replay` influence exactly 0 on
+  all 37 decisions; influence exactly 0 wherever the window covers the history; success and step
+  counts identical to the `full` arm's records for the same episodes (94 / 100 / 102 / 264 steps).
+
+## Results (2026-11-23, Permanence, test episodes 0–11 of each task, 48 episodes, 795 decisions)
+
+Run time 54 min (probe 45 min). The rollout reproduces the `full` arm: same outcome on all 48
+episodes (SR .917), identical step counts on the 12 VideoUnmask episodes (same noise stream; the
+later tasks start at another offset of the stream because 12 instead of 50 episodes precede them).
+`replay` influence is exactly 0 on all 795 decisions. Mean `||v_full||²` is 433.
+
+Episode-balanced means; `cut` = decisions where the window removes a frame. "Sub-task changed" =
+the window run decoded a different sub-task. The last column is the context-window sweep's
+success rate on the same 48 episodes (`full` .917).
+
+| K | cut decisions (episodes) | Infl, cut (± SEM) | Infl / ‖v‖² | sub-task changed | Infl, all decisions | normalised to K = 1, median (mean) | SR with window K |
+|---|---|---|---|---|---|---|---|
+| 1 | 771 (48) | 225 ± 17 | .57 | 37 % | 217 | 100 % | — |
+| 2 | 771 (48) | 184 ± 13 | .47 | 34 % | 178 | 83 % (84) | — |
+| 4 | 747 (48) | 136 ± 11 | .35 | 29 % | 127 | 61 % (67) | .17 |
+| 8 | 663 (48) | 85 ± 13 | .21 | 20 % | 71 | 25 % (40) | .35 |
+| 16 | 465 (44) | 52 ± 9 | .13 | 7 % | 35 | 2.9 % (32) | .50 |
+| 32 | 157 (23) | 24 ± 8 | .055 | 0.7 % | 4.7 | 0 % (1.7) | .83 |
+| 64 | 2 (1) | 0.004 | 10⁻⁵ | 0 % | 0 | 0 % | — |
+
+Figure `figures/influence_recent_k`: per K, the box of the 48 episodes' influence as a percentage
+of the same episode's K = 1 influence (all decisions), median drawn through the boxes.
+
+* **The influence falls with K but slowly**: half of the no-history influence is still there at
+  K = 4 and a quarter at K = 8 for the median episode. It reaches zero only where the window covers
+  the episode (K = 32 for the median episode; 23 of 48 episodes are longer than that).
+* **Mean and median part at K ≥ 8** (K = 16: median 2.9 %, mean 32 %): the episodes split into
+  those whose history fits the window and those where it does not. By task, the normalised median
+  at K = 16 is 0 % (VideoUnmask, ButtonUnmask) against 26 % / 22 % (VideoUnmaskSwap,
+  ButtonUnmaskSwap) — the order of the success-rate sweep.
+* **The offline measure predicts the closed-loop outcome.** Among the 44 episodes `full` solves,
+  the episode's mean Infl(K) separates the episodes the K-window run loses from those it keeps:
+  AUC .97 (K = 32, 5 lost), 1.00 (16, 20 lost), 1.00 (8, 27 lost), .87 (4, 36 lost). It is not only
+  episode length: restricted to episodes where the window removes a frame at some decision, the
+  mean over those decisions gives AUC .96 / 1.00 / 1.00 / .85, above the number of such decisions
+  (.76 / .96 / .95 / .83). No episode is lost without a cut decision.
+* **Two channels.** Decisions with a changed sub-task carry 83 % of the summed influence at K = 1
+  (50 % of decisions), 51 % at K = 16 (9 %) and 9 % at K = 32 (0.4 %); their influence is about
+  `‖v_full‖²` (440 at K = 1, 270 at K = 16). With the sub-task unchanged the influence is small for
+  most decisions (median 21 at K = 1, 0.4 at K = 4, 0.003 at K = 16) with a tail (90th percentile
+  280 / 99 / 17): the hidden states alone can move the velocity field as far as a sub-task change.
+* **Where in the flow**: the gap grows towards the data end, from 54 at t = 1.0 to 697 at t = 0.2
+  (K = 1; the same shape at every K), so the average is dominated by the last steps of the sampler.
+* **Where in the chunk**: the 16 executed steps hold 31 % of the influence at K = 1 (21 % at
+  K = 16) against 54 % of `‖v_full‖²`; the two fields disagree more on the later part of the chunk.
+
+Reading notes: the values are in normalised action units and scale with the chunk size, so they
+are not comparable with the navigation KL or across models; compare shapes, the normalised curve
+and the sub-task change rate. The K-window input is the context-window ablation's (older slots
+hold the oldest visible frame), so the measure includes the effect of that padding.

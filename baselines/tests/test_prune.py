@@ -771,7 +771,7 @@ class WholeModelBudgetTests(unittest.TestCase):
 
 
 class UniformProtocolTests(WholeModelBudgetTests):
-    """method='uniform' (paper/hybrid_prune): an input-level uniform draw at stage 0 (rows removed, so
+    """method='uniform' (paper/protocol): an input-level uniform draw at stage 0 (rows removed, so
     layers 0..19 all hold the same tokens) and a BLIND stage from layer 20 -- every history column
     plus the current frame's group and 64 fine tokens hidden; budget solved over the whole model."""
 

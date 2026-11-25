@@ -48,6 +48,50 @@ filter are skipped.
 **Blind SR/SPL** — the live rollout with *all* visual tokens (history and current frame) hidden
 from `L` on, 100 episodes, SR / SPL vs the unblinded reference.
 
+## Blind-from-layer KL (2026-11-23)
+
+The depth analogue of the recent-window measure of
+[`paper/frame_influence`](../frame_influence/README.md) (`recent_k`: KL(full || K most recent
+frames)), requested by the user to replace the keep-one-in / leave-one-out curves:
+
+`Blind_t(L) = KL( P(action | full context) || P(action | every visual token hidden from layer L on) )`
+
+with the expectation under the full-context decision, T = 1, nats. History and current frame are
+hidden together, so it is the KL counterpart of the blind rollouts above, on the unblinded
+trajectory. `L = 0` is KL(full || no visual), the recent-window study's `K = 0` point; `L = n_layers`
+hides nothing and is 0. Probed after every decision of the 10 seed-17 episodes; no leak-free
+LongNav-R1 arm and no Uni-NaVid arm (user).
+
+| arm | model | layers | mechanism |
+|---|---|---|---|
+| `r1_probe_leaky_dense` | LongNav-R1 | every layer 0..27 | `r1_probe_leaky` with `vlm.horizon_probe_blind=true`: the leaky decision replay already computes the all-visual-hidden distribution as the keep-one reference, so the measure costs no forward. Logged per step and layer: `sup/horizon_blind`, the three probe distributions `sup/horizon_logp_{blind,only_cur,minus_cur}` (4 action log-probs each; `sup/horizon_base_logp` is the full one) and the keep-one-in / leave-one-out values. A step whose current frame kept no visual token is probed with the all-visual set alone. 4 actions. |
+| `lightnav_probe` | LightNav-0 | every second layer 0..34 | `eval_influence.py --measure blind_layer` (`INFLUENCE=1 INFLUENCE_MEASURE=blind_layer` on `baselines/run_lightnav.sh`): unblinded navigation on the eager masked kernel (= `lightnav_ref`) and, after every decision, one full re-prefill per layer with every `<|video_pad|>` column closed on layers `>= L` -- the forward `eval_blind.py --blind-layer L` runs. Leak-free by construction. 256 `<act_l0>` codes, plus the fold onto the six executed-action bins; every probe's 256 log-probs are stored (`logp_f16`). The nothing-hidden replay is the noise floor and the `L = 36` point. |
+
+LongNav-R1's curve is the *leaky* probe (the columns are hidden from the decision query only);
+LightNav-0's is not. Raw KL heights are not comparable across the two models (4 actions vs 256
+codes): compare shapes, the curve normalised by its `L = 0` value, or the executed-action flip
+rate, all of which `aggregate_blind.py` writes.
+
+```bash
+ARMS=r1_probe_leaky_dense bash paper/info_horizon/run_r1.sh     # ~1.3 h
+ARMS=lightnav_probe bash paper/info_horizon/run_lightnav.sh     # ~1.3 h; PROBE_LAYERS="0 4 8" picks other layers
+python paper/info_horizon/aggregate_blind.py                    # results/blind_{curve,episode}.csv, blind_steps.csv.gz, blind_summary.json
+```
+
+**Results (2026-11-23; zero-based `L`, pooled mean over decisions).** LongNav-R1 (1,099 decisions) is a
+step: .033 nats for `L` = 0..14, .027 at 16-17, .0014 at 18 and below .001 after; the decision
+changes on 5.6 % of steps up to `L` = 15 and on under 0.5 % from 18. LightNav-0 (1,696 decisions) is
+a ramp: about 10 nats for `L` = 0..14, 8.4 / 7.4 / 5.5 / 2.6 / 1.2 / .32 at 16 / 18 / 20 / 22 / 24 / 26
+and about .1 from 28; its executed action changes on 94 % of steps at `L` = 0, 38 % at 20, 15 % at 24,
+6 % at 26 and 1 % from 28. Both checks below pass (LightNav-0 reproduces the recent-window `K = 0`
+values exactly; LongNav-R1 to .001 nats in the median, same chosen action on every decision).
+
+`blind_summary.json` holds two reference checks: the shallowest layer against the recent-window
+runs' `K = 0` on the same decisions, and the dense run's keep-one-in / leave-one-out against the
+sparse `r1_probe_leaky` at the layers both probed. These runs and tables are kept locally
+(`paper_results/.gitignore`). No figure yet. Smokes: `tests/horizon_probe_smoke.py` section 6 (GPU),
+`baselines.tests.test_lightnav_influence` (CPU: the layer gate and its count check).
+
 ## Arms
 
 | arm | model | mechanism | leak-free? |
@@ -61,17 +105,32 @@ from `L` on, 100 episodes, SR / SPL vs the unblinded reference.
 | `lightnav_blind_l<L>` | LightNav-0 | every `<|video_pad|>` column hidden from `L` on during the live rollout (`BLIND_LAYER=L` on `baselines/run_lightnav.sh full`, wrapper `lightnav_hm3d/eval_blind.py`); reference = `lightnav_ref` | yes (greedy; one request per step) |
 
 Layer grids: LongNav-R1 `L ∈ {8,12,14,16,18,20,24}` + none; Uni-NaVid
-`L ∈ {8,12,16,18,20,24,28}` + none; LightNav-0 `L ∈ {12,16,18,20,22,24,26}` + none
-(chosen 2026-10-16; 22 and 26 added 2026-10-18 to bracket the cliff). These are the live blind-rollout grids;
+`L ∈ {8,12,16,18,20,24,28}` + none; LightNav-0 `L ∈ {12,16,18,20,22,24,26,28,30}` + none
+(chosen 2026-10-16; 22 and 26 added 2026-10-18 to bracket the cliff, 28 and 30 on 2026-11-23 to fill
+the gap between 26 and the unblinded reference). These are the live blind-rollout grids;
 probe grids also include other layers. Unmeasured blind-rollout layers have no reported SR/SPL. The leak-free `r1_probe` arm is
 optional (`ARMS=r1_probe bash paper/info_horizon/run_r1.sh`) and drawn only if present. Uni-NaVid arms use `--sampling-seed 30` (as Exp 3; the token-pruning sweeps did not reseed each call),
 so `uninavid_ref` and `uninavid_probe` share trajectories with `frame_influence/uninavid_influence`.
 Separators and special tokens are never hidden in either model.
 
 Layer indices in the protocol, CLI, and CSVs are zero-based. The plotted axes use one-based
-labels; the unblinded endpoint is at 29 / 33 / 37 for LongNav-R1 / Uni-NaVid / LightNav-0 (the
-last tick, labelled `L+1`, sits at 37).
+labels; the unblinded endpoint is at 29 / 33 / 37 for LongNav-R1 / Uni-NaVid / LightNav-0 (larger
+hollow marker; the last tick, labelled `L+1`, sits at the deepest drawn model's endpoint).
 Figures show means; confidence intervals remain in `results/horizon.csv`.
+
+**Figure format (2026-11-23, RSS draft).** The figures draw LongNav-R1 and LightNav-0 only: Uni-NaVid
+is no longer a paper baseline (user decision); its arms, rows in `results/horizon.csv` and
+`table.tex` are unchanged, and `plot.py --models LongNav-R1 Uni-NaVid LightNav-0` draws it again.
+The KL figure is `information_kl_blind` (blind-from-layer KL, LongNav-R1 leaky probe, pooled mean over the
+1,099 probe decisions; see the section above). The current-frame KL figures `information_kl`,
+`information_kl_keep` and `information_kl_leave` were removed from `figures/` on 2026-11-23 (user); their
+data stay in `results/horizon.csv` and `plot.py --only information_kl information_kl_keep
+information_kl_leave` redraws them (LongNav-R1 leaky probe alone: LightNav-0 has no current-frame probe).
+All figures are drawn at single-column size through `paper/figstyle.py` (3.5 in wide, 1.5 in tall
+for the two-panel figures and 1.9 in for the standalone panels, 8 pt labels, 7 pt ticks and legend,
+metric on the y axis instead of a panel title, legend across the top, TrueType fonts in the PDF).
+In the SR/SPL panels each model's unblinded reference is a dashed horizontal line; the models'
+dashes interleave so that references at the same height (both models' SR is .84) stay visible.
 
 ## Protocol
 
@@ -108,7 +167,9 @@ seed 17 from the 2195-episode split (`mp3d_100_seed17.json`), KL probes on 10 of
 (`mp3d_10_seed17.json`, seed 17 again). LongNav-R1 gets its own unblinded full-context reference arm `r1_ref`
 (`+experiment=paper_ctx` protocol, `+dataset=mp3d_val`); Uni-NaVid uses
 `baselines/uninavid_hm3d/config/objectnav_mp3d.yaml` with the MP3D dataset and scene paths.
-Data in `paper_results/info_horizon_mp3d/`; `aggregate.py --dataset mp3d`, `plot.py --dataset mp3d`.
+Data in `paper_results_archive/info_horizon_mp3d/` (**archived 2026-11-23 at the user's request**: the paper does
+not use the MP3D replicate; the launchers, `aggregate.py --dataset mp3d` and `plot.py --dataset mp3d` point
+there, and its `results/` and `figures/` are local, git-ignored copies that rebuild from `runs/`).
 
 ## Running
 
@@ -119,14 +180,16 @@ DATASET=mp3d bash paper/info_horizon/run_uninavid.sh   # MP3D; the same prefix w
 bash paper/info_horizon/run_r1.sh                  # r1_probe_leaky, r1_blind_l* (~8-12 h); ARMS=r1_probe for the leak-free probe
 bash paper/info_horizon/run_lightnav.sh            # lightnav_ref, lightnav_blind_l* (HM3D only; eager vLLM; ~1 h per arm that navigates, ~3.9 h per collapsed arm whose episodes all run to the 500-step cap; the 6-arm sweep of 2026-10-16/17 took 17.5 h)
 python paper/info_horizon/aggregate.py             # results/horizon.csv, probe_steps.csv, table.tex
-conda run -n vln python paper/info_horizon/plot.py   # figures/information_kl.{pdf,png}     keep-one-in / leave-one-out KL vs L (probe episodes)
-# Also writes figures/information_perf.{pdf,png}: blind-rollout SR / SPL vs L
+python paper/info_horizon/aggregate_blind.py       # results/blind_curve.csv etc. (blind-from-layer KL)
+conda run -n vln python paper/info_horizon/plot.py   # figures/information_perf.{pdf,png}: blind-rollout SR / SPL vs L
+# Also writes figures/information_kl_blind{,_lightnav,_norm}.{pdf,png}: blind-from-layer KL vs L (probe episodes), one figure per model in nats and both models normalised
+# LongNav-R1 and LightNav-0 by default; add --models LongNav-R1 Uni-NaVid LightNav-0 for the three-model view
 
-# Aggregate and plot the MP3D replicate explicitly
+# Aggregate and plot the archived MP3D replicate explicitly (paper_results_archive/info_horizon_mp3d/)
 python paper/info_horizon/aggregate.py --dataset mp3d
 conda run -n vln python paper/info_horizon/plot.py --dataset mp3d
 ```
-(plus the single-panel figures `information_kl_{keep,leave}` and `information_perf_{sr,spl}`)
+(plus the single-panel figures `information_perf_{sr,spl}`)
 The R1 and Uni-NaVid scripts skip complete arms and resume unfinished ones; `ARMS="r1_probe r1_blind_l18"` selects a LongNav-R1 subset.
 LightNav arms skip when complete but cannot resume (append-only `results.jsonl`): move a partial arm away and rerun.
 `aggregate.py --allow-partial` for interim looks. Smokes: `python tests/horizon_probe_smoke.py`
@@ -136,7 +199,7 @@ baselines/.envs/lightnav/bin/python -m unittest baselines.tests.test_lightnav_bl
 masked kernel against a naive attention, the hook's layer gating and guards) and
 `BLIND_LAYER=36 bash baselines/run_lightnav.sh smoke` (GPU, one episode through the hooked engine).
 
-## Outputs — all under `paper_results/info_horizon/`
+## Outputs — all under `paper_results/info_horizon/` (MP3D: `paper_results_archive/info_horizon_mp3d/`)
 
 ```
 runs/<arm>/                  config.yaml, rollout/results_* (LongNav-R1) or
@@ -146,7 +209,10 @@ runs/<arm>/                  config.yaml, rollout/results_* (LongNav-R1) or
 results/horizon.csv          one row per (curve, layer): KL means + CIs, SR/SPL + CIs + paired deltas
 results/probe_steps.csv      every (curve, episode, step, layer) probe value
 results/table.tex, summary.json
-figures/information_kl.{pdf,png}     keep-one-in / leave-one-out KL vs L (probe episodes)
+results/blind_*              blind-from-layer KL tables (aggregate_blind.py; local, gitignored)
+figures/information_kl_blind.{pdf,png}   blind-from-layer KL vs L, LongNav-R1 (probe episodes; local, gitignored)
+figures/information_kl_blind_lightnav.{pdf,png}   the same for LightNav-0
+figures/information_kl_blind_norm.{pdf,png}   both models, each curve divided by its own first-layer (no visual input) value
 figures/information_perf.{pdf,png}   SR / SPL of the blind rollouts vs L (100 episodes)
-figures/information_{kl_keep,kl_leave,perf_sr,perf_spl}.{pdf,png}   each panel on its own
+figures/information_perf_{sr,spl}.{pdf,png}   each panel on its own
 ```

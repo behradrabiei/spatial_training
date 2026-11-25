@@ -28,7 +28,7 @@
 # history and the current frame doubled (k = 0, --prune-current-frames 1 = upstream's step-0 layout; the
 # HM3D lightnav_keep_k1 = lightnav_recency_b0_cur1 point).
 #
-# Output: paper_results/ctx_ablation_navverse/runs/<arm>/ holding NavVerse's dump for the arm
+# Output: paper_results_archive/ctx_ablation_navverse/runs/<arm>/ holding NavVerse's dump for the arm
 # (<arm>/result.json, data/, logs), server_config.json, server_steps.jsonl, server.log, driver.log
 # and prune/<launch>/ (the keep arms' per-episode pruning records, one sub-directory per server
 # launch). Arms resume (--resume_existing_results, same run name); a complete arm is skipped.
@@ -41,7 +41,7 @@ PYTHON="${PYTHON:-/home/brabiei/miniconda3/envs/longnav_vlm/bin/python}"   # res
 NAVVERSE_ROOT="${NAVVERSE_ROOT:-$ROOT/NavVerse-Benchmark}"
 IMAGE="${IMAGE:-navverse-release:local}"
 DATA_DIR="${DATA_DIR:-/mnt/vault/navverse_data}"
-OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results/ctx_ablation_navverse/runs}"
+OUT_ROOT="${OUT_ROOT:-$ROOT/paper_results_archive/ctx_ablation_navverse/runs}"
 MANIFEST="${MANIFEST:-$ROOT/src/longnav/conf/episode_jsons/navverse_indoor_100_seed17.json}"
 EPISODE_SET="${EPISODE_SET:-navverse_indoor100_seed17}"   # <name>_set.txt in $DATA_DIR/episodes
 EPISODE_LABELS="${EPISODE_LABELS:-}"                        # comma list overrides the set (smoke runs)

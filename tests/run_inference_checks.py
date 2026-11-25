@@ -12,7 +12,8 @@ TESTS = ['inference_unit.py', 'kv_prune_selectors.py', 'ctx_frames_smoke.py',
          'vtp_prune_smoke.py', 'vtp_flat_smoke.py', 'vtp_hybrid_smoke.py',
          'kv_prune_layer_smoke.py', 'attn_evict_smoke.py', 'grad_attn_smoke.py',
          'kl_influence_smoke.py', 'influence_recompute_smoke.py',
-         'token_info_smoke.py', 'horizon_probe_smoke.py', 'selector_probe_smoke.py']
+         'token_info_smoke.py', 'horizon_probe_smoke.py', 'selector_probe_smoke.py',
+         'prune_kl_smoke.py']
 
 
 def main():

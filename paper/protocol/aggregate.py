@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Aggregate the hybrid-pruning comparison into paper_results/hybrid_prune/results/.
+"""Aggregate the hybrid-pruning comparison into paper_results/protocol/results/.
 
-Reads the LongNav-R1 arms from runs/<arm>/rollout/results_* and the Uni-NaVid arms from
-runs/<arm>/episodes/*.json (+ the per-inference stage counts in prune/<label>.jsonl), and writes:
+Reads the LongNav-R1 arms from runs/<arm>/rollout/results_* and the Uni-NaVid and LightNav-0 arms
+from runs/<arm>/episodes/*.json (+ the per-inference stage counts in prune/<label>.jsonl), and writes
+(LightNav-0: HM3D only, protocols pyramiddrop and uniform, forced stops at the step cap re-scored as
+failures, 14 tokens per frame's worth over 36 layers):
 
   results/per_episode.csv  one row per (arm, episode): success, spl, n_steps and the memory columns
   results/summary.csv      one row per arm: means with 95% bootstrap CIs and the memory columns
@@ -25,9 +27,9 @@ at a time on one GPU, so it is not comparable across arms.
 Arms not run yet are reported and left out (--strict makes that an error); an incomplete arm is
 an error unless --skip-partial (drop it) or --allow-partial (keep it, flagged partial=1) is
 given. --status prints per-arm progress. --dataset mp3d aggregates the MP3D replicate
-(paper_results/hybrid_prune_mp3d/, mp3d_100_seed17.json); all three protocols are available on both datasets. Runs in longnav_vlm:
+(paper_results_archive/protocol_mp3d/, mp3d_100_seed17.json); all three protocols are available on both datasets. Runs in longnav_vlm:
 
-    python paper/hybrid_prune/aggregate.py [--dataset mp3d --protocols pyramiddrop hybrid] [--allow-partial]
+    python paper/protocol/aggregate.py [--dataset mp3d --protocols pyramiddrop hybrid] [--allow-partial]
 """
 from __future__ import annotations
 
@@ -39,18 +41,25 @@ from pathlib import Path
 
 import numpy as np
 
-from longnav.analysis.results_io import assert_split, load_manifest, load_r1_run, load_uninavid_run, split_status
+from longnav.analysis.results_io import (assert_split, load_lightnav_run, load_manifest, load_r1_run,
+                                         load_uninavid_run, split_status)
 from longnav.analysis.stats import bootstrap_mean_ci, paired_delta, stars
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-RESULTS_ROOT = ROOT / "paper_results/hybrid_prune"
+RESULTS_ROOT = ROOT / "paper_results/protocol"
 MANIFEST = ROOT / "src/longnav/conf/episode_jsons/hm3d_v2_100.json"
 DATASETS = {  # dataset -> results root, manifest
     "hm3d": (RESULTS_ROOT, MANIFEST),
-    "mp3d": (ROOT / "paper_results/hybrid_prune_mp3d", ROOT / "src/longnav/conf/episode_jsons/mp3d_100_seed17.json"),
+    "mp3d": (ROOT / "paper_results_archive/protocol_mp3d", ROOT / "src/longnav/conf/episode_jsons/mp3d_100_seed17.json"),
 }
-MODELS = {"r1": "LongNav-R1", "uninavid": "Uni-NaVid"}
+MODELS = {"r1": "LongNav-R1", "uninavid": "Uni-NaVid", "lightnav": "LightNav-0"}
+LOADERS = {"r1": load_r1_run, "uninavid": load_uninavid_run,
+           "lightnav": load_lightnav_run}  # LightNav-0: forced stops at the 500-step cap re-scored as failures
+DATASET_MODELS = {"hm3d": ("r1", "uninavid", "lightnav"), "mp3d": ("r1", "uninavid")}  # LightNav-0: HM3D only
+MODEL_PROTOCOLS = {"lightnav": ("pyramiddrop", "uniform")}  # models that do not run every protocol
+# Models whose per-stage holdings come from prune records: decoder layers, tokens one history frame is worth.
+STAGE_MODELS = {"uninavid": (32, 4), "lightnav": (36, 14)}
 ALL_PROTOCOLS = ("pyramiddrop", "hybrid", "uniform")  # pyramiddrop first: the others are paired against it
 PROTOCOLS = ALL_PROTOCOLS
 BASELINE = "pyramiddrop"
@@ -64,8 +73,7 @@ BUDGETS = {
 BUDGET = BUDGETS["model"]
 K_LIST = BUDGET["k_list"]
 N_STAGES = 4
-UNINAVID_LAYERS = 32
-UNINAVID_TOKENS_PER_FRAME = 4
+UNINAVID_LAYERS = STAGE_MODELS["uninavid"][0]
 
 R1_MEMORY = {"kv_len_mean": "sup/mean_kv_len", "kv_len_max": "sup/max_kv_len",
              "kv_len_master": "sup/mean_kv_len_master", "kv_text_slots": "sup/mean_kv_text_slots",
@@ -78,11 +86,16 @@ EP_COLS = ["arm", "model", "protocol", "k", "episode_label", "success", "spl", "
 METRICS = ("success", "spl", "n_steps")
 
 
+def protocols_of(model):
+    """The aggregated protocols this model runs, baseline first."""
+    return tuple(p for p in PROTOCOLS if p in MODEL_PROTOCOLS.get(model, ALL_PROTOCOLS))
+
+
 def arm_specs():
     """(arm, model, protocol, k) for every arm of the experiment."""
     for model in MODELS:
         for k in K_LIST:
-            for protocol in PROTOCOLS:
+            for protocol in protocols_of(model):
                 yield f"{model}_{protocol}_{BUDGET['tag']}{k}", model, protocol, k
 
 
@@ -100,18 +113,21 @@ def nanmean(values):
     return float(np.mean(vals)) if vals else float("nan")
 
 
-def uninavid_stage_stats(run_dir: Path):
+def stage_stats(run_dir: Path, label_from_record: bool = True):
     """{label: {stage_kept_<s>, attended_tokens}}: per-episode means over inferences of the history
     tokens each stage's layers attend to, and their layer-mean. The whole-model arms record that mean
-    (held_tokens, layer widths from the pruner's own stage layout); older records assume equal-width
-    stages, with the layers below the first stage seeing the whole history."""
+    (held_tokens, layer widths from the pruner's own stage layout); older Uni-NaVid records assume
+    equal-width stages, with the layers below the first stage seeing the whole history.
+    `label_from_record=False` keys an episode by its file name: LightNav-0's records carry its internal
+    episode id, the file is renamed to the dataset label by its results converter."""
     out = {}
     for path in sorted((run_dir / "prune").glob("*.jsonl")):
         per_stage, attended, label = [], [], path.stem
         with path.open() as f:
             for line in f:
                 rec = json.loads(line)
-                label = rec.get("episode_label", label)
+                if label_from_record:
+                    label = rec.get("episode_label", label)
                 kept = rec.get("stage_kept")
                 if kept is None:
                     continue
@@ -137,9 +153,9 @@ def load_arms(runs_root: Path, labels, mode: str):
         if not run_dir.is_dir():
             missing.append(arm)
             continue
-        rows = load_r1_run(run_dir) if model == "r1" else load_uninavid_run(run_dir)
-        if model == "uninavid":
-            for label, extra in uninavid_stage_stats(run_dir).items():
+        rows = LOADERS[model](run_dir)
+        if model in STAGE_MODELS:
+            for label, extra in stage_stats(run_dir, label_from_record=model != "lightnav").items():
                 if label in rows:
                     rows[label].update(extra)
         partial = bool(split_status(rows, labels)[0])
@@ -175,7 +191,7 @@ def memory_fields(model, protocol, r):
         for col in [f"stage_kept_{s}" for s in range(N_STAGES)] + ["attended_tokens"]:
             out[col] = r.get(col, "")
         if out["attended_tokens"] != "":
-            out["held_frames"] = out["attended_tokens"] / UNINAVID_TOKENS_PER_FRAME
+            out["held_frames"] = out["attended_tokens"] / STAGE_MODELS[model][1]
     return out
 
 
@@ -195,7 +211,7 @@ def status(runs_root: Path, labels):
         if not run_dir.is_dir():
             print(f"{arm:<28}{'-':>10}")
             continue
-        rows = load_r1_run(run_dir) if model == "r1" else load_uninavid_run(run_dir)
+        rows = LOADERS[model](run_dir)
         done = len(set(rows) & set(labels))
         print(f"{arm:<28}{done:>6}/{len(labels)}")
 
@@ -212,7 +228,7 @@ def write_table(path: Path, summary, paired):
              " & & " + " & ".join(rf"\multicolumn{{2}}{{c}}{{$k={k}$}}" for k in K_LIST) + r" \\",
              "Model & Protocol & " + " & ".join("SR & SPL" for _ in K_LIST) + r" \\", r"\midrule"]
     for model, name in MODELS.items():
-        for protocol in PROTOCOLS:
+        for protocol in protocols_of(model):
             cells = []
             for k in K_LIST:
                 rec = by_arm.get(f"{model}_{protocol}_{BUDGET['tag']}{k}")
@@ -222,7 +238,7 @@ def write_table(path: Path, summary, paired):
                         continue
                     mark = stars(fnum(p_of.get((protocol, name, k, metric)))) if protocol != BASELINE else ""
                     cells.append(f"{rec[col]:.2f}" + (f"$^{{{mark}}}$" if mark else ""))
-            lines.append(f"{name if protocol == PROTOCOLS[0] else ''} & {protocol} & " + " & ".join(cells) + r" \\")
+            lines.append(f"{name if protocol == protocols_of(model)[0] else ''} & {protocol} & " + " & ".join(cells) + r" \\")
             mem = [fmt(by_arm.get(f"{model}_{protocol}_{BUDGET['tag']}{k}", {}).get("held_frames"), 1) for k in K_LIST]
             lines.append(" & \\quad held & " + " & ".join(rf"\multicolumn{{2}}{{c}}{{{m}}}" for m in mem) + r" \\")
         lines.append(r"\midrule" if model != list(MODELS)[-1] else r"\bottomrule")
@@ -238,7 +254,7 @@ def main():
     ap.add_argument("--budget", choices=list(BUDGETS), default="model",
                     help="which run to aggregate: the whole-model budget")
     ap.add_argument("--dataset", choices=list(DATASETS), default="hm3d",
-                    help="hm3d (default) or the MP3D replicate in paper_results/hybrid_prune_mp3d/")
+                    help="hm3d (default) or the MP3D replicate in paper_results_archive/protocol_mp3d/")
     ap.add_argument("--runs-root", type=Path, default=None, help="default: <results root>/runs")
     ap.add_argument("--out", type=Path, default=None, help="default: results/")
     ap.add_argument("--manifest", type=Path, default=None, help="default: the dataset's 100-episode manifest")
@@ -250,7 +266,8 @@ def main():
     group.add_argument("--skip-partial", action="store_true", help="drop incomplete arms")
     group.add_argument("--allow-partial", action="store_true", help="keep incomplete arms, flagged partial=1")
     args = ap.parse_args()
-    global BUDGET, K_LIST, PROTOCOLS
+    global BUDGET, K_LIST, PROTOCOLS, MODELS
+    MODELS = {m: MODELS[m] for m in DATASET_MODELS[args.dataset]}
     BUDGET = BUDGETS[args.budget]
     K_LIST = BUDGET["k_list"]
     PROTOCOLS = tuple(p for p in ALL_PROTOCOLS if p in args.protocols)
@@ -299,6 +316,8 @@ def main():
         if protocol == BASELINE:
             continue
         for model, name in MODELS.items():
+            if protocol not in protocols_of(model):
+                continue
             for k in K_LIST:
                 a, b = (runs.get(f"{model}_{p}_{BUDGET['tag']}{k}") for p in (protocol, BASELINE))
                 if a is None or b is None:

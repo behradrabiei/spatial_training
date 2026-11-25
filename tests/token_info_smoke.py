@@ -22,6 +22,13 @@ What has to hold:
   6. Both arms, no-visual-history measures (``measures=``): only the requested arrays are returned,
      the forward count is n_forwards(L, N, measures), and on the FIRST frame of an episode (no
      history to hide) leave_nohist == leave and keep_all == keep_cur bit-for-bit.
+  7. Both arms, keep_full (KL(full || only token k visible), the per-token counterpart of the
+     blind-from-layer KL): finite, non-negative, reproduced from the stored lone-token log-probs;
+     requesting it next to keep_all costs no forward and leaves keep_all bit-identical; alone it
+     costs what keep_all costs and returns the same values.
+  8. Both arms, block leave-out (leave_b<n>): leave_b1 == leave bit-for-bit, a block covering the
+     whole frame equals KL(full || current frame hidden) for every token, a 3 x 3 block holds 4 / 6 /
+     9 patches (corner / edge / interior), stored log-probs reproduce the KL, one forward per token.
 
 Run inside longnav_vlm:  python tests/token_info_smoke.py
 """
@@ -95,6 +102,74 @@ def check_arrays(failures, name, out, n_tokens):
     expected = 1 + L * (2 + 3 * n_tokens)
     if int(out["n_probes"]) != expected:
         failures.append(f"{name}: {int(out['n_probes'])} probes, expected {expected}")
+
+
+def np_kl(logp, logq):
+    """KL(p || q) in nats from log-probs, float64."""
+    logp, logq = np.asarray(logp, dtype=np.float64), np.asarray(logq, dtype=np.float64)
+    return (np.exp(logp) * (logp - logq)).sum(axis=-1)
+
+
+def check_keep_full(failures, name, worker, probe):
+    """Check 7: keep_full on the live state (call before check_nohist, which resets the worker)."""
+    n_tokens = ti.current_frame_tokens(worker)[0].numel()
+    layers = (0, 14)
+    alone = probe(worker, layers, measures=("keep_all",))
+    both = probe(worker, layers, measures=("keep_all", "keep_full"))
+    only = probe(worker, layers, measures=("keep_full",))
+    for out, measures in ((alone, ("keep_all",)), (both, ("keep_all", "keep_full")), (only, ("keep_full",))):
+        if int(out["n_probes"]) != ti.n_forwards(len(layers), n_tokens, measures):
+            failures.append(f"{name}: {int(out['n_probes'])} probes for {measures}, "
+                            f"expected {ti.n_forwards(len(layers), n_tokens, measures)}")
+    if int(both["n_probes"]) != int(alone["n_probes"]) or int(only["n_probes"]) != int(alone["n_probes"]):
+        failures.append(f"{name}: keep_full is not sharing keep_all's forward")
+    if not np.array_equal(both["keep_all"], alone["keep_all"]):
+        failures.append(f"{name}: requesting keep_full changed keep_all")
+    if not np.array_equal(both["keep_full"], only["keep_full"]):
+        failures.append(f"{name}: keep_full differs with and without keep_all")
+    kf, lp = both["keep_full"], both["only_all_logp"]
+    if kf.shape != (len(layers), n_tokens) or lp.shape != (len(layers), n_tokens, both["base_logp"].size):
+        failures.append(f"{name}: keep_full / only_all_logp malformed: {kf.shape}, {lp.shape}")
+        return
+    if not (np.isfinite(kf).all() and (kf >= -1e-7).all() and np.isfinite(lp).all()):
+        failures.append(f"{name}: keep_full has non-finite or negative values")
+    norm = float(np.abs(np.exp(lp.astype(np.float64)).sum(-1) - 1).max())
+    re_full = float(np.abs(np_kl(both["base_logp"][None, None, :], lp) - kf).max())
+    re_all = float(np.abs(np_kl(lp, both["text_all_logp"][:, None, :]) - both["keep_all"]).max())
+    print(f"  {name} keep_full: mean {kf.mean():.3e} vs nothing kept {both['text_all_kl'].mean():.3e}; "
+          f"log-probs normalise to {norm:.1e}, recompute keep_full {re_full:.1e}, keep_all {re_all:.1e}")
+    if norm > 1e-4 or re_full > 1e-5 or re_all > 1e-5:
+        failures.append(f"{name}: stored lone-token log-probs do not reproduce the KLs "
+                        f"(norm {norm:.1e}, keep_full {re_full:.1e}, keep_all {re_all:.1e})")
+
+
+def check_blocks(failures, name, worker, probe):
+    """Check 8: block leave-out on the live state (call before check_nohist, which resets the worker)."""
+    cols, raster, grid = ti.current_frame_tokens(worker)
+    n_tokens = cols.numel()
+    measures = ("leave", "leave_b1", "leave_b3", "leave_b99")
+    out = probe(worker, (0,), measures=measures)
+    if int(out["n_probes"]) != ti.n_forwards(1, n_tokens, measures):
+        failures.append(f"{name}: {int(out['n_probes'])} probes for {measures}, "
+                        f"expected {ti.n_forwards(1, n_tokens, measures)}")
+    if not np.array_equal(out["leave_b1"], out["leave"]):
+        failures.append(f"{name}: leave_b1 != leave (max gap {np.abs(out['leave_b1'] - out['leave']).max():.2e})")
+    if not np.all(out["leave_b99"][0] == out["text_cur_kl"][0]):
+        failures.append(f"{name}: a block covering the frame differs from KL(full || current frame hidden)")
+    sizes = sorted(set(out["leave_b3_n"].tolist()))
+    if sizes != [4, 6, 9] or set(out["leave_b1_n"].tolist()) != {1} or set(out["leave_b99_n"].tolist()) != {n_tokens}:
+        failures.append(f"{name}: block sizes off: 3x3 holds {sizes} patches")
+    re_kl = float(np.abs(np_kl(out["base_logp"][None, None, :], out["leave_b3_logp"]) - out["leave_b3"]).max())
+    if re_kl > 1e-5 or not (np.isfinite(out["leave_b3"]).all() and (out["leave_b3"] >= -1e-7).all()):
+        failures.append(f"{name}: leave_b3 malformed or not reproduced by its log-probs ({re_kl:.1e})")
+    print(f"  {name} blocks: mean leave {out['leave'].mean():.2e}, 3x3 {out['leave_b3'].mean():.2e}, "
+          f"whole frame {float(out['text_cur_kl'][0]):.2e}; log-probs reproduce leave_b3 to {re_kl:.1e}")
+    try:
+        probe(worker, (0,), measures=("leave_b4",))
+    except ValueError:
+        pass
+    else:
+        failures.append(f"{name}: an even block side was accepted")
 
 
 def check_nohist(failures, name, worker, probe, image):
@@ -187,6 +262,8 @@ def main():
         d = float(np.abs(a - b).max())
         if d > PROB_TOL:
             failures.append(f"evict step {t}: flag/probe moved the live decision by {d:.2e}")
+    check_keep_full(failures, "recompute", worker, ti.probe_recompute_arm)
+    check_blocks(failures, "recompute", worker, ti.probe_recompute_arm)
     check_nohist(failures, "recompute", worker, ti.probe_recompute_arm, images[0])
     worker.reset()
     if worker._window_recs or worker._prefix_rec is not None or worker._influence_recs:
@@ -238,6 +315,8 @@ def main():
             failures.append(f"prune step {t}: decision differs from the evict reference by {d:.2e}")
         if int(np.argmax(a)) != int(np.argmax(b)):
             failures.append(f"prune step {t}: argmax differs from the evict reference")
+    check_keep_full(failures, "mask", worker, ti.probe_mask_arm)
+    check_blocks(failures, "mask", worker, ti.probe_mask_arm)
     check_nohist(failures, "mask", worker, ti.probe_mask_arm, images[0])
     release(worker)
     print(f"  mask arm: {int(msk['n_probes'])} replays in {float(msk['seconds']):.1f}s; "

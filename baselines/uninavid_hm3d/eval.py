@@ -1310,7 +1310,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="identity",
         help=(
             "Persistent pruning of the history tokens under the context window "
-            "(paper/token_prune); identity installs nothing. uniform (paper/hybrid_prune): a uniform "
+            "(paper/token_prune); identity installs nothing. uniform (paper/protocol): a uniform "
             "layer-0 draw below decoder layer 20 and every visual token hidden from layer 20 on; "
             "needs --prune-budget-scope model. kl_keep_one / entropy_keep_one / recency "
             "(paper/token_prune flat, whole frames): keep the k history frames with the largest "
@@ -1336,14 +1336,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "What --prune-k bounds for the staged methods (pyramiddrop, hybrid): the last scheduled "
             "stage (paper/token_prune) or the history tokens attended AVERAGED OVER ALL LAYERS "
-            "(paper/hybrid_prune; adds a layer-0 pre-pass stage and solves the schedule's ratio)"
+            "(paper/protocol; adds a layer-0 pre-pass stage and solves the schedule's ratio)"
         ),
     )
     parser.add_argument(
         "--prune-schedule-anchor", choices=["original", "pool"], default="original",
         help=(
             "What the staged methods' budgets shrink from: the history's original token count "
-            "(paper/token_prune) or the tokens the first stage holds now (paper/hybrid_prune)"
+            "(paper/token_prune) or the tokens the first stage holds now (paper/protocol)"
         ),
     )
     parser.add_argument(

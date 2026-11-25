@@ -161,6 +161,59 @@ Leak-free grows with the context (one full re-prefill per probe): ~25 min at dec
 at 16, ~1.5 h at 21, ~2 h at 26, ~2.5 h at 30. `LAYERS="1 12 18"` probes only the panel layers
 (9× cheaper; the box plot then has three boxes).
 
+## Keep-full study (`paper_results/layer_token_info/keepfull/`, 2026-11-23)
+
+The per-token counterpart of the blind-from-layer KL of
+[`paper/info_horizon`](../info_horizon/README.md), `KL(P_full || P_every visual token hidden on
+layers >= i)`: the same reference and direction, with token `k` alone left visible,
+
+`keep_full[i, k] = KL( P_full || P_{only k; every other visual token, history included, hidden on layers >= i} )`.
+
+With no token kept it is the blind-from-layer KL at this decision (stored as `text_all_kl[i]`), so
+`text_all_kl[i] - keep_full[i, k]` is the part of that gap token `k` closes alone (negative when the
+lone token moves the decision further from the full one). The probe forward is the one `keep_all`
+runs (same hidden set), so requesting both costs nothing extra, and its action log-probs are stored
+per token and layer (`only_all_logp`, `[L, N, 4]`): any other KL of the lone-token distribution can
+be computed offline. Leaky arm only (the LongNav-R1 depth curve of `info_horizon` is the leaky
+probe), all 28 layers, eight decisions: the two headline episodes at decision 10 and the six
+decisions of the no-visual-history study (user: same episodes and timesteps, dense in depth).
+Frames and trajectories are copied from `runs/` and `nohist/runs/`.
+
+```bash
+# ~2-4 min of probes per decision (8,457 replays; the later the decision, the slower)
+P="python paper/layer_token_info/probe_episode.py --study keepfull probe --arm mask --measures keep_full"
+$P --episode a8BtkwhxdRV_2 --steps 10;  $P --episode q5QZSEeHe5g_0 --steps 10
+$P --episode Nfvxx8J5NCo_1 --steps 7 26; $P --episode h1zeeAwLh9Z_0 --steps 8 21; $P --episode zt1RVoi7PcG_0 --steps 9 16
+conda run -n vln python paper/layer_token_info/plot.py --study keepfull --layers 1 12 18
+```
+
+Figure `keepfull/figures/<episode>/t<step>_leaky_keepone_full.{pdf,png}`, in the paper's two-column
+format (`paper/figstyle.py`: full text width, 7.16 x 1.42 in at final size, 8 pt labels, 7 pt ticks,
+TrueType fonts, no header): the box plot of `keep_full` at every layer, y label
+"KL(P_full || P_k) (nats)" with P_k the decision with only patch k visible after l_0 (no reference
+line; the no-token-kept value is in the layer summary CSV as `text_all_kl`); the observation with the goal and the chosen action underneath; and the gap closed by
+each token (colour bar "KL reduction") at first hidden layers 2 / 13 / 19 (`--layers 1 12 18`,
+zero-based), negatives drawn as zero. `results/<episode>/layer_summary_t<step>.csv` adds `gain_{max,median,min}` and
+`gain_positive_frac`. The directory is git-ignored (local outputs).
+
+Findings (eight decisions). The base decision, the no-visual reference and `keep_all` recomputed
+from the stored log-probs equal the 2026-09-11 arrays on the two headline episodes (max difference
+2e-7). Before the horizon the no-token-kept KL is .03-.50 nats and drops by one to two orders of
+magnitude between layers 17 and 18 (zero-based) in every decision. A single well-placed token closes
+80-100 % of it (92 % or more in seven of the eight), while the median token closes -4 to +11 % and
+16-82 % of the tokens make it worse; 6-77 of the 300 tokens close more than half. The map is stable
+across depth before the horizon (rank correlation of layers 1 and 12: .84-.98) and empty past it.
+Where the goal object is in view the hot tokens sit on it or on the floor leading to it (sofa, TV
+edge, doorway); otherwise on a nearby edge or the floor ahead.
+
+Set aside, not part of the study: `runs/<episode>/sparse_layers/` holds an every-decision pass over
+the two headline episodes at layers 1 / 12 / 17 / 18 (the user wanted depth, not time), which
+`plot.py --overview-only` turns into a one-page overview; and `paper_results/layer_token_info/leaveblock/`
+holds one decision (`q5QZSEeHe5g_0`, step 10) of the block leave-out measure `leave_b<n>` =
+`KL(P_full || P_the n x n block around k hidden)` for n = 3 / 5 / 7, stopped at the user's request.
+There a 3 x 3 block already lifts single-patch leave-one-out off the float floor (max .016 vs .002
+nats, 11 % of hiding the whole frame; maps consistent across layers at .75-.95).
+
 ## Information horizon figure (`figures/information_horizon.{pdf,png}`, the paper's Fig. 8)
 
 `horizon.py` draws four panels against the first layer `L` without visual tokens: current-frame
